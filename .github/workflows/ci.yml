@@ -17,7 +17,9 @@ jobs:
           node-version: 22
           cache: npm
 
-      - run: npm ci
+      # Не `npm ci`: lock-файл собирается на Windows, а npm не записывает в него
+      # транзитивные зависимости wasm-биндингов, нужные на Linux (@emnapi/runtime).
+      - run: npm install --no-audit --no-fund
 
       - run: npm run lint
 

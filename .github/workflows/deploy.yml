@@ -26,7 +26,8 @@ jobs:
           node-version: 22
           cache: npm
 
-      - run: npm ci
+      # Не `npm ci`: см. комментарий в ci.yml.
+      - run: npm install --no-audit --no-fund
 
       - run: npm run build
 
