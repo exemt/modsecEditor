@@ -1,0 +1,303 @@
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { Provider } from 'react-redux';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { store } from '../../store';
+import { applyRuleSource } from '../../store/ruleSlice';
+import { I18nProvider } from '../../i18n/I18nProvider';
+import { RuleProvider } from '../../context/RuleProvider';
+import { setFullList } from './fullList';
+import { VisualBuilder } from './VisualBuilder';
+
+const theme = createTheme();
+
+// Режим полного списка живёт вне React и переживает размонтирование —
+// иначе тест, развернувший список, менял бы условия для следующих.
+beforeEach(() => setFullList(false));
+
+function renderBuilder(source: string) {
+  store.dispatch(applyRuleSource(source, 'skip'));
+  return render(
+    <Provider store={store}>
+      <I18nProvider initialLocale="ru">
+        <ThemeProvider theme={theme}>
+          <RuleProvider>
+            <VisualBuilder />
+          </RuleProvider>
+        </ThemeProvider>
+      </I18nProvider>
+    </Provider>,
+  );
+}
+
+const source = () => store.getState().rule.source;
+
+const BAD_BOT = [
+  '# Блокируем известного зловредного User-Agent',
+  'SecRule REQUEST_HEADERS:User-Agent "@contains badbot" \\',
+  "    \"id:1001,phase:1,deny,status:403,msg:'Bad bot detected'\"",
+  '',
+].join('\n');
+
+// Конвейер с одним шагом: только у непустого есть кнопка «добавить».
+const LOWERCASED = [
+  'SecRule REQUEST_HEADERS:User-Agent "@contains badbot" \\',
+  '    "id:1001,phase:1,t:lowercase,deny,status:403"',
+  '',
+].join('\n');
+
+describe('VisualBuilder — правки уходят в текст правила', () => {
+  it('показывает область проверки, её параметр и значение оператора', () => {
+    renderBuilder(BAD_BOT);
+
+    expect(screen.getByRole('combobox', { name: 'Область проверки' })).toHaveValue(
+      'REQUEST_HEADERS',
+    );
+    expect(screen.getByRole('button', { name: /ТОЛЬКО/ })).toBeInTheDocument();
+    expect(screen.getByText('User-Agent')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Значение' })).toHaveValue('badbot');
+    expect(screen.getByRole('textbox', { name: 'ID' })).toHaveValue('1001');
+  });
+
+  it('называет пустой список параметров «ВСЕ»', () => {
+    renderBuilder('SecRule REQUEST_HEADERS "@contains x" "id:1001,phase:2,deny"\n');
+    expect(screen.getByRole('button', { name: /ВСЕ/ })).toBeInTheDocument();
+  });
+
+  it('добавляет второй параметр из списка подсказок', async () => {
+    const user = userEvent.setup();
+    renderBuilder(BAD_BOT);
+
+    await user.type(screen.getByRole('combobox', { name: 'Параметры' }), 'forwarded');
+
+    // Вариант виден вместе с пояснением, ради которого список и нужен.
+    const option = await screen.findByRole('option', { name: /X-Forwarded-For/ });
+    expect(option).toHaveTextContent('Адрес клиента за прокси');
+
+    await user.click(option);
+
+    await waitFor(() =>
+      expect(source()).toContain(
+        'REQUEST_HEADERS:User-Agent|REQUEST_HEADERS:X-Forwarded-For',
+      ),
+    );
+  });
+
+  it('переключает параметры в исключения одним нажатием', async () => {
+    const user = userEvent.setup();
+    renderBuilder(BAD_BOT);
+
+    await user.click(screen.getByRole('button', { name: /ТОЛЬКО/ }));
+
+    await waitFor(() =>
+      expect(source()).toContain('REQUEST_HEADERS|!REQUEST_HEADERS:User-Agent'),
+    );
+    expect(screen.getByRole('button', { name: /ВСЕ, КРОМЕ/ })).toBeInTheDocument();
+  });
+
+  it('держит выбранный режим на пустом списке и требует значения', async () => {
+    const user = userEvent.setup();
+    renderBuilder('SecRule REQUEST_HEADERS "@contains x" "id:1001,phase:2,deny"\n');
+
+    await user.click(screen.getByRole('button', { name: 'ВСЕ' }));
+    await user.click(screen.getByRole('button', { name: 'ТОЛЬКО' }));
+
+    // Положение переключателя держится, хотя записать его в текст нечем,
+    // и пустой список подсвечен: правило пока проверяет всю коллекцию.
+    expect(screen.getByRole('button', { name: 'ВСЕ, КРОМЕ' })).toBeInTheDocument();
+    const params = screen.getByRole('combobox', { name: 'Параметры' });
+    expect(params).toHaveAttribute('aria-invalid', 'true');
+    expect(source()).toContain('SecRule REQUEST_HEADERS "@contains x"');
+
+    await user.type(params, 'Host,');
+
+    await waitFor(() =>
+      expect(source()).toContain('REQUEST_HEADERS|!REQUEST_HEADERS:Host'),
+    );
+  });
+
+  it('собирает вычитающую область проверки рядом с перечнем', async () => {
+    const user = userEvent.setup();
+    renderBuilder('SecRule ARGS:test "@rx x" "id:1001,phase:2,deny"\n');
+
+    await user.click(screen.getByRole('button', { name: 'Добавить' }));
+    await waitFor(() => expect(source()).toContain('ARGS:test|ARGS'));
+
+    // Перечень первой области уже занял «ТОЛЬКО», переключаем вторую.
+    await user.click(screen.getByRole('button', { name: 'ВСЕ' }));
+    await user.click(screen.getAllByRole('button', { name: 'ТОЛЬКО' })[1]);
+    const params = screen.getAllByRole('combobox', { name: 'Параметры' });
+    await user.type(params[1], 'test2,');
+
+    // Перечень и вычитание — разные области проверки: в один список их
+    // не сливают, иначе исключение стало бы обычным параметром.
+    await waitFor(() => expect(source()).toContain('ARGS:test|ARGS|!ARGS:test2'));
+    expect(screen.getByRole('button', { name: 'ТОЛЬКО' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'ВСЕ, КРОМЕ' })).toBeInTheDocument();
+  });
+
+  it('подбирает подсказки значения под область проверки', async () => {
+    const user = userEvent.setup();
+    renderBuilder(
+      'SecRule REQUEST_METHOD "@streq GET" "id:1002,phase:1,deny"\n',
+    );
+
+    await user.click(screen.getByRole('combobox', { name: 'Значение' }));
+
+    expect(await screen.findByRole('option', { name: /^POST/ })).toHaveTextContent(
+      'Отправка данных',
+    );
+    expect(screen.queryByRole('option', { name: /X-Forwarded-For/ })).toBeNull();
+  });
+
+  it('добавляет цель по ИЛИ, не теряя существующую', async () => {
+    const user = userEvent.setup();
+    renderBuilder(BAD_BOT);
+
+    await user.click(screen.getByRole('button', { name: 'Добавить' }));
+
+    await waitFor(() => {
+      expect(source()).toContain('SecRule REQUEST_HEADERS:User-Agent|ARGS');
+    });
+    expect(source()).toContain('id:1001');
+    expect(source()).toContain('# Блокируем известного зловредного User-Agent');
+  });
+
+  it('добавляет условие как звено цепочки', async () => {
+    const user = userEvent.setup();
+    renderBuilder(BAD_BOT);
+
+    await user.click(screen.getByRole('button', { name: 'Добавить условие' }));
+
+    await waitFor(() => expect(source()).toContain(',chain"'));
+    expect(source().match(/^SecRule/gm)).toHaveLength(2);
+  });
+
+  it('подсчёт & гасит конвейер преобразований', async () => {
+    const user = userEvent.setup();
+    renderBuilder(BAD_BOT);
+
+    expect(screen.getByRole('combobox', { name: 'Преобразование' })).toBeEnabled();
+
+    await user.click(screen.getByRole('button', { name: '&' }));
+
+    await waitFor(() => expect(source()).toContain('&REQUEST_HEADERS:User-Agent'));
+    expect(screen.getByRole('combobox', { name: 'Преобразование' })).toBeDisabled();
+  });
+
+  it('показывает у преобразования и оригинал, и пояснение', async () => {
+    const user = userEvent.setup();
+    renderBuilder(BAD_BOT);
+
+    await user.click(screen.getByRole('combobox', { name: 'Преобразование' }));
+
+    // По названию выбирают, по оригиналу потом ищут строку в тексте
+    // правила, а пояснение отвечает на вопрос «а это что».
+    const option = await screen.findByRole('option', {
+      name: /Привести к нижнему регистру/,
+    });
+    expect(option).toHaveTextContent('t:lowercase');
+    expect(option).toHaveTextContent('SELECT и sElEcT');
+  });
+
+  it('поднимает наверх преобразования, уместные для этой области проверки', async () => {
+    const user = userEvent.setup();
+    renderBuilder(BAD_BOT);
+
+    await user.click(screen.getByRole('combobox', { name: 'Преобразование' }));
+
+    // У `User-Agent` это регистр и нулевые байты; редкое вроде MD5 краткий
+    // список не показывает вовсе.
+    await screen.findByText('Подходит этой проверке');
+    expect(screen.queryByRole('option', { name: /Хеш MD5/ })).toBeNull();
+  });
+
+  it('разворачивает список до полного и обратно', async () => {
+    const user = userEvent.setup();
+    renderBuilder(BAD_BOT);
+
+    await user.click(screen.getByRole('combobox', { name: 'Преобразование' }));
+    expect(screen.queryByRole('option', { name: /Хеш MD5/ })).toBeNull();
+
+    await user.click(await screen.findByRole('button', { name: /Показать все варианты/ }));
+    expect(await screen.findByRole('option', { name: /Хеш MD5/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Оставить только частые/ }));
+    await waitFor(() =>
+      expect(screen.queryByRole('option', { name: /Хеш MD5/ })).toBeNull(),
+    );
+  });
+
+  it('добавляет пустой шаг конвейера, а не подставляет преобразование', async () => {
+    const user = userEvent.setup();
+    renderBuilder(LOWERCASED);
+
+    await user.click(screen.getByRole('button', { name: 'Добавить преобразование' }));
+
+    // Новый шаг стоит незаполненным и помечен как ошибка: пока человек
+    // не выбрал, применять нечего, и в правило ничего не уходит.
+    const fields = screen.getAllByRole('combobox', { name: 'Преобразование' });
+    expect(fields).toHaveLength(2);
+    expect(fields[1]).toHaveValue('');
+    expect(fields[1]).toBeInvalid();
+    expect(source()).toContain('t:lowercase,deny');
+
+    await user.type(fields[1], 'Схлопнуть');
+    await user.click(await screen.findByRole('option', { name: /Схлопнуть пробелы/ }));
+
+    await waitFor(() => expect(source()).toContain('t:lowercase,t:compressWhitespace'));
+  });
+
+  it('ищет преобразование по пояснению, а не только по имени', async () => {
+    const user = userEvent.setup();
+    renderBuilder(BAD_BOT);
+
+    // Слова «мусорные» нет ни в одном имени преобразования — оно есть
+    // только в пояснении, и поиск обязан довести до варианта по смыслу.
+    await user.type(screen.getByRole('combobox', { name: 'Преобразование' }), 'мусорные');
+
+    expect(await screen.findByRole('option', { name: /Base64/ })).toHaveTextContent(
+      't:base64DecodeExt',
+    );
+  });
+
+  it('не прячет несовместимый оператор, а объясняет, почему он не подходит', async () => {
+    const user = userEvent.setup();
+    renderBuilder(BAD_BOT);
+
+    await user.click(screen.getByRole('button', { name: '&' }));
+    await waitFor(() => expect(source()).toContain('&REQUEST_HEADERS:User-Agent'));
+
+    await user.click(screen.getByRole('combobox', { name: 'Оператор' }));
+    await user.click(await screen.findByRole('button', { name: /Показать все варианты/ }));
+
+    expect(
+      await screen.findByRole('option', { name: /похоже на SQL-инъекцию/ }),
+    ).toHaveTextContent('Здесь в руках уже число');
+  });
+
+  it('правит сообщение правила по завершении ввода', async () => {
+    const user = userEvent.setup();
+    renderBuilder(BAD_BOT);
+
+    const message = screen.getByRole('textbox', { name: 'Сообщение' });
+    await user.clear(message);
+    await user.type(message, 'Новое сообщение');
+
+    // Пока поле в фокусе, текст правила не трогаем.
+    expect(source()).toContain("msg:'Bad bot detected'");
+
+    await user.tab();
+    await waitFor(() => expect(source()).toContain("msg:'Новое сообщение'"));
+  });
+
+  it('удаляет правило вместе с его описанием', async () => {
+    const user = userEvent.setup();
+    renderBuilder(BAD_BOT);
+
+    await user.click(screen.getByRole('button', { name: 'Удалить правило' }));
+
+    await waitFor(() => expect(source()).not.toContain('SecRule'));
+    expect(source()).not.toContain('Блокируем');
+  });
+});
