@@ -18,6 +18,7 @@ import { RuleCard } from './RuleCard';
 import { useRule } from '../../context/ruleContext';
 import { useI18n } from '../../i18n/useI18n';
 import { emitActionBlock } from '../../modsec/emit';
+import { blockRange } from '../../modsec/model';
 import type { VisualBlock, VisualModel } from '../../modsec/model';
 
 /** Карточка блока, который конструктор показывает, но не редактирует. */
@@ -68,6 +69,8 @@ export function VisualBuilder() {
     replaceLines,
     removeBlock,
     addRule,
+    duplicateRule,
+    swapBlocks,
     undo,
     redo,
     canUndo,
@@ -81,7 +84,22 @@ export function VisualBuilder() {
 
   const model = compiled.model ?? lastGood.current;
 
-  const renderBlock = (block: VisualBlock) => {
+  const blocks = model?.blocks ?? [];
+
+  /**
+   * Перестановка — обмен местами с соседним блоком, каким бы он ни был.
+   *
+   * Правило может стоять рядом с меткой или директивой, и перепрыгивать через
+   * них было бы неожиданно: порядок в файле значим целиком, а не только среди
+   * правил. `null` означает «двигать некуда» — кнопка гаснет.
+   */
+  const swapWith = (index: number, delta: number) => {
+    const neighbour = blocks[index + delta];
+    if (neighbour === undefined) return null;
+    return () => swapBlocks(blockRange(blocks[index]), blockRange(neighbour));
+  };
+
+  const renderBlock = (block: VisualBlock, index: number) => {
     switch (block.kind) {
       case 'rule':
         return (
@@ -90,6 +108,9 @@ export function VisualBuilder() {
             rule={block.rule}
             onChange={updateRule}
             onDelete={() => removeBlock(block.rule.startIndex, block.rule.tailIndex)}
+            onDuplicate={() => duplicateRule(block.rule)}
+            onMoveUp={swapWith(index, -1)}
+            onMoveDown={swapWith(index, 1)}
           />
         );
       case 'action':
@@ -171,7 +192,7 @@ export function VisualBuilder() {
 
         {!compiled.ok && <Alert severity="error">{t('debug.blocked')}</Alert>}
 
-        {model === null || model.blocks.length === 0 ? (
+        {blocks.length === 0 ? (
           <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
             {t('builder.empty')}
           </Typography>
@@ -183,7 +204,7 @@ export function VisualBuilder() {
               pointerEvents: compiled.ok ? 'auto' : 'none',
             }}
           >
-            {model.blocks.map(renderBlock)}
+            {blocks.map(renderBlock)}
           </Stack>
         )}
       </Stack>

@@ -30,6 +30,17 @@
   color: #6e7681 !important;
 }
 
+/* Иконки на тёмной подложке редактора: тема диалога сюда не достаёт. */
+.rule-editor__icon {
+  color: #cccccc !important;
+}
+.rule-editor__icon:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+.rule-editor__icon.Mui-disabled {
+  color: #5a5a5a !important;
+}
+
 .rule-editor__hint {
   margin-left: auto;
   color: #8b8b8b;
@@ -78,6 +89,39 @@
   background: #1e1e1e;
   user-select: none;
   white-space: pre;
+}
+
+/* Номер строки, у которой есть замечание. Точка слева заметна боковым
+   зрением, а цифра меняет цвет — вместе они читаются и без цвета. */
+.rule-editor__lineno {
+  position: relative;
+}
+.rule-editor__lineno--error,
+.rule-editor__lineno--warning,
+.rule-editor__lineno--advice {
+  font-weight: 600;
+}
+.rule-editor__lineno--error {
+  color: #f48771;
+}
+.rule-editor__lineno--warning {
+  color: #cca700;
+}
+.rule-editor__lineno--advice {
+  color: #9aa0a6;
+}
+.rule-editor__lineno--error::before,
+.rule-editor__lineno--warning::before,
+.rule-editor__lineno--advice::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .rule-editor__code {
@@ -162,32 +206,4 @@
   text-underline-offset: 3px;
 }
 
-/* Всплывающая подсказка по ключевому слову. */
-.kw-tooltip {
-  max-width: 340px;
-  padding: 10px 12px;
-  background: #252526;
-  color: #d4d4d4;
-  border: 1px solid #3c3c3c;
-}
-.kw-tooltip__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-.kw-tooltip__name {
-  font-family: 'Fira Code', 'Cascadia Code', Menlo, Consolas, monospace;
-  font-size: 13px;
-  font-weight: 600;
-  color: #9cdcfe;
-}
-.kw-tooltip__chip {
-  height: 20px;
-  background: #37373d !important;
-  color: #cccccc !important;
-}
-.kw-tooltip__desc {
-  color: #cccccc;
-  line-height: 1.45;
-}
+/* Сам попап подсказки живёт в KeywordTooltip.css. */

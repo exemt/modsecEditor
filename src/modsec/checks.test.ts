@@ -210,6 +210,32 @@ describe('логи и отладка', () => {
   });
 });
 
+describe('адрес перенаправления', () => {
+  it('ловит redirect без адреса', () => {
+    expect(codes(`SecRule ARGS "@rx \\d+" "id:1,phase:2,redirect,msg:'x'"`)).toContain(
+      'destinationMissing',
+    );
+  });
+
+  it('молчит, когда адрес указан', () => {
+    expect(
+      codes(`SecRule ARGS "@rx \\d+" "id:1,phase:2,redirect:/blocked.html,msg:'x'"`),
+    ).not.toContain('destinationMissing');
+  });
+
+  it('ловит адрес у реакции, которая его не принимает', () => {
+    expect(codes(`SecRule ARGS "@rx \\d+" "id:1,phase:2,deny:/blocked,msg:'x'"`)).toContain(
+      'destinationUnexpected',
+    );
+  });
+
+  it('не жалуется на обычный deny', () => {
+    expect(codes(`SecRule ARGS "@rx \\d+" "${CLEAN}"`)).not.toContain(
+      'destinationUnexpected',
+    );
+  });
+});
+
 describe('цена исполнения и запись', () => {
   it('ловит вложенные кванторы', () => {
     expect(codes(`SecRule ARGS "@rx (a+)+b" "${CLEAN}"`)).toContain('possibleRedos');

@@ -28,6 +28,7 @@ import {
   conditionConstraints,
   hasWholeBase,
   operatorMeta,
+  takesDestination,
   transformMeta,
   variableMeta,
 } from './semantics';
@@ -887,6 +888,17 @@ export function checkRule(
   }
 
   if (actions.disruptive === '') diag.report('noDisruptive', 'actions');
+
+  // `redirect` и `proxy` без адреса ModSecurity не примет, а всем остальным
+  // реакциям приписанное значение так же не нужно.
+  if (takesDestination(actions.disruptive)) {
+    if (actions.disruptiveValue === '') {
+      diag.report('destinationMissing', 'actions', { name: actions.disruptive });
+    }
+  } else if (actions.disruptiveValue !== '') {
+    diag.report('destinationUnexpected', 'actions', { name: actions.disruptive });
+  }
+
   if (
     actions.status !== '' &&
     actions.disruptive !== 'deny' &&

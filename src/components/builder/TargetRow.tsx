@@ -130,6 +130,7 @@ export function TargetRow({ target, onChange, onRemove, canRemove }: TargetRowPr
           <ToggleButton
             size="small"
             value="count"
+            color="success"
             disabled={!canCount}
             selected={target.count}
             onChange={() => onChange({ ...target, count: !target.count })}

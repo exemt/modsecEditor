@@ -147,6 +147,12 @@ describe('варианты значения оператора', () => {
     expect(counts).not.toContain('403');
   });
 
+  it('числу без известного смысла подсказывать нечего', () => {
+    expect(operatorValueSuggestions('gt', [target('TX', { params: ['n'] })], 'number')).toEqual(
+      [],
+    );
+  });
+
   it('код ответа сравнивают с кодами ответа', () => {
     expect(
       values(operatorValueSuggestions('eq', [target('RESPONSE_STATUS')], 'number')),

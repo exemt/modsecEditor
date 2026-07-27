@@ -126,7 +126,10 @@ export function ChipInput({
       return;
     }
     // Открытый список Escape закрывает сам, и ввод при этом остаётся.
+    // В любом случае дальше поля событие не идёт: за ним стоит диалог всего
+    // редактора, для которого Escape означает «закрыться».
     if (event.key === 'Escape') {
+      event.stopPropagation();
       if (!open) setDraft('');
       return;
     }

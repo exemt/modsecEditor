@@ -105,6 +105,9 @@ export function SuggestField({
   // и только при закрытом списке: открытый он закрывает сам.
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== 'Escape' || open) return;
+    // Дальше события пускать нельзя: диалог редактора принял бы Escape на
+    // свой счёт и закрылся.
+    event.stopPropagation();
     reverted.current = true;
     setDraft(value);
     event.currentTarget.blur();

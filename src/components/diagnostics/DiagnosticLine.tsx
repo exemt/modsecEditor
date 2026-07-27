@@ -1,10 +1,12 @@
 import Button from '@mui/material/Button';
+import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useRule } from '../../context/ruleContext';
+import { useEditorView } from '../../context/editorViewContext';
 import { useI18n } from '../../i18n/useI18n';
 import { diagnosticKey, fixKey, slotKey } from '../../i18n/translations';
 import { quickFixFor } from '../../modsec/fixes';
@@ -39,6 +41,7 @@ interface DiagnosticLineProps {
 export function DiagnosticLine({ diagnostic, showPlace = false }: DiagnosticLineProps) {
   const { t } = useI18n();
   const { compiled, updateRule } = useRule();
+  const { revealLine } = useEditorView();
   const { anchor } = diagnostic;
 
   // Чинить можно только то, что компилятор разложил в модель: пока в тексте
@@ -47,17 +50,17 @@ export function DiagnosticLine({ diagnostic, showPlace = false }: DiagnosticLine
   const rule = findRule(compiled.model, anchor?.ruleKey);
 
   // Адрес читается от мелкого к крупному: «оператор · условие 2 · строка 7».
+  // Номер строки отделён от остального: он не просто подпись, по нему
+  // переходят.
   const place = showPlace
     ? [
         anchor?.condition !== undefined
           ? t('debug.condition', { index: String(anchor.condition) })
           : null,
         anchor?.slot !== undefined ? t(slotKey(anchor.slot)) : null,
-        diagnostic.line !== undefined
-          ? t('debug.line', { line: String(diagnostic.line) })
-          : null,
       ].filter((part): part is string => part !== null)
     : [];
+  const line = showPlace ? diagnostic.line : undefined;
 
   return (
     <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start', py: 0.5 }}>
@@ -84,6 +87,18 @@ export function DiagnosticLine({ diagnostic, showPlace = false }: DiagnosticLine
         <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
           {place.join(' · ')}
         </Typography>
+      )}
+
+      {line !== undefined && (
+        <Link
+          component="button"
+          variant="caption"
+          underline="hover"
+          onClick={() => revealLine(line)}
+          sx={{ whiteSpace: 'nowrap' }}
+        >
+          {t('debug.line', { line: String(line) })}
+        </Link>
       )}
     </Stack>
   );

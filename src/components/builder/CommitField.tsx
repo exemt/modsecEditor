@@ -55,6 +55,10 @@ export function CommitField({ value, onCommit, ...rest }: CommitFieldProps) {
           (event.target as HTMLInputElement).blur();
         }
         if (event.key === 'Escape') {
+          // Escape отменяет правку поля — и на этом останавливается. Без
+          // остановки всплытия он доходит до диалога, в котором живёт весь
+          // редактор, и закрывает его вместе с несохранённой работой.
+          event.stopPropagation();
           reverted.current = true;
           setDraft(value);
           (event.target as HTMLInputElement).blur();

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
@@ -9,9 +10,10 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import { Bracket, BracketLine } from './Bracket';
 import { TargetRow } from './TargetRow';
 import { TransformPipeline } from './TransformPipeline';
+import { PipelinePreview } from './PipelinePreview';
 import { OperatorValue } from './OperatorValue';
 import { useI18n } from '../../i18n/useI18n';
-import { CONDITION_PADDING, TRANSFORM_COLUMN } from './layout';
+import { CONDITION_PADDING, CONDITION_PADDING_TOP, TRANSFORM_COLUMN } from './layout';
 import { CONTROL_HEIGHT } from '../../theme';
 import { DiagnosticNotes } from '../diagnostics/DiagnosticNotes';
 import { conditionConstraints } from '../../modsec/semantics';
@@ -48,6 +50,10 @@ export function ConditionRow({
   const theme = useTheme();
   const constraints = conditionConstraints(condition.targets, condition.transforms);
 
+  // Открыта ли проверка на примере — от этого зависит, отводить ли ей строку
+  // в сетке условия, поэтому состояние здесь, а не внутри неё.
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   return (
     <Box
       sx={{
@@ -66,12 +72,13 @@ export function ConditionRow({
         // больше в нём областей проверки.
         alignItems: 'start',
         p: CONDITION_PADDING,
+        pt: CONDITION_PADDING_TOP,
         pr: 5,
         borderRadius: 1.5,
         bgcolor: 'action.hover',
       }}
     >
-      <BracketLine name="condition" top={theme.spacing(CONDITION_PADDING)} />
+      <BracketLine name="condition" top={theme.spacing(CONDITION_PADDING_TOP)} />
 
       <Box sx={{ minWidth: 0 }}>
         <Bracket label={t('builder.or')} color="warning.main" line="target">
@@ -148,13 +155,30 @@ export function ConditionRow({
         </Box>
       )}
 
+      {/* Проверка на примере — там же, под всем условием: она сводит вместе
+          конвейер и оператор, а по отдельности ни о чём не говорит. Подсчёт
+          `&` её отключает: считается количество элементов, и примера,
+          который можно было бы прогнать, у такой проверки нет. Пустой
+          конвейер прячет её так же — но только пока она закрыта: открытую
+          проверку он не закрывает, а ломает, и она сама об этом скажет. */}
+      {constraints.transformsAllowed && (condition.transforms.length > 0 || previewOpen) && (
+        <Box sx={{ gridColumn: '1 / -1' }}>
+          <PipelinePreview
+            transforms={condition.transforms}
+            operator={condition.operator}
+            open={previewOpen}
+            onOpenChange={setPreviewOpen}
+          />
+        </Box>
+      )}
+
       {/* Корзина стоит по центру первой линии полей, а не по краю блока. */}
       <Box
         sx={{
           position: 'absolute',
           // Отступ сверху равен внутреннему полю блока, иначе корзина
           // встанет выше линии, на которую опираются все три полосы.
-          top: (theme) => theme.spacing(CONDITION_PADDING),
+          top: (theme) => theme.spacing(CONDITION_PADDING_TOP),
           right: (theme) => theme.spacing(1),
           height: CONTROL_HEIGHT,
           display: 'flex',

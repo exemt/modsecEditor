@@ -547,9 +547,7 @@ const SCORE_VALUES = group('CRS thresholds', 'Пороги CRS', [
 const COUNT_VALUES = group('Counts', 'Количество', [
   s('0', 'Nothing at all', 'Совсем ничего'),
   s('1', 'Exactly one', 'Ровно один'),
-  s('10', 'Ten', 'Десять'),
   s('32', 'Common parameter limit', 'Частый предел на число параметров'),
-  s('255', 'Common length limit', 'Частый предел длины'),
 ]);
 
 const DURATION_VALUES = group('Milliseconds', 'Миллисекунды', [
@@ -648,10 +646,15 @@ export function operatorValueSuggestions(
   if (arg === 'byteRange') return BYTE_RANGES;
   if (arg === 'phrases') return [...(bySubject(SUBJECT_VALUES, targets) ?? []), ...ATTACK_PHRASES];
 
+  // Числу подсказывают только там, где известно, что именно считается:
+  // у кода ответа это коды, у размера тела — размеры, у подсчёта `&` —
+  // количества. Просто «числу» подсказать нечего, а список из круглых
+  // значений с пояснением «десять» отвечает на вопрос, которого не было,
+  // и обещает варианты там, где их нет.
   if (arg === 'number' || inputKind === 'number') {
     const counting = targets.some((target) => !target.excludeOnly && target.count);
     if (counting) return COUNT_VALUES;
-    return bySubject(SUBJECT_NUMBERS, targets) ?? COUNT_VALUES;
+    return bySubject(SUBJECT_NUMBERS, targets) ?? [];
   }
 
   const subject = bySubject(SUBJECT_VALUES, targets) ?? [];

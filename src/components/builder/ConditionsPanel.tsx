@@ -11,6 +11,7 @@ import AddIcon from '@mui/icons-material/Add';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Bracket, BracketLine } from './Bracket';
 import { ConditionRow } from './ConditionRow';
+import { conditionSummary } from './summary';
 import { conditionDiagnostics } from '../diagnostics/useDiagnostics';
 import { useI18n } from '../../i18n/useI18n';
 import { makeCondition } from '../../modsec/model';
@@ -50,6 +51,11 @@ export function ConditionsPanel({
       ? 'warning'
       : 'default';
 
+  // Свёрнутая цепочка рассказывает о себе строкой: сколько в ней звеньев и
+  // что каждое проверяет. Связка И между выжимками — та же, что на скобке
+  // внутри, чтобы свёрнутый и развёрнутый вид читались одинаково.
+  const preview = conditions.map(conditionSummary).join(`  ${t('builder.and')}  `);
+
   return (
     <Accordion
       disableGutters
@@ -58,9 +64,33 @@ export function ConditionsPanel({
       onChange={(_, open) => setExpanded(open)}
       sx={{ bgcolor: 'transparent' }}
     >
-      <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 1 }}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <Typography variant="subtitle2">{t('builder.conditions')}</Typography>
+      <AccordionSummary
+        expandIcon={<ExpandMoreIcon />}
+        // Без этого выжимка распирает заголовок вместо того, чтобы
+        // обрезаться многоточием по его правому краю.
+        sx={{ px: 1, '& .MuiAccordionSummary-content': { minWidth: 0 } }}
+      >
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ alignItems: 'center', minWidth: 0, flex: 1, pr: 1 }}
+        >
+          <Typography variant="subtitle2" sx={{ flexShrink: 0 }}>
+            {t('builder.conditions')}
+          </Typography>
+          {!expanded && (
+            <>
+              <Chip size="small" variant="outlined" label={conditions.length} />
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                noWrap
+                sx={{ flex: 1, minWidth: 0, fontFamily: 'ui-monospace, Consolas, monospace' }}
+              >
+                {preview}
+              </Typography>
+            </>
+          )}
           {!expanded && inside.length > 0 && (
             <Chip size="small" color={worst} variant="outlined" label={inside.length} />
           )}

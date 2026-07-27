@@ -50,6 +50,15 @@ export interface VisualActions {
   id: string;
   phase: string;
   disruptive: DisruptiveAction | '';
+  /**
+   * Аргумент реакции: адрес для `redirect` и `proxy`.
+   *
+   * У остальных реакций аргумента не бывает, и поле остаётся пустым. Хранить
+   * его отдельно от имени приходится потому, что в тексте это одно действие
+   * `redirect:/blocked.html`, а в форме — два разных вопроса: что сделать
+   * и куда отправить.
+   */
+  disruptiveValue: string;
   status: string;
   msg: string;
   logdata: string;
@@ -132,6 +141,19 @@ export interface VisualModel {
   blocks: VisualBlock[];
 }
 
+/**
+ * Диапазон утверждений, которые занимает блок, — от первой строки описания
+ * до последней строки самой директивы.
+ *
+ * У правила это вся цепочка: переставлять или удалять её можно только целиком,
+ * иначе `chain` останется без продолжения.
+ */
+export function blockRange(block: VisualBlock): [number, number] {
+  return block.kind === 'rule'
+    ? [block.rule.startIndex, block.rule.tailIndex]
+    : [block.startIndex, block.statementIndex];
+}
+
 /** Правило модели по ключу — по нему диагностика находит, что чинить. */
 export function findRule(model: VisualModel | null, key: string | undefined): VisualRule | null {
   if (model === null || key === undefined) return null;
@@ -147,6 +169,7 @@ export function emptyActions(): VisualActions {
     id: '',
     phase: '',
     disruptive: '',
+    disruptiveValue: '',
     status: '',
     msg: '',
     logdata: '',

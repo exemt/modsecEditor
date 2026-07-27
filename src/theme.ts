@@ -95,10 +95,22 @@ export const theme = createTheme({
         // вариантами. У многострочного поля отступы держит корпус, а не
         // сам `textarea`, — ему padding задавать нельзя, он сложится с
         // корпусом и текст уедет от рамки вдвое дальше.
-        input: ({ ownerState }) =>
-          ownerState.size === 'small' && !ownerState.multiline
+        input: ({ ownerState }) => ({
+          ...(ownerState.size === 'small' && !ownerState.multiline
             ? { padding: `${PAD_Y}px ${FIELD_GUTTER}px` }
-            : {},
+            : {}),
+          // Браузер красит автозаполненное поле своим жёлтым или синим
+          // фоном раньше, чем применяются любые из наших цветов, и поле
+          // выпадает из тёмной темы. Настоящей заливки у автозаполнения
+          // нет — есть только цвет перехода, — поэтому здесь он растянут
+          // на часы: фон остаётся тем же, что и у пустого поля, сколько бы
+          // поле ни было заполнено.
+          '&:-webkit-autofill': {
+            WebkitTextFillColor: '#e6e8ec',
+            caretColor: '#e6e8ec',
+            transition: 'background-color 600000s ease-in-out 0s',
+          },
+        }),
         root: {
           '&.MuiInputBase-adornedStart': { paddingLeft: FIELD_GUTTER },
           '&.MuiInputBase-adornedEnd': { paddingRight: FIELD_GUTTER - 4 },
@@ -135,9 +147,28 @@ export const theme = createTheme({
       styleOverrides: { sizeSmall: { padding: 4, borderRadius: RADIUS } },
     },
 
+    // Кнопка внутри поля не задаёт его высоту. Иконка с полями кнопки выше
+    // строки текста, и поле значения с карандашом становилось на пять
+    // пикселей выше соседей — строка условия переставала читаться таблицей.
+    // Кнопка забирает вертикальные поля поля ввода себе: в габарит она
+    // укладывается и без них, а высоту теперь задаёт только строка текста.
+    MuiInputAdornment: {
+      styleOverrides: {
+        root: {
+          '& .MuiIconButton-root': { marginTop: -PAD_Y, marginBottom: -PAD_Y },
+        },
+      },
+    },
+
     MuiToggleButton: {
       styleOverrides: {
         sizeSmall: { height: CONTROL_HEIGHT, padding: `0 ${FIELD_GUTTER - 2}px` },
+        // Включённое состояние держится на цвете, а не на подсветке фона:
+        // серая заливка из умолчаний в тёмной теме почти не отличается от
+        // выключенной кнопки, и по переключателю нельзя сказать, действует
+        // он сейчас или нет. Цвет задаётся на месте — `error` у отрицания,
+        // `success` у подсчёта, — и рамка подхватывает его же.
+        root: { '&.Mui-selected': { borderColor: 'currentColor' } },
       },
     },
 

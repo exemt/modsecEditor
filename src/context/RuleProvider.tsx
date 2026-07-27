@@ -2,8 +2,16 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { applyRuleSource, undo as undoAction, redo as redoAction } from '../store/ruleSlice';
+import { loadDraft, saveDraft } from '../store/draft';
 import { compileDocument } from '../modsec/compile';
-import { applyRule, appendRule, removeRange, replaceRange } from '../modsec/emit';
+import {
+  applyRule,
+  appendRule,
+  duplicateRule as duplicateRuleIn,
+  removeRange,
+  replaceRange,
+  swapRanges,
+} from '../modsec/emit';
 import { formatDocument } from '../modsec/format';
 import type { ParsedDocument } from '../modsec/types';
 import type { VisualRule } from '../modsec/model';
@@ -13,15 +21,26 @@ import type { RuleContextValue } from './ruleContext';
 interface RuleProviderProps {
   /** Текст правила, которым инициализируется хранилище при монтировании. */
   initialSource?: string;
+  /**
+   * Помнить документ между сессиями.
+   *
+   * Включается только приложением. Тесты и истории рендерят провайдер без
+   * этого флага и не трогают хранилище браузера — иначе один прогон
+   * подкладывал бы текст следующему.
+   */
+  persist?: boolean;
   children: ReactNode;
 }
+
+/** Пауза перед записью черновика: набор текста не должен идти в хранилище посимвольно. */
+const DRAFT_DEBOUNCE_MS = 400;
 
 /**
  * Оборачивает редактор и предоставляет контекст правила. Состояние живёт в
  * Redux; провайдер проецирует его в контекст, один раз засеивает начальным
  * значением и держит закешированный результат компиляции.
  */
-export function RuleProvider({ initialSource, children }: RuleProviderProps) {
+export function RuleProvider({ initialSource, persist, children }: RuleProviderProps) {
   const dispatch = useAppDispatch();
   const source = useAppSelector((s) => s.rule.source);
   const parsed = useAppSelector((s) => s.rule.parsed);
@@ -33,8 +52,17 @@ export function RuleProvider({ initialSource, children }: RuleProviderProps) {
   useEffect(() => {
     if (seeded.current || initialSource === undefined) return;
     seeded.current = true;
-    dispatch(applyRuleSource(initialSource, 'skip'));
-  }, [dispatch, initialSource]);
+    // Работа прошлой сессии важнее примера: пример человек всегда откроет
+    // сам, а свой текст восстановить будет неоткуда.
+    const restored = persist ? loadDraft() : null;
+    dispatch(applyRuleSource(restored ?? initialSource, 'skip'));
+  }, [dispatch, initialSource, persist]);
+
+  useEffect(() => {
+    if (!persist || !seeded.current) return;
+    const timer = setTimeout(() => saveDraft(source), DRAFT_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [persist, source]);
 
   const compiled = useMemo(() => compileDocument(parsed), [parsed]);
 
@@ -73,6 +101,15 @@ export function RuleProvider({ initialSource, children }: RuleProviderProps) {
     [runDocOp],
   );
   const addRule = useCallback(() => runDocOp(appendRule), [runDocOp]);
+  const duplicateRule = useCallback(
+    (rule: VisualRule) => runDocOp((doc) => duplicateRuleIn(doc, rule)),
+    [runDocOp],
+  );
+  const swapBlocks = useCallback(
+    (first: [number, number], second: [number, number]) =>
+      runDocOp((doc) => swapRanges(doc, first, second)),
+    [runDocOp],
+  );
 
   // Форматирование — тоже структурная правка: один шаг истории, и его видно
   // заранее, поэтому кнопку можно гасить, когда текст уже разложен.
@@ -97,6 +134,8 @@ export function RuleProvider({ initialSource, children }: RuleProviderProps) {
       replaceLines,
       removeBlock,
       addRule,
+      duplicateRule,
+      swapBlocks,
       formatSource,
       canFormat,
       undo,
@@ -114,6 +153,8 @@ export function RuleProvider({ initialSource, children }: RuleProviderProps) {
       replaceLines,
       removeBlock,
       addRule,
+      duplicateRule,
+      swapBlocks,
       formatSource,
       canFormat,
       undo,

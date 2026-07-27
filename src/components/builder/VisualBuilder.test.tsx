@@ -6,6 +6,7 @@ import { store } from '../../store';
 import { applyRuleSource } from '../../store/ruleSlice';
 import { I18nProvider } from '../../i18n/I18nProvider';
 import { RuleProvider } from '../../context/RuleProvider';
+import { EditorViewProvider } from '../../context/EditorViewProvider';
 import { setFullList } from './fullList';
 import { VisualBuilder } from './VisualBuilder';
 
@@ -22,7 +23,9 @@ function renderBuilder(source: string) {
       <I18nProvider initialLocale="ru">
         <ThemeProvider theme={theme}>
           <RuleProvider>
-            <VisualBuilder />
+            <EditorViewProvider>
+              <VisualBuilder />
+            </EditorViewProvider>
           </RuleProvider>
         </ThemeProvider>
       </I18nProvider>
@@ -276,6 +279,46 @@ describe('VisualBuilder — правки уходят в текст правил
     ).toHaveTextContent('Здесь в руках уже число');
   });
 
+  it('показывает на примере, что конвейер не оставил шанса совпасть', async () => {
+    const user = userEvent.setup();
+    renderBuilder(
+      'SecRule REQUEST_METHOD "@streq POST" "id:1001,phase:1,t:lowercase,deny"\n',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Проверить на примере' }));
+    await user.type(screen.getByRole('textbox', { name: 'Пример значения' }), 'POST');
+
+    // Обе половины правила по отдельности безупречны, и только рядом видно,
+    // что до оператора доезжает уже не то значение, с которым он сравнивает.
+    expect(screen.getByText('post')).toBeInTheDocument();
+    expect(screen.getByText('@streq POST')).toBeInTheDocument();
+    expect(screen.getByText('не совпадает')).toBeInTheDocument();
+  });
+
+  it('отмечает шаг конвейера, который ничего не изменил', async () => {
+    const user = userEvent.setup();
+    renderBuilder(LOWERCASED);
+
+    await user.click(screen.getByRole('button', { name: 'Проверить на примере' }));
+    await user.type(screen.getByRole('textbox', { name: 'Пример значения' }), 'badbot');
+
+    expect(screen.getByText('без изменений')).toBeInTheDocument();
+    expect(screen.getByText('совпадает')).toBeInTheDocument();
+  });
+
+  it('не предлагает пример там, где значения нет — при подсчёте &', async () => {
+    const user = userEvent.setup();
+    renderBuilder(BAD_BOT);
+
+    expect(screen.getByRole('button', { name: 'Проверить на примере' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '&' }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Проверить на примере' })).toBeNull(),
+    );
+  });
+
   it('правит сообщение правила по завершении ввода', async () => {
     const user = userEvent.setup();
     renderBuilder(BAD_BOT);
@@ -289,6 +332,63 @@ describe('VisualBuilder — правки уходят в текст правил
 
     await user.tab();
     await waitFor(() => expect(source()).toContain("msg:'Новое сообщение'"));
+  });
+
+  it('дублирует правило со свободным номером', async () => {
+    const user = userEvent.setup();
+    renderBuilder(BAD_BOT);
+
+    await user.click(screen.getByRole('button', { name: 'Дублировать правило' }));
+
+    // Копия стоит следом и получает свой id: два правила с одним номером
+    // ModSecurity не примет.
+    await waitFor(() => expect(source().match(/^SecRule/gm)).toHaveLength(2));
+    expect(source()).toContain('id:1001');
+    expect(source()).toContain('id:1002');
+    expect(source().indexOf('id:1001')).toBeLessThan(source().indexOf('id:1002'));
+  });
+
+  it('меняет порядок правил в файле', async () => {
+    const user = userEvent.setup();
+    renderBuilder(
+      [
+        'SecRule ARGS "@rx first" "id:1001,phase:2,deny"',
+        '',
+        'SecRule ARGS "@rx second" "id:1002,phase:2,deny"',
+        '',
+      ].join('\n'),
+    );
+
+    await user.click(screen.getAllByRole('button', { name: 'Переместить ниже' })[0]);
+
+    await waitFor(() =>
+      expect(source().indexOf('second')).toBeLessThan(source().indexOf('first')),
+    );
+    // Пустая строка остаётся разделителем, а не уезжает вместе с правилом.
+    expect(source()).toContain('id:1002,phase:2,deny"\n\nSecRule');
+  });
+
+  it('гасит перемещение там, где двигать некуда', () => {
+    renderBuilder(BAD_BOT);
+
+    expect(screen.getByRole('button', { name: 'Переместить выше' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Переместить ниже' })).toBeDisabled();
+  });
+
+  it('сворачивает карточку, оставляя выжимку и счёт замечаний', async () => {
+    const user = userEvent.setup();
+    renderBuilder('SecRule ARGS "@rx foo" "id:1001,phase:2,deny"\n');
+
+    expect(screen.getByRole('combobox', { name: 'Оператор' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Свернуть правило' }));
+
+    // Поля ушли, но правило по-прежнему узнаваемо, и о замечаниях сказано.
+    await waitFor(() =>
+      expect(screen.queryByRole('combobox', { name: 'Оператор' })).toBeNull(),
+    );
+    expect(screen.getByText(/ARGS @rx foo/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Развернуть правило' })).toBeInTheDocument();
   });
 
   it('удаляет правило вместе с его описанием', async () => {

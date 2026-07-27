@@ -1,6 +1,6 @@
 import { parseModsec } from './parser';
 import { compileDocument } from './compile';
-import { applyRule, emitRule, removeRange } from './emit';
+import { applyRule, duplicateRule, emitRule, removeRange, swapRanges } from './emit';
 import { makeCondition, makeTarget } from './model';
 import type { VisualBlock, VisualRule } from './model';
 
@@ -73,6 +73,75 @@ describe('emitRule — round trip', () => {
   it('keeps the count prefix and operator negation', () => {
     const rule = rulesOf('SecRule &ARGS "!@gt 10" "id:1001,phase:2,deny"')[0];
     expect(emitRule(rule)[0]).toContain('SecRule &ARGS "!@gt 10"');
+  });
+
+  // Адрес перенаправления — часть реакции, а не отдельное действие: если
+  // читать одно имя, правило после первой же правки в конструкторе начнёт
+  // перенаправлять в никуда.
+  it('keeps the destination of redirect and proxy', () => {
+    const redirect = rulesOf(
+      'SecRule ARGS "@rx evil" "id:1001,phase:2,redirect:/blocked.html"',
+    )[0];
+    expect(redirect.actions.disruptiveValue).toBe('/blocked.html');
+    expect(emitRule(redirect)[0]).toContain('redirect:/blocked.html');
+
+    const proxy = rulesOf(
+      'SecRule ARGS "@rx evil" "id:1002,phase:2,proxy:http://backend/"',
+    )[0];
+    expect(proxy.actions.disruptiveValue).toBe('http://backend/');
+    expect(emitRule(proxy)[0]).toContain('proxy:http://backend/');
+  });
+
+  it('writes reactions that take no address as a bare name', () => {
+    const rule = rulesOf('SecRule ARGS "@rx evil" "id:1001,phase:2,deny,msg:\'x\'"')[0];
+    expect(rule.actions.disruptiveValue).toBe('');
+    expect(emitRule(rule)[0]).toContain(',deny,');
+    expect(emitRule(rule)[0]).not.toContain('deny:');
+  });
+});
+
+describe('duplicateRule и swapRanges — порядок и копии', () => {
+  const twoRules = () =>
+    parseModsec(
+      [
+        '# Первое',
+        'SecRule ARGS "@rx first" "id:1001,phase:2,deny"',
+        '',
+        'SecRule ARGS "@rx second" "id:1002,phase:2,deny"',
+        '',
+      ].join('\n'),
+    );
+
+  it('вставляет копию сразу за оригиналом и даёт ей свободный номер', () => {
+    const doc = twoRules();
+    const rule = rulesOf(doc.statements.map((s) => s.raw).join('\n'))[0];
+    const out = duplicateRule(doc, rule);
+
+    expect(out.match(/^SecRule/gm)).toHaveLength(3);
+    // Номер не повторяется: max + 1 по всему документу.
+    expect(out).toContain('id:1003');
+    expect(out.indexOf('id:1003')).toBeLessThan(out.indexOf('id:1002'));
+    // Описание — часть правила, копируется вместе с ним.
+    expect(out.match(/# Первое/g)).toHaveLength(2);
+  });
+
+  it('меняет местами два блока, не трогая разделитель между ними', () => {
+    const doc = twoRules();
+    // Первое правило занимает строки описания и директивы, второе — одну.
+    expect(swapRanges(doc, [0, 1], [3, 3])).toBe(
+      [
+        'SecRule ARGS "@rx second" "id:1002,phase:2,deny"',
+        '',
+        '# Первое',
+        'SecRule ARGS "@rx first" "id:1001,phase:2,deny"',
+        '',
+      ].join('\n'),
+    );
+  });
+
+  it('не зависит от порядка, в котором переданы диапазоны', () => {
+    const doc = twoRules();
+    expect(swapRanges(doc, [3, 3], [0, 1])).toBe(swapRanges(doc, [0, 1], [3, 3]));
   });
 });
 

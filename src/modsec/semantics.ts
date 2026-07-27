@@ -1044,6 +1044,16 @@ export function isDisruptive(name: string): name is DisruptiveAction {
   return (DISRUPTIVE_ACTIONS as readonly string[]).includes(name);
 }
 
+/**
+ * Реакция, которой нужен адрес: `redirect:/blocked.html`, `proxy:http://...`.
+ *
+ * Остальные реакции пишутся одним именем, и приписанное к ним значение
+ * ModSecurity считает ошибкой конфигурации.
+ */
+export function takesDestination(name: string): boolean {
+  return name === 'redirect' || name === 'proxy';
+}
+
 /** Действие относится к «шапке» правила и не должно дублироваться в звеньях. */
 export function isHeadOnlyAction(name: string): boolean {
   return (HEAD_ONLY_ACTIONS as readonly string[]).includes(name) || isDisruptive(name);

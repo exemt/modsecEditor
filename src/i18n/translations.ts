@@ -1,4 +1,5 @@
 import type { KeywordCategory } from '../components/syntax/modsecKeywords';
+import type { ExampleSection } from '../data/modsecExamples';
 import type { DiagnosticCode, DiagnosticSlot, DiagnosticTopic } from '../modsec/diagnostics';
 import type { FixKind } from '../modsec/fixes';
 
@@ -32,14 +33,84 @@ const en = {
   'tab.visualBlocked': 'Fix the errors in the text to switch to the visual editor',
 
   'examples.title': 'Examples',
-  'examples.bad-bot': 'Bad bot',
+  'examples.browse': 'Open the learning examples',
+  'examples.dialogTitle': 'Examples of ModSecurity rules',
+  'examples.hint': 'An example replaces the whole text in the editor.',
+  'examples.list': 'Example list',
+  'examples.open': 'Open in the editor',
+
+  'examples.section.basics': 'Basics',
+  'examples.section.attacks': 'Attacks',
+  'examples.section.policy': 'Policy and limits',
+  'examples.section.logic': 'Logic',
+  'examples.section.state': 'State between requests',
+  'examples.section.flow': 'Flow and settings',
+  'examples.section.mistakes': 'Learning mistakes',
+
+  'examples.first-rule': 'First rule',
+  'examples.first-rule.note':
+    'The three parts of a rule: what to check, how to check it, what to do about it.',
+  'examples.phases': 'Phases',
+  'examples.phases.note': 'The same kind of check in phases 1, 2, 3 and 5 — and what each one sees.',
+  'examples.targets': 'Check areas',
+  'examples.targets.note': 'Several areas mean OR; "!" subtracts one of them from the check.',
+  'examples.transforms': 'Transformation pipeline',
+  'examples.transforms.note': 'Why decoding has to happen before the path is collapsed.',
+  'examples.logging': 'Log and capture',
+  'examples.logging.note': 'msg, logdata and the pattern groups captured into TX:1…TX:9.',
+
   'examples.sqli': 'SQL Injection',
+  'examples.sqli.note': 'The built-in SQL parser instead of a pattern that never covers everything.',
   'examples.xss': 'XSS',
+  'examples.xss.note': 'Markup hidden behind several layers of encoding — and the pipeline that strips them.',
+  'examples.traversal': 'Path traversal',
+  'examples.traversal.note': 'Two dots as a path segment of their own, checked in the raw URI.',
+  'examples.rce': 'Command execution',
+  'examples.rce.note': 'A phrase list checked in one pass; t:cmdLine undoes the c""url trick.',
+  'examples.log4shell': 'Log4Shell (JNDI)',
+  'examples.log4shell.note': 'A JNDI lookup in any text field, headers included.',
+  'examples.wrappers': 'PHP wrappers',
+  'examples.wrappers.note': 'php:// and data:// in a parameter that was supposed to carry a file name.',
+  'examples.scanner': 'Scanners',
+  'examples.scanner.note': 'Scanners announce themselves in User-Agent; drop answers with silence.',
+  'examples.upload': 'Uploads',
+  'examples.upload.note': 'An allow list of extensions: anything new stays closed by default.',
+
+  'examples.limits': 'Sizes and limits',
+  'examples.limits.note': 'Numeric variables — and t:length when the length of a string is needed.',
+  'examples.methods': 'Methods and protocol',
+  'examples.methods.note': 'Allow what is listed, refuse the rest; HTTP/1.0 without a Host.',
+  'examples.leak': 'Leak in the response',
+  'examples.leak.note': 'Phases 3 and 4: a stack trace inside an error page.',
+
+  'examples.chain': 'Chain (AND)',
+  'examples.chain.note': 'Either every link matches or none does; the head carries id, phase and reaction.',
+  'examples.counting': 'Counting (&)',
+  'examples.counting.note': '"&" asks how many, not what — and turns the input into a number.',
+  'examples.negation': 'Negation',
+  'examples.negation.note': 'Two different kinds of "not": before the operator and before the check area.',
+
+  'examples.scoring': 'Anomaly scoring',
+  'examples.scoring.note': 'How CRS works: signals add points, and the threshold decides once.',
   'examples.rate-limit': 'Rate limit',
-  'examples.chained': 'Chained (AND / OR)',
+  'examples.rate-limit.note':
+    'A counter that outlives the request: initcol, setvar and expirevar.',
+
+  'examples.skip-marker': 'Skip a block',
+  'examples.skip-marker.note': 'One trusted path jumps over the whole strict block to a marker.',
+  'examples.ctl': 'Per-request settings (ctl)',
+  'examples.ctl.note': 'Lifting a single check off a single path without touching the rest.',
+
+  'examples.never-matches': 'Never matches',
+  'examples.never-matches.note':
+    'Three rules that are impeccable in form and useless in meaning.',
+  'examples.mistakes': 'Five mistakes in a row',
+  'examples.mistakes.note': 'One mistake per rule — read them off the diagnostics panel.',
+  'examples.detection-only': 'Detection only',
+  'examples.detection-only.note': 'A "deny" that looks like protection while the engine only watches.',
 
   'editor.ariaLabel': 'ModSecurity rules editor',
-  'editor.hint': 'Hover a keyword to see what it does.',
+  'editor.hint': 'Hover a keyword to see what it does — hold Alt for the full reference.',
 
   'debug.title': 'Debug',
   'debug.tab.diagnostics': 'Diagnostics',
@@ -96,6 +167,20 @@ const en = {
   'builder.transformRequired': 'Choose a transformation',
   'builder.transformsBlocked': 'Counting replaces the value with a number, so transformations do not apply',
   'builder.dragTransform': 'Drag to reorder',
+
+  'builder.previewOpen': 'Try a sample value',
+  'builder.previewClose': 'Close the sample check',
+  'builder.previewNoTransforms':
+    'No transformations left — there is nothing to run the sample through',
+  'builder.previewSample': 'Sample value',
+  'builder.previewHint': 'What arrives at this check — the pipeline shows what it turns into',
+  'builder.previewInput': 'input',
+  'builder.previewUnchanged': 'unchanged',
+  'builder.previewEmptyValue': 'nothing left',
+  'builder.previewOpaque': 'result not reproduced here',
+  'builder.previewMatch': 'matches',
+  'builder.previewNoMatch': 'does not match',
+  'builder.previewUnknown': 'not evaluated here',
 
   'builder.choiceAll': 'Show every option — {count} more',
   'builder.choiceCommon': 'Show the common ones only',
@@ -228,6 +313,32 @@ const en = {
   'diag.singlePhraseList': 'A list of a single phrase — "@contains {value}" says the same more plainly.',
   'diag.idInReservedRange': 'Id {id} falls into the 900000–999999 range reserved by CRS.',
 
+  'toolbar.open': 'Open',
+  'toolbar.openHint': 'Load a .conf file from disk',
+  'toolbar.save': 'Save',
+  'toolbar.saveHint': 'Download the text as a .conf file',
+  'toolbar.copy': 'Copy',
+  'toolbar.copyHint': 'Copy the whole text to the clipboard',
+  'toolbar.copied': 'Copied to the clipboard',
+  'toolbar.copyFailed': 'The browser did not allow access to the clipboard',
+
+  'document.replaceTitle': 'Replace the current text?',
+  'document.replaceBody':
+    'The current text has been edited. Loading another document will discard those edits.',
+  'document.replace': 'Replace',
+
+  'builder.destination': 'Destination',
+  'builder.collapse': 'Collapse the rule',
+  'builder.expand': 'Expand the rule',
+  'builder.duplicateRule': 'Duplicate the rule',
+  'builder.moveUp': 'Move up',
+  'builder.moveDown': 'Move down',
+  'builder.andMore': 'more',
+  'diag.destinationMissing':
+    '"{name}" needs an address — without it ModSecurity will not load the rule.',
+  'diag.destinationUnexpected':
+    '"{name}" takes no address: the value next to it will be rejected on load.',
+
   'topic.structure': 'Form',
   'topic.logic': 'Logic',
   'topic.coverage': 'Coverage',
@@ -258,6 +369,18 @@ const en = {
   'fix.disableCapture': 'Remove "capture"',
 
   'tooltip.noDescription': 'No description available yet.',
+  'tooltip.expandHint': 'Alt — details',
+  'tooltip.collapseHint': 'Release Alt to collapse',
+  'tooltip.syntax': 'Syntax',
+  'tooltip.tech': 'Under the hood',
+  'tooltip.tech.argument': 'Argument',
+  'tooltip.tech.fallback': 'If omitted',
+  'tooltip.tech.scope': 'Where it applies',
+  'tooltip.tech.cost': 'Cost',
+  'tooltip.tech.availability': 'Availability',
+  'tooltip.gotchas': 'Watch out',
+  'tooltip.example': 'Example',
+  'tooltip.seeAlso': 'See also',
   'category.directive': 'Directive',
   'category.action': 'Action',
   'category.transform': 'Transformation',
@@ -280,6 +403,11 @@ export function diagnosticKey(code: DiagnosticCode): TranslationKey {
 /** Ключ названия темы диагностики. */
 export function topicKey(topic: DiagnosticTopic): TranslationKey {
   return `topic.${topic}`;
+}
+
+/** Ключ названия раздела учебных примеров. */
+export function exampleSectionKey(section: ExampleSection): TranslationKey {
+  return `examples.section.${section}`;
 }
 
 /** Ключ подписи кнопки быстрой правки. */
@@ -313,14 +441,82 @@ const ru: Record<TranslationKey, string> = {
   'tab.visualBlocked': 'Исправьте ошибки в тексте, чтобы перейти в визуальный редактор',
 
   'examples.title': 'Примеры',
-  'examples.bad-bot': 'Плохой бот',
+  'examples.browse': 'Открыть учебные примеры',
+  'examples.dialogTitle': 'Примеры правил ModSecurity',
+  'examples.hint': 'Пример заменяет весь текст в редакторе.',
+  'examples.list': 'Список примеров',
+  'examples.open': 'Открыть в редакторе',
+
+  'examples.section.basics': 'Основы',
+  'examples.section.attacks': 'Атаки',
+  'examples.section.policy': 'Политика и лимиты',
+  'examples.section.logic': 'Логика',
+  'examples.section.state': 'Состояние между запросами',
+  'examples.section.flow': 'Поток и настройки',
+  'examples.section.mistakes': 'Учебные ошибки',
+
+  'examples.first-rule': 'Первое правило',
+  'examples.first-rule.note': 'Три части правила: что проверяем, чем проверяем и что делаем.',
+  'examples.phases': 'Фазы обработки',
+  'examples.phases.note': 'Одна и та же проверка в фазах 1, 2, 3 и 5 — и что видит каждая из них.',
+  'examples.targets': 'Области проверки',
+  'examples.targets.note': 'Несколько областей — это ИЛИ, а «!» вычитает одну из них из проверки.',
+  'examples.transforms': 'Конвейер преобразований',
+  'examples.transforms.note': 'Почему раскодировать нужно раньше, чем сворачивать путь.',
+  'examples.logging': 'Журнал и capture',
+  'examples.logging.note': 'msg, logdata и группы шаблона, разложенные по TX:1…TX:9.',
+
   'examples.sqli': 'SQL-инъекция',
+  'examples.sqli.note': 'Встроенный разборщик SQL вместо шаблона, который всё равно всего не покроет.',
   'examples.xss': 'XSS',
+  'examples.xss.note': 'Разметка под несколькими слоями кодирования — и конвейер, который их снимает.',
+  'examples.traversal': 'Обход каталога',
+  'examples.traversal.note': 'Две точки как отдельный участок пути, проверенные в сыром URI.',
+  'examples.rce': 'Запуск команд',
+  'examples.rce.note': 'Список фраз одним проходом; t:cmdLine разбирает приёмы вида c""url.',
+  'examples.log4shell': 'Log4Shell (JNDI)',
+  'examples.log4shell.note': 'Подстановка JNDI в любом текстовом поле, включая заголовки.',
+  'examples.wrappers': 'Обёртки PHP',
+  'examples.wrappers.note': 'php:// и data:// в параметре, куда ждали имя файла.',
+  'examples.scanner': 'Сканеры',
+  'examples.scanner.note': 'Сканеры сами называют себя в User-Agent, а drop отвечает молчанием.',
+  'examples.upload': 'Загрузка файлов',
+  'examples.upload.note': 'Разрешительный список расширений: новый вид файла закрыт по умолчанию.',
+
+  'examples.limits': 'Размеры и лимиты',
+  'examples.limits.note': 'Числовые переменные — и t:length там, где нужна длина строки.',
+  'examples.methods': 'Методы и протокол',
+  'examples.methods.note': 'Разрешено перечисленное, остальное — отказ; HTTP/1.0 без Host.',
+  'examples.leak': 'Утечка в ответе',
+  'examples.leak.note': 'Фазы 3 и 4: трассировка стека внутри страницы с ошибкой.',
+
+  'examples.chain': 'Цепочка (И)',
+  'examples.chain.note': 'Сработают все звенья или ни одно; номер, фаза и реакция — в головном.',
+  'examples.counting': 'Подсчёт (&)',
+  'examples.counting.note': '«&» спрашивает «сколько», а не «что», и превращает вход в число.',
+  'examples.negation': 'Отрицание',
+  'examples.negation.note': 'Два разных «не»: перед оператором и перед областью проверки.',
+
+  'examples.scoring': 'Накопительная оценка',
+  'examples.scoring.note': 'Как работает CRS: подозрения копят баллы, а порог решает один раз.',
   'examples.rate-limit': 'Лимит запросов',
-  'examples.chained': 'Цепочка (И / ИЛИ)',
+  'examples.rate-limit.note': 'Счётчик, который живёт дольше запроса: initcol, setvar и expirevar.',
+
+  'examples.skip-marker': 'Переход через блок',
+  'examples.skip-marker.note': 'Один доверенный путь перескакивает весь строгий блок до метки.',
+  'examples.ctl': 'Настройка на один запрос (ctl)',
+  'examples.ctl.note': 'Как снять одну проверку с одного адреса, не тронув остальное.',
+
+  'examples.never-matches': 'Не сработает никогда',
+  'examples.never-matches.note': 'Три правила, безупречных по форме и бесполезных по смыслу.',
+  'examples.mistakes': 'Пять ошибок подряд',
+  'examples.mistakes.note': 'По одной ошибке на правило — все они читаются в панели диагностик.',
+  'examples.detection-only': 'Режим наблюдения',
+  'examples.detection-only.note': '«deny», который выглядит защитой, пока движок только смотрит.',
 
   'editor.ariaLabel': 'Редактор правил ModSecurity',
-  'editor.hint': 'Наведите на ключевое слово, чтобы узнать, что оно делает.',
+  'editor.hint':
+    'Наведите на ключевое слово, чтобы узнать, что оно делает, — Alt раскроет подробности.',
 
   'debug.title': 'Отладка',
   'debug.tab.diagnostics': 'Диагностика',
@@ -376,6 +572,20 @@ const ru: Record<TranslationKey, string> = {
   'builder.transformRequired': 'Выберите преобразование',
   'builder.transformsBlocked': 'Подсчёт заменяет значение числом, поэтому преобразования не применяются',
   'builder.dragTransform': 'Перетащите, чтобы изменить порядок',
+
+  'builder.previewOpen': 'Проверить на примере',
+  'builder.previewClose': 'Закрыть проверку',
+  'builder.previewNoTransforms':
+    'Преобразований не осталось — прогонять пример не через что',
+  'builder.previewSample': 'Пример значения',
+  'builder.previewHint': 'Что придёт в эту проверку — конвейер покажет, во что оно превратится',
+  'builder.previewInput': 'вход',
+  'builder.previewUnchanged': 'без изменений',
+  'builder.previewEmptyValue': 'ничего не осталось',
+  'builder.previewOpaque': 'результат здесь не воспроизводим',
+  'builder.previewMatch': 'совпадает',
+  'builder.previewNoMatch': 'не совпадает',
+  'builder.previewUnknown': 'здесь не проверяется',
 
   'builder.choiceAll': 'Показать все варианты — ещё {count}',
   'builder.choiceCommon': 'Оставить только частые',
@@ -508,6 +718,32 @@ const ru: Record<TranslationKey, string> = {
   'diag.singlePhraseList': 'В списке одна фраза — «@contains {value}» скажет то же самое понятнее.',
   'diag.idInReservedRange': 'Номер {id} попадает в диапазон 900000–999999, занятый CRS.',
 
+  'toolbar.open': 'Открыть',
+  'toolbar.openHint': 'Загрузить файл .conf с диска',
+  'toolbar.save': 'Сохранить',
+  'toolbar.saveHint': 'Выгрузить текст файлом .conf',
+  'toolbar.copy': 'Копировать',
+  'toolbar.copyHint': 'Скопировать весь текст в буфер обмена',
+  'toolbar.copied': 'Скопировано в буфер обмена',
+  'toolbar.copyFailed': 'Браузер не дал доступ к буферу обмена',
+
+  'document.replaceTitle': 'Заменить текущий текст?',
+  'document.replaceBody':
+    'Текущий текст изменён. Загрузка другого документа сотрёт эти правки.',
+  'document.replace': 'Заменить',
+
+  'builder.destination': 'Адрес',
+  'builder.collapse': 'Свернуть правило',
+  'builder.expand': 'Развернуть правило',
+  'builder.duplicateRule': 'Дублировать правило',
+  'builder.moveUp': 'Переместить выше',
+  'builder.moveDown': 'Переместить ниже',
+  'builder.andMore': 'ещё',
+  'diag.destinationMissing':
+    '«{name}» без адреса: ModSecurity не загрузит такое правило.',
+  'diag.destinationUnexpected':
+    '«{name}» не принимает адрес: значение рядом с ним будет отвергнуто при загрузке.',
+
   'topic.structure': 'Форма',
   'topic.logic': 'Логика',
   'topic.coverage': 'Покрытие',
@@ -538,6 +774,18 @@ const ru: Record<TranslationKey, string> = {
   'fix.disableCapture': 'Убрать «capture»',
 
   'tooltip.noDescription': 'Описание пока недоступно.',
+  'tooltip.expandHint': 'Alt — подробнее',
+  'tooltip.collapseHint': 'Отпустите Alt, чтобы свернуть',
+  'tooltip.syntax': 'Синтаксис',
+  'tooltip.tech': 'Технически',
+  'tooltip.tech.argument': 'Аргумент',
+  'tooltip.tech.fallback': 'Если не указан',
+  'tooltip.tech.scope': 'Где действует',
+  'tooltip.tech.cost': 'Стоимость',
+  'tooltip.tech.availability': 'Доступность',
+  'tooltip.gotchas': 'Осторожно',
+  'tooltip.example': 'Пример',
+  'tooltip.seeAlso': 'См. также',
   'category.directive': 'Директива',
   'category.action': 'Действие',
   'category.transform': 'Трансформация',

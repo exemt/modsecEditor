@@ -22,6 +22,7 @@ import {
   PHASES,
   PHASE_LABELS,
   SEVERITIES,
+  takesDestination,
 } from '../../modsec/semantics';
 import {
   MACRO_SUGGESTIONS,
@@ -66,7 +67,7 @@ export function ActionsPanel({ actions, onChange, alwaysExpanded }: ActionsPanel
     actions.disruptive === 'deny' || actions.disruptive === 'redirect';
 
   return (
-    <Stack spacing={1.5} sx={{ px: 1, pb: 1 }}>
+    <Stack spacing={1.5} sx={{ px: 1, pt: 0.5, pb: 1 }}>
       <Typography variant="subtitle2" color="text.secondary">
         {t('builder.actions')}
       </Typography>
@@ -101,9 +102,16 @@ export function ActionsPanel({ actions, onChange, alwaysExpanded }: ActionsPanel
           size="small"
           label={t('builder.disruptive')}
           value={actions.disruptive}
-          onChange={(event) =>
-            onChange({ ...actions, disruptive: event.target.value as DisruptiveAction | '' })
-          }
+          onChange={(event) => {
+            const disruptive = event.target.value as DisruptiveAction | '';
+            // Адрес принадлежит только перенаправлению: оставить его у
+            // `deny` значит собрать правило, которое ModSecurity не примет.
+            onChange({
+              ...actions,
+              disruptive,
+              disruptiveValue: takesDestination(disruptive) ? actions.disruptiveValue : '',
+            });
+          }}
           sx={{ width: 190 }}
         >
           <MenuItem value="">{t('builder.unset')}</MenuItem>
@@ -113,6 +121,18 @@ export function ActionsPanel({ actions, onChange, alwaysExpanded }: ActionsPanel
             </MenuItem>
           ))}
         </TextField>
+
+        {takesDestination(actions.disruptive) && (
+          <CommitField
+            size="small"
+            label={t('builder.destination')}
+            placeholder={actions.disruptive === 'proxy' ? 'http://backend/' : '/blocked.html'}
+            value={actions.disruptiveValue}
+            onCommit={(disruptiveValue) => onChange({ ...actions, disruptiveValue })}
+            error={actions.disruptiveValue === ''}
+            sx={{ flex: '1 1 220px' }}
+          />
+        )}
 
         <SuggestField
           label={t('builder.status')}

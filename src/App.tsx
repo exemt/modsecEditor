@@ -1,17 +1,14 @@
-import { useState } from 'react';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import Stack from '@mui/material/Stack';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Tooltip from '@mui/material/Tooltip';
-import Typography from '@mui/material/Typography';
 import RuleEditor from './components/RuleEditor';
+import { DocumentBar } from './components/DocumentBar';
 import { DebugPanel } from './components/DebugPanel';
 import { VisualBuilder } from './components/builder/VisualBuilder';
 import { modsecExamples } from './data/modsecExamples';
@@ -19,48 +16,9 @@ import { useI18n } from './i18n/useI18n';
 import { LOCALE_LABELS, type Locale } from './i18n/translations';
 import { RuleProvider } from './context/RuleProvider';
 import { useRule } from './context/ruleContext';
-
-type EditorTab = 'text' | 'visual';
-
-/** Переключатель готовых примеров правил. */
-function ExampleBar() {
-  const { t } = useI18n();
-  const { setSource } = useRule();
-  const [activeId, setActiveId] = useState(modsecExamples[0].id);
-
-  return (
-    <Stack
-      direction="row"
-      spacing={1}
-      sx={{
-        px: 1.5,
-        py: 1,
-        flexWrap: 'wrap',
-        gap: 1,
-        alignItems: 'center',
-        borderBottom: 1,
-        borderColor: 'divider',
-      }}
-    >
-      <Typography variant="overline" sx={{ mr: 1, color: 'text.secondary' }}>
-        {t('examples.title')}
-      </Typography>
-      {modsecExamples.map((example) => (
-        <Button
-          key={example.id}
-          size="small"
-          variant={example.id === activeId ? 'contained' : 'outlined'}
-          onClick={() => {
-            setActiveId(example.id);
-            setSource(example.code);
-          }}
-        >
-          {t(example.labelKey)}
-        </Button>
-      ))}
-    </Stack>
-  );
-}
+import { EditorViewProvider } from './context/EditorViewProvider';
+import { useEditorView } from './context/editorViewContext';
+import type { EditorTab } from './context/editorViewContext';
 
 /**
  * Две вкладки редактора поверх одного и того же текста.
@@ -74,13 +32,13 @@ function ExampleBar() {
 function EditorTabs() {
   const { t } = useI18n();
   const { compiled } = useRule();
-  const [tab, setTab] = useState<EditorTab>('text');
+  const { tab, setTab } = useEditorView();
 
   const visualBlocked = !compiled.ok;
 
   return (
     <>
-      <ExampleBar />
+      <DocumentBar />
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tab} onChange={(_, next: EditorTab) => setTab(next)}>
@@ -104,12 +62,20 @@ function EditorTabs() {
   );
 }
 
+/**
+ * Оболочка приложения.
+ *
+ * Внешне это диалог, но закрывать его некуда: за ним нет ни страницы, ни
+ * способа открыть редактор заново, а весь текст правил живёт в памяти
+ * вкладки. Поэтому обработчика закрытия у диалога нет вовсе: без него ни
+ * Escape, ни клик по фону ничего не делают, и случайное нажатие не стоит
+ * пользователю работы.
+ */
 function App() {
   const { t, locale, setLocale, locales } = useI18n();
-  const [open, setOpen] = useState(true);
 
   return (
-    <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xl" fullWidth>
+    <Dialog open maxWidth="xl" fullWidth>
       <DialogTitle
         sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}
       >
@@ -133,9 +99,11 @@ function App() {
         dividers
         sx={{ height: '85vh', p: 0, display: 'flex', flexDirection: 'column' }}
       >
-        <RuleProvider initialSource={modsecExamples[0].code}>
-          <EditorTabs />
-          <DebugPanel />
+        <RuleProvider persist initialSource={modsecExamples[0].code}>
+          <EditorViewProvider>
+            <EditorTabs />
+            <DebugPanel />
+          </EditorViewProvider>
         </RuleProvider>
       </DialogContent>
     </Dialog>

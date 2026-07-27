@@ -7,7 +7,14 @@
  *
  * Описания хранятся сразу на двух языках, чтобы тултип мог показать текст
  * на текущей локали без обращения к общему словарю i18n.
+ *
+ * У подсказки два уровня. Короткий `desc` — одна строка, её видно сразу при
+ * наведении. Развёрнутый `details` живёт в `details/` и показывается по Alt:
+ * там объяснение на несколько предложений, синтаксис, технические свойства,
+ * грабли и пример.
  */
+
+import { KEYWORD_DETAILS } from './details';
 
 export type KeywordCategory =
   | 'directive'
@@ -21,11 +28,52 @@ export interface LocalizedText {
   ru: string;
 }
 
+/**
+ * Технические свойства ключевого слова — то, что в документации обычно
+ * приходится собирать по абзацам: что оно принимает, где выполняется,
+ * во что обходится.
+ */
+export interface KeywordTech {
+  /** Тип и форма аргумента. */
+  argument?: LocalizedText;
+  /** Что действует, если аргумент не указан. */
+  fallback?: LocalizedText;
+  /** Где и когда выполняется: фаза, контекст, место в порядке обработки. */
+  scope?: LocalizedText;
+  /** Во что обходится: сложность, кэш, память. */
+  cost?: LocalizedText;
+  /** Особенности версий и сборок ModSecurity. */
+  availability?: LocalizedText;
+}
+
+export interface KeywordExample {
+  /** Фрагмент конфигурации ModSecurity. */
+  code: string;
+  /** Что именно показывает пример. */
+  caption?: LocalizedText;
+}
+
+/** Развёрнутая подсказка: то, что раскрывается по Alt. */
+export interface KeywordDetails {
+  /** Объяснение на 2–4 предложения вместо одной строки `desc`. */
+  summary: LocalizedText;
+  /** Форма записи в правиле. */
+  syntax?: string;
+  tech?: KeywordTech;
+  /** Грабли: из-за чего правило молча делает не то. */
+  gotchas?: LocalizedText[];
+  example?: KeywordExample;
+  /** Канонические имена связанных ключевых слов. */
+  seeAlso?: string[];
+}
+
 export interface KeywordDoc {
   category: KeywordCategory;
   /** Каноничное написание ключевого слова (без префиксов `@`, `t:`, `!`, `&`). */
   keyword: string;
   desc: LocalizedText;
+  /** Есть не у всех: там, где расширенного текста нет, тултип не растёт по Alt. */
+  details?: KeywordDetails;
 }
 
 type DocsInput = Record<string, LocalizedText>;
@@ -36,7 +84,10 @@ function buildDocs(
 ): Record<string, KeywordDoc> {
   const out: Record<string, KeywordDoc> = {};
   for (const [keyword, desc] of Object.entries(input)) {
-    out[keyword] = { category, keyword, desc };
+    const details = KEYWORD_DETAILS[keyword];
+    out[keyword] = details
+      ? { category, keyword, desc, details }
+      : { category, keyword, desc };
   }
   return out;
 }

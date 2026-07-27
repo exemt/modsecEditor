@@ -68,6 +68,8 @@ export const DIAGNOSTIC_CATALOG = {
   invalidRegex: ['warning', 'structure'],
   missingPhase: ['warning', 'structure'],
   noDisruptive: ['warning', 'structure'],
+  destinationMissing: ['warning', 'structure'],
+  destinationUnexpected: ['warning', 'structure'],
 
   /* --- Логика: проверка значит не то, что кажется ------------------- */
   countWithTransforms: ['warning', 'logic'],

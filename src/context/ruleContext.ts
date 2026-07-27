@@ -33,6 +33,10 @@ export interface RuleContextValue {
   removeBlock: (from: number, to: number) => void;
   /** Добавить новое правило в конец документа. */
   addRule: () => void;
+  /** Вставить копию правила сразу за ним, со свободным `id`. */
+  duplicateRule: (rule: VisualRule) => void;
+  /** Поменять местами два блока документа по их диапазонам утверждений. */
+  swapBlocks: (first: [number, number], second: [number, number]) => void;
   /** Разложить текст по строкам: по одному действию в строке. */
   formatSource: () => void;
   /** false, когда форматировать нечего — текст уже в нужном виде. */

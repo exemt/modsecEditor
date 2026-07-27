@@ -104,7 +104,10 @@ export function actionsToList(
 
   if (actions.id !== '') list.push(action('id', actions.id));
   if (actions.phase !== '') list.push(action('phase', actions.phase));
-  if (actions.disruptive !== '') list.push(action(actions.disruptive));
+  if (actions.disruptive !== '') {
+    const target = actions.disruptiveValue;
+    list.push(action(actions.disruptive, target === '' ? undefined : target));
+  }
   if (actions.status !== '') list.push(action('status', actions.status));
   if (actions.capture) list.push(action('capture'));
 
@@ -225,6 +228,57 @@ export function removeRange(doc: ParsedDocument, from: number, to: number): stri
   return replaceRange(doc, from, to, []);
 }
 
+/**
+ * Вставляет копию правила сразу за оригиналом.
+ *
+ * Копия получает свободный `id`: два правила с одним номером ModSecurity
+ * не примет, а молча оставить дубль номера — значит отдать человеку заведомо
+ * нерабочий файл. Всё остальное, включая описание, копируется как есть:
+ * дублируют обычно ради «почти такого же» правила.
+ */
+export function duplicateRule(doc: ParsedDocument, rule: VisualRule): string {
+  const copy: VisualRule = {
+    ...rule,
+    key: nextKey('rule'),
+    actions: { ...rule.actions, id: nextFreeId(doc) },
+  };
+  const lines = doc.statements.map((s) => s.raw);
+  const tail = rule.tailIndex;
+
+  return [
+    ...lines.slice(0, tail + 1),
+    '',
+    ...emitRule(copy),
+    ...lines.slice(tail + 1),
+  ].join('\n');
+}
+
+/**
+ * Меняет местами два диапазона утверждений.
+ *
+ * Всё, что лежит между ними, остаётся на месте: пустые строки — разделители
+ * блоков, и таскать их за правилом значило бы слипание соседей после первой
+ * же перестановки.
+ */
+export function swapRanges(
+  doc: ParsedDocument,
+  first: [number, number],
+  second: [number, number],
+): string {
+  const [aFrom, aTo] = first;
+  const [bFrom, bTo] = second;
+  if (aFrom > bFrom) return swapRanges(doc, second, first);
+
+  const lines = doc.statements.map((s) => s.raw);
+  return [
+    ...lines.slice(0, aFrom),
+    ...lines.slice(bFrom, bTo + 1),
+    ...lines.slice(aTo + 1, bFrom),
+    ...lines.slice(aFrom, aTo + 1),
+    ...lines.slice(bTo + 1),
+  ].join('\n');
+}
+
 /** Следующий свободный числовой id (max + 1, но не меньше 1000). */
 export function nextFreeId(doc: ParsedDocument): string {
   let max = 999;
@@ -250,6 +304,7 @@ export function makeRule(id: string): VisualRule {
       id,
       phase: '2',
       disruptive: 'deny',
+      disruptiveValue: '',
       status: '403',
       msg: '',
       logdata: '',

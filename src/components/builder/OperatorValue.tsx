@@ -78,6 +78,9 @@ export function OperatorValue({
           <ToggleButton
             size="small"
             value="negate"
+            // Отрицание переворачивает смысл проверки — включённым оно
+            // красное, как и всё, что меняет исход правила.
+            color="error"
             selected={operator.negated}
             onChange={() => onChange({ ...operator, negated: !operator.negated })}
             sx={{ flex: 1, fontWeight: 700 }}

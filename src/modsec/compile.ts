@@ -215,8 +215,12 @@ export function toVisualActions(actions: RuleAction[]): VisualActions {
       case 'chain':
         break;
       default:
-        if (isDisruptive(a.name)) out.disruptive = a.name;
-        else out.extra.push(a);
+        if (isDisruptive(a.name)) {
+          out.disruptive = a.name;
+          // У `redirect` и `proxy` адрес записан значением действия. Взять
+          // одно имя значило бы потерять его при первой же правке в форме.
+          out.disruptiveValue = a.value ?? '';
+        } else out.extra.push(a);
     }
   }
 
