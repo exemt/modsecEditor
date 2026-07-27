@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
@@ -69,9 +68,11 @@ export function PipelinePreview({
     output === null ? null : matchValue(operator, output);
 
   if (!open) {
+    // Кнопка стоит у правого края условия, а не в левой колонке полей:
+    // проверка — действие над готовым условием, и предлагать её нужно там,
+    // где стоят остальные действия, включая правки диагностики.
     return (
-      <>
-        <Divider sx={{ my: 1 }} />
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Button
           size="small"
           color="inherit"
@@ -81,138 +82,139 @@ export function PipelinePreview({
         >
           {t('builder.previewOpen')}
         </Button>
-      </>
+      </Box>
     );
   }
 
   return (
-    <>
-      <Divider sx={{ my: 1 }} />
+    /* Проверка на примере лежит в собственной карточке, темнее блока
+       условия: пример — это отдельный слой поверх правила, а не ещё одна
+       его полоса, и вложенная карточка показывает это на глаз. */
+    <Box
+      sx={{
+        position: 'relative',
+        p: 2,
+        // Справа освобождено место под крестик, чтобы поля не уходили
+        // под него на узкой карточке.
+        pr: 5,
+        // Карточка не тянется во всю ширину условия: там она упирается в
+        // его правый край, а он при тесном окне уезжает за видимую
+        // область вместе с крестиком. Ширины хватает и полю, и строкам
+        // конвейера — они переносятся.
+     
+        borderRadius: 1,
+        bgcolor: 'background.default',
+        // Рамка есть всегда, но видна только у сломанной проверки: иначе
+        // карточка дёргалась бы на пиксель при удалении последнего шага.
+        border: 1,
+        borderColor: empty ? 'error.main' : 'transparent',
+      }}
+    >
+      {/* Закрывается проверка крестиком внутри карточки: кнопка, которой
+          её открыли, к этому моменту уже уступила ей место. Крестик стоит
+          вне колонки содержимого — иначе он занял бы в ней строку. */}
+      <Tooltip title={t('builder.previewClose')}>
+        <IconButton
+          size="small"
+          onClick={() => onOpenChange(false)}
+          sx={{ position: 'absolute', top: 4, right: 4, color: 'text.disabled' }}
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
 
-      {/* Проверка на примере лежит в собственной карточке, темнее блока
-          условия: пример — это отдельный слой поверх правила, а не ещё
-          одна его полоса, и вложенная карточка показывает это на глаз. */}
-      <Box
-        sx={{
-          position: 'relative',
-          p: 1.25,
-          // Справа освобождено место под крестик, чтобы поля не уходили
-          // под него на узкой карточке.
-          pr: 5,
-          borderRadius: 1,
-          bgcolor: 'background.default',
-          // Рамка есть всегда, но видна только у сломанной проверки: иначе
-          // карточка дёргалась бы на пиксель при удалении последнего шага.
-          border: 1,
-          borderColor: empty ? 'error.main' : 'transparent',
-        }}
-      >
-        {/* Закрывается проверка крестиком внутри карточки: кнопка, которой
-            её открыли, к этому моменту уже уступила ей место. Крестик стоит
-            вне колонки содержимого — иначе он занял бы в ней строку. */}
-        <Tooltip title={t('builder.previewClose')}>
-          <IconButton
-            size="small"
-            onClick={() => onOpenChange(false)}
-            sx={{ position: 'absolute', top: 4, right: 4, color: 'text.disabled' }}
-          >
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+      <Stack spacing={1.25}>
+        {/* Сообщение выглядит как замечание диагностики: цветной значок и
+            обычный текст. Проверка сломана так же, как ломается правило, и
+            узнаваться это должно с того же взгляда. */}
+        {empty && (
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+            <ErrorOutlineIcon fontSize="small" color="error" />
+            <Typography variant="body2">{t('builder.previewNoTransforms')}</Typography>
+          </Stack>
+        )}
 
-        <Stack spacing={1.25}>
-          {/* Сообщение выглядит как замечание диагностики: цветной значок и
-              обычный текст. Проверка сломана так же, как ломается правило, и
-              узнаваться это должно с того же взгляда. */}
-          {empty && (
-            <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
-              <ErrorOutlineIcon fontSize="small" color="error" />
-              <Typography variant="body2">{t('builder.previewNoTransforms')}</Typography>
-            </Stack>
-          )}
+        <TextField
+          size="small"
+          fullWidth
+          autoFocus
+          label={t('builder.previewSample')}
+          // Пояснение нужно только пустому полю: как только пример набран,
+          // на вопрос «что сюда писать» отвечают строки ниже.
+          helperText={sample === '' ? t('builder.previewHint') : undefined}
+          // Подсказкой стоит то, что ищет оператор: чаще всего проверить
+          // хотят именно его — и сразу увидеть, доживёт ли оно до сравнения.
+          placeholder={operator.argument}
+          value={sample}
+          onChange={(event) => setSample(event.target.value)}
+          slotProps={{
+            inputLabel: { shrink: true },
+            htmlInput: { autoComplete: 'off', spellCheck: false },
+            input: { sx: { fontFamily: MONO } },
+          }}
+          // Поле не растягивается на всю ширину условия: пример — вопрос к
+          // правилу, а не его часть, и выглядеть весомее самих полей правила
+          // он не должен.
+          sx={{ maxWidth: 560 }}
+        />
 
-          <TextField
-            size="small"
-            fullWidth
-            autoFocus
-            label={t('builder.previewSample')}
-            // Пояснение нужно только пустому полю: как только пример набран,
-            // на вопрос «что сюда писать» отвечают строки ниже.
-            helperText={sample === '' ? t('builder.previewHint') : undefined}
-            // Подсказкой стоит то, что ищет оператор: чаще всего проверить
-            // хотят именно его — и сразу увидеть, доживёт ли оно до сравнения.
-            placeholder={operator.argument}
-            value={sample}
-            onChange={(event) => setSample(event.target.value)}
-            slotProps={{
-              inputLabel: { shrink: true },
-              htmlInput: { autoComplete: 'off', spellCheck: false },
-              input: { sx: { fontFamily: MONO } },
+        {!empty && sample !== '' && (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, auto) minmax(0, 1fr)',
+              columnGap: 2,
+              rowGap: 0.5,
+              px: 1,
+              py: 0.5,
             }}
-            // Поле не растягивается на всю ширину условия: пример — вопрос к
-            // правилу, а не его часть, и выглядеть весомее самих полей правила
-            // он не должен.
-            sx={{ maxWidth: 560 }}
-          />
+          >
+            <Line label={t('builder.previewInput')} value={showBytes(input)} />
 
-          {!empty && sample !== '' && (
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, auto) minmax(0, 1fr)',
-                columnGap: 2,
-                rowGap: 0.5,
-                px: 1,
-                py: 0.5,
-              }}
-            >
-              <Line label={t('builder.previewInput')} value={showBytes(input)} />
-
-              {steps.map((step, index) => {
-                // Значение показывается только когда оно новое: повторить
-                // предыдущую строку — значит заставить сличать их глазами,
-                // хотя ответ «шаг ничего не сделал» уже известен.
-                if (step.unchanged) {
-                  return (
-                    <Line
-                      key={`${step.name}-${index}`}
-                      label={`t:${step.name}`}
-                      note={t('builder.previewUnchanged')}
-                    />
-                  );
-                }
-                if (step.value === null) {
-                  return (
-                    <Line
-                      key={`${step.name}-${index}`}
-                      label={`t:${step.name}`}
-                      note={step.reproducible ? undefined : t('builder.previewOpaque')}
-                    />
-                  );
-                }
-                const shown = showBytes(step.value);
+            {steps.map((step, index) => {
+              // Значение показывается только когда оно новое: повторить
+              // предыдущую строку — значит заставить сличать их глазами,
+              // хотя ответ «шаг ничего не сделал» уже известен.
+              if (step.unchanged) {
                 return (
                   <Line
                     key={`${step.name}-${index}`}
                     label={`t:${step.name}`}
-                    value={shown === '' ? undefined : shown}
-                    note={shown === '' ? t('builder.previewEmptyValue') : undefined}
+                    note={t('builder.previewUnchanged')}
                   />
                 );
-              })}
-
-              {verdict !== null && (
+              }
+              if (step.value === null) {
+                return (
+                  <Line
+                    key={`${step.name}-${index}`}
+                    label={`t:${step.name}`}
+                    note={step.reproducible ? undefined : t('builder.previewOpaque')}
+                  />
+                );
+              }
+              const shown = showBytes(step.value);
+              return (
                 <Line
-                  label={`${operator.negated ? '!' : ''}@${operator.name} ${operator.argument}`.trim()}
-                  note={t(VERDICT_KEY[verdict])}
-                  noteColor={VERDICT_COLOR[verdict]}
+                  key={`${step.name}-${index}`}
+                  label={`t:${step.name}`}
+                  value={shown === '' ? undefined : shown}
+                  note={shown === '' ? t('builder.previewEmptyValue') : undefined}
                 />
-              )}
-            </Box>
-          )}
-        </Stack>
-      </Box>
-    </>
+              );
+            })}
+
+            {verdict !== null && (
+              <Line
+                label={`${operator.negated ? '!' : ''}@${operator.name} ${operator.argument}`.trim()}
+                note={t(VERDICT_KEY[verdict])}
+                noteColor={VERDICT_COLOR[verdict]}
+              />
+            )}
+          </Box>
+        )}
+      </Stack>
+    </Box>
   );
 }
 

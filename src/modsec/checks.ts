@@ -179,6 +179,16 @@ const USER_CONTROLLED = new Set([
   'RESPONSE_BODY',
 ]);
 
+/**
+ * Хранилища, тип значений которых задаёт не движок, а автор правил.
+ *
+ * В `TX:anomaly_score` лежит число, в `TX:msg` — строка, и по имени
+ * коллекции узнать это нельзя: что положил `setvar`, то там и лежит.
+ * Числовое сравнение с такой целью — обычный приём накопительной оценки,
+ * поэтому тип входа у них не проверяется вовсе.
+ */
+const UNTYPED_COLLECTIONS = new Set(['TX', 'IP', 'SESSION', 'USER', 'ENV', 'GEO']);
+
 /** Цель заполняется только при включённом разборе тела запроса. */
 const REQUEST_BODY_TARGETS = new Set([
   'REQUEST_BODY',
@@ -622,7 +632,13 @@ function checkOperator(
   if (meta.arg === 'number' && value !== '' && !isNumeric(value) && !isMacro(value)) {
     diag.report('nonNumericArgument', 'operator', { name });
   }
-  if (!meta.inputs.includes(constraints.inputKind)) {
+  // Подсчёт (`&TX:...`) — снова число, известное наверняка, поэтому
+  // послабление касается только целей, читающих само значение.
+  const knownInput = !condition.targets.some(
+    (target) =>
+      !target.excludeOnly && !target.count && UNTYPED_COLLECTIONS.has(target.name),
+  );
+  if (knownInput && !meta.inputs.includes(constraints.inputKind)) {
     diag.report('operatorInputMismatch', 'operator', { name });
   }
   if (VALUE_BLIND_OPERATORS.has(name) && condition.transforms.length > 0) {

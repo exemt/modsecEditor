@@ -43,6 +43,19 @@ async function choose(root: HTMLElement, name: string, text: string) {
   });
 }
 
+/**
+ * Выбирает пример в витрине.
+ *
+ * Витрина — отдельное окно: её нужно открыть, выбрать пример в списке и
+ * подтвердить выбор. Эти три шага повторяются в каждом тесте про примеры.
+ */
+async function pickExample(user: ReturnType<typeof userEvent.setup>, name: string) {
+  // Подпись кнопки перекрыта её же подсказкой — так работает Tooltip в MUI.
+  await user.click(screen.getByRole('button', { name: 'Open the learning examples' }));
+  await user.click(await screen.findByRole('button', { name }));
+  await user.click(screen.getByRole('button', { name: 'Open in the editor' }));
+}
+
 describe('App', () => {
   it('renders the XL modal open by default with the localized title', () => {
     renderApp('en');
@@ -78,11 +91,11 @@ describe('App', () => {
     renderApp('en');
     const editor = () => screen.getByRole('textbox', { name: 'ModSecurity rules editor' });
 
-    await user.click(screen.getByRole('button', { name: 'SQL Injection' }));
+    await pickExample(user, 'SQL Injection');
 
     expect(screen.queryByText('Replace the current text?')).toBeNull();
     await waitFor(() => expect(editor()).toHaveValue(store.getState().rule.source));
-    expect(editor()).not.toHaveValue('');
+    expect(store.getState().rule.source).toContain('@detectSQLi');
   });
 
   it('asks before an example discards edited text', async () => {
@@ -95,7 +108,7 @@ describe('App', () => {
     await user.clear(editor);
     await user.type(editor, 'SecRule ARGS "@rx mine" "id:9001"');
 
-    await user.click(screen.getByRole('button', { name: 'SQL Injection' }));
+    await pickExample(user, 'SQL Injection');
     expect(await screen.findByText('Replace the current text?')).toBeInTheDocument();
 
     // Отказ оставляет работу на месте.
@@ -105,7 +118,7 @@ describe('App', () => {
     );
     expect(editor).toHaveValue('SecRule ARGS "@rx mine" "id:9001"');
 
-    await user.click(screen.getByRole('button', { name: 'SQL Injection' }));
+    await pickExample(user, 'SQL Injection');
     await user.click(await screen.findByRole('button', { name: 'Replace' }));
 
     await waitFor(() => expect(editor.value).not.toContain('mine'));

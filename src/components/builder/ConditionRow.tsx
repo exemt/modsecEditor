@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
@@ -53,6 +54,14 @@ export function ConditionRow({
   // Открыта ли проверка на примере — от этого зависит, отводить ли ей строку
   // в сетке условия, поэтому состояние здесь, а не внутри неё.
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  // Проверка сводит вместе конвейер и оператор, а по отдельности ни о чём не
+  // говорит. Подсчёт `&` её отключает: считается количество элементов, и
+  // примера, который можно было бы прогнать, у такой проверки нет. Пустой
+  // конвейер прячет её так же — но только пока она закрыта: открытую проверку
+  // он не закрывает, а ломает, и она сама об этом скажет.
+  const previewShown =
+    constraints.transformsAllowed && (condition.transforms.length > 0 || previewOpen);
 
   return (
     <Box
@@ -148,21 +157,20 @@ export function ConditionRow({
       />
 
       {/* Замечания идут под всеми тремя полосами: сообщение может касаться
-          их сочетания — например, аргумента и конвейера сразу. */}
+          их сочетания — например, аргумента и конвейера сразу. Своя черта
+          есть у каждого блока подвала: замечания и проверка говорят о разном,
+          и слитый в одну полосу подвал читался бы как одно сообщение. */}
       {diagnostics.length > 0 && (
         <Box sx={{ gridColumn: '1 / -1' }}>
+          <Divider sx={{ mb: 1.5 }} />
           <DiagnosticNotes items={diagnostics} />
         </Box>
       )}
 
-      {/* Проверка на примере — там же, под всем условием: она сводит вместе
-          конвейер и оператор, а по отдельности ни о чём не говорит. Подсчёт
-          `&` её отключает: считается количество элементов, и примера,
-          который можно было бы прогнать, у такой проверки нет. Пустой
-          конвейер прячет её так же — но только пока она закрыта: открытую
-          проверку он не закрывает, а ломает, и она сама об этом скажет. */}
-      {constraints.transformsAllowed && (condition.transforms.length > 0 || previewOpen) && (
+      {/* Проверка на примере — там же, под всем условием. */}
+      {previewShown && (
         <Box sx={{ gridColumn: '1 / -1' }}>
+          <Divider sx={{ mb: 1 }} />
           <PipelinePreview
             transforms={condition.transforms}
             operator={condition.operator}

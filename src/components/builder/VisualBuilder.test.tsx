@@ -308,7 +308,9 @@ describe('VisualBuilder — правки уходят в текст правил
 
   it('не предлагает пример там, где значения нет — при подсчёте &', async () => {
     const user = userEvent.setup();
-    renderBuilder(BAD_BOT);
+    // Правило с конвейером: без шагов проверку не предлагают и так,
+    // и подсчёт было бы не с чем сравнивать.
+    renderBuilder(LOWERCASED);
 
     expect(screen.getByRole('button', { name: 'Проверить на примере' })).toBeInTheDocument();
 

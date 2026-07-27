@@ -208,6 +208,19 @@ describe('compileDocument — warnings do not block the visual editor', () => {
     );
   });
 
+  // Что лежит в переменной транзакции, знает только тот, кто её выставил:
+  // сравнение накопленной оценки с порогом — приём, а не ошибка.
+  it('stays quiet about a numeric comparison against a user-defined store', () => {
+    expect(
+      codes(
+        [
+          'SecAction "id:1001,phase:2,pass,nolog,setvar:tx.score=+5"',
+          'SecRule TX:score "@ge 5" "id:1002,phase:2,deny,msg:\'over\'"',
+        ].join('\n'),
+      ),
+    ).not.toContain('operatorInputMismatch');
+  });
+
   it('warns when "none" is not the first transformation', () => {
     expect(
       codes('SecRule ARGS "@rx foo" "id:1001,phase:2,deny,t:lowercase,t:none"'),
