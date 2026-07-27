@@ -523,6 +523,34 @@ export function operatorsForInput(kind: ValueKind): string[] {
 }
 
 /**
+ * Как называется то, что кладут в поле значения.
+ *
+ * Поле у всех операторов одно и то же, а ждут они разное: `@rx` — выражение,
+ * `@gt` — число, `@ipMatch` — сети, `@pmFromFile` — имя файла. Название типа
+ * стоит в подписи поля, чтобы это не приходилось выводить из оператора.
+ * Слова короткие: подпись стоит в узкой колонке и длинную обрежет.
+ */
+export const OPERATOR_ARG_LABELS: Record<OperatorArg, Label | null> = {
+  none: null,
+  string: { en: 'string', ru: 'строка' },
+  regex: { en: 'regex', ru: 'regex' },
+  number: { en: 'number', ru: 'число' },
+  ipList: { en: 'IP ranges', ru: 'IP-сети' },
+  phrases: { en: 'phrases', ru: 'фразы' },
+  file: { en: 'file', ru: 'файл' },
+  byteRange: { en: 'bytes', ru: 'байты' },
+};
+
+/**
+ * Название типа значения оператора; `null` — значения нет либо оператор
+ * незнаком и обещать что-либо о его аргументе нельзя.
+ */
+export function operatorArgLabel(name: string): Label | null {
+  const meta = operatorMeta(name);
+  return meta === null ? null : OPERATOR_ARG_LABELS[meta.arg];
+}
+
+/**
  * Разделитель списка внутри аргумента оператора; `null` — аргумент цельный.
  *
  * ModSecurity держит такие списки одной строкой: `@ipMatch` перечисляет сети

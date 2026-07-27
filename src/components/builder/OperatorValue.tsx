@@ -11,6 +11,7 @@ import { useI18n } from '../../i18n/useI18n';
 import { OPERATOR_COLUMN, TOGGLE_COLUMN } from './layout';
 import { CONTROL_HEIGHT } from '../../theme';
 import {
+  operatorArgLabel,
   operatorListSeparator,
   operatorMeta,
   splitOperatorArgument,
@@ -54,6 +55,13 @@ export function OperatorValue({
   const separator = operatorListSeparator(operator.name);
   const operatorLabel = label(meta?.label, operator.name);
   const suggestions = operatorValueSuggestions(operator.name, targets, inputKind);
+  // Тип приписан к подписи поля: сам оператор выбран выше и уже уехал в
+  // закрытый список, а по одному слову «Значение» не видно, ждут здесь
+  // выражение, число или список сетей.
+  const argLabel = operatorArgLabel(operator.name);
+  const valueLabel = argLabel
+    ? `${t('builder.value')} (${label(argLabel, '')})`
+    : t('builder.value');
   const choices = operatorChoices(
     inputKind,
     recommendedOperators(targets, inputKind),
@@ -106,7 +114,7 @@ export function OperatorValue({
           size="small"
           fullWidth
           disabled
-          label={t('builder.value')}
+          label={valueLabel}
           placeholder={t('builder.noArgument')}
           value=""
           onCommit={() => {}}
@@ -117,7 +125,7 @@ export function OperatorValue({
         <ChipInput
           fullWidth
           monospace
-          label={t('builder.value')}
+          label={valueLabel}
           placeholder={t('builder.addValue')}
           separators={[separator]}
           suggestions={suggestions}
@@ -133,7 +141,7 @@ export function OperatorValue({
         <LongTextField
           fullWidth
           monospace
-          label={t('builder.value')}
+          label={valueLabel}
           placeholder={t('builder.value')}
           dialogTitle={`${t('builder.value')} — ${operatorLabel}`}
           regex={meta?.arg === 'regex'}

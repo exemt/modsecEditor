@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
+import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { DiagnosticLine } from './diagnostics/DiagnosticLine';
 import { useRule } from '../context/ruleContext';
 import { useI18n } from '../i18n/useI18n';
@@ -12,6 +14,29 @@ import { topicKey } from '../i18n/translations';
 import type { DiagnosticTopic } from '../modsec/compile';
 
 type DebugTab = 'diagnostics' | 'model' | 'parsed';
+
+const OPEN_KEY = 'exeditor.debugOpen';
+
+/**
+ * Развёрнута ли панель. По умолчанию да: разбираться, куда делась
+ * диагностика, хуже, чем свернуть панель один раз самому.
+ */
+function readOpen(): boolean {
+  try {
+    return window.localStorage.getItem(OPEN_KEY) !== '0';
+  } catch {
+    // localStorage может быть недоступен (приватный режим) — не падаем.
+    return true;
+  }
+}
+
+function saveOpen(open: boolean): void {
+  try {
+    window.localStorage.setItem(OPEN_KEY, open ? '1' : '0');
+  } catch {
+    // Не сохранилось — панель всё равно слушается до конца сессии.
+  }
+}
 
 /** Моноширинный вывод JSON. */
 function JsonView({ value, empty }: { value: unknown; empty: string }) {
@@ -42,11 +67,16 @@ function JsonView({ value, empty }: { value: unknown; empty: string }) {
  *
  * Диагностика идёт первой не случайно — именно она объясняет, почему
  * визуальный конструктор может быть заблокирован.
+ *
+ * Панель сворачивается до одной строки заголовка, но не исчезает совсем:
+ * сводка об ошибках остаётся на виду, иначе свёрнутая панель молча
+ * скрывала бы то единственное, ради чего её и держат внизу экрана.
  */
 export function DebugPanel() {
   const { t } = useI18n();
   const { parsed, parseError, compiled } = useRule();
   const [tab, setTab] = useState<DebugTab>('diagnostics');
+  const [open, setOpen] = useState(readOpen);
   const [showAdvice, setShowAdvice] = useState(true);
   /** Заглушённые темы. Пусто — показываются все. */
   const [muted, setMuted] = useState<ReadonlySet<DiagnosticTopic>>(new Set());
@@ -67,6 +97,11 @@ export function DebugPanel() {
     (d) => (showAdvice || d.severity !== 'advice') && !muted.has(d.topic),
   );
 
+  const changeOpen = (next: boolean) => {
+    setOpen(next);
+    saveOpen(next);
+  };
+
   const toggleTopic = (topic: DiagnosticTopic) =>
     setMuted((current) => {
       const next = new Set(current);
@@ -77,7 +112,7 @@ export function DebugPanel() {
   return (
     <Box
       sx={{
-        height: '26vh',
+        height: open ? '26vh' : 'auto',
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
@@ -91,9 +126,14 @@ export function DebugPanel() {
         spacing={1}
         sx={{ alignItems: 'center', pr: 1.5, borderBottom: 1, borderColor: 'divider' }}
       >
+        {/* Выбор вкладки у свёрнутой панели означает «покажи мне её»:
+            иначе клик по вкладке не давал бы никакого видимого ответа. */}
         <Tabs
           value={tab}
-          onChange={(_, next: DebugTab) => setTab(next)}
+          onChange={(_, next: DebugTab) => {
+            setTab(next);
+            if (!open) changeOpen(true);
+          }}
           sx={{ minHeight: 36, flex: 1 }}
         >
           <Tab value="diagnostics" label={t('debug.tab.diagnostics')} sx={{ minHeight: 36 }} />
@@ -120,9 +160,21 @@ export function DebugPanel() {
             warnings: String(compiled.warningCount),
           })}
         />
+        <IconButton
+          size="small"
+          onClick={() => changeOpen(!open)}
+          aria-expanded={open}
+          aria-label={t(open ? 'debug.collapse' : 'debug.expand')}
+          title={t(open ? 'debug.collapse' : 'debug.expand')}
+        >
+          <ExpandMoreIcon
+            fontSize="small"
+            sx={{ transform: open ? 'none' : 'rotate(180deg)', transition: 'transform 150ms' }}
+          />
+        </IconButton>
       </Stack>
 
-      {tab === 'diagnostics' && byTopic.length > 1 && (
+      {open && tab === 'diagnostics' && byTopic.length > 1 && (
         <Stack
           direction="row"
           spacing={0.5}
@@ -141,27 +193,29 @@ export function DebugPanel() {
         </Stack>
       )}
 
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', py: 0.5 }}>
-        {tab === 'diagnostics' &&
-          (parseError !== null ? (
-            <Typography variant="body2" color="error.light" sx={{ px: 1.5, py: 1 }}>
-              {parseError}
-            </Typography>
-          ) : shown.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, py: 1 }}>
-              {t('debug.clean')}
-            </Typography>
-          ) : (
-            <Box sx={{ px: 1.5 }}>
-              {shown.map((diagnostic, index) => (
-                <DiagnosticLine key={index} diagnostic={diagnostic} showPlace />
-              ))}
-            </Box>
-          ))}
+      {open && (
+        <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', py: 0.5 }}>
+          {tab === 'diagnostics' &&
+            (parseError !== null ? (
+              <Typography variant="body2" color="error.light" sx={{ px: 1.5, py: 1 }}>
+                {parseError}
+              </Typography>
+            ) : shown.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, py: 1 }}>
+                {t('debug.clean')}
+              </Typography>
+            ) : (
+              <Box sx={{ px: 1.5 }}>
+                {shown.map((diagnostic, index) => (
+                  <DiagnosticLine key={index} diagnostic={diagnostic} showPlace />
+                ))}
+              </Box>
+            ))}
 
-        {tab === 'model' && <JsonView value={compiled.model} empty={t('debug.empty')} />}
-        {tab === 'parsed' && <JsonView value={parsed} empty={t('debug.empty')} />}
-      </Box>
+          {tab === 'model' && <JsonView value={compiled.model} empty={t('debug.empty')} />}
+          {tab === 'parsed' && <JsonView value={parsed} empty={t('debug.empty')} />}
+        </Box>
+      )}
     </Box>
   );
 }
