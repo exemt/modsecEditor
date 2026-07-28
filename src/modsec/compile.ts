@@ -195,6 +195,18 @@ export function toVisualActions(actions: RuleAction[]): VisualActions {
       case 'severity':
         out.severity = a.value ?? '';
         break;
+      case 'ver':
+        out.ver = a.value ?? '';
+        break;
+      case 'rev':
+        out.rev = a.value ?? '';
+        break;
+      case 'maturity':
+        out.maturity = a.value ?? '';
+        break;
+      case 'accuracy':
+        out.accuracy = a.value ?? '';
+        break;
       case 'tag':
         if (a.value) out.tags.push(a.value);
         break;

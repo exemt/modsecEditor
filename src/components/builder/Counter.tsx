@@ -1,6 +1,5 @@
 import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
-import { SeverityIcon } from '../diagnostics/DiagnosticLine';
 import type { Diagnostic } from '../../modsec/diagnostics';
 
 interface CounterProps {
@@ -14,7 +13,7 @@ interface CounterProps {
   count: number;
   /**
    * Худший уровень среди посчитанного — тогда счётчик про замечания, а не
-   * про содержимое блока.
+   * про содержимое блока, и красится по нему.
    */
   severity?: Diagnostic['severity'];
 }
@@ -24,10 +23,8 @@ interface CounterProps {
  *
  * Голое число там читается как загадка, а у «Условий» их два подряд: чипы «1»
  * и «1» выглядят одинаково, но говорят о разном — сколько в цепочке звеньев и
- * сколько о них сказано. Разводит их две вещи. Подсказка называет счёт словами;
- * замечания вдобавок носят значок своего уровня — тот же, что стоит у самого
- * сообщения. Значок отличает счётчики до наведения: навести можно только на то,
- * о чём уже возник вопрос, а вопрос возникает не всегда.
+ * сколько о них сказано. Разводит их подсказка: она называет счёт словами, а
+ * не повторяет цифру.
  */
 export function Counter({ hint, count, severity }: CounterProps) {
   return (
@@ -36,7 +33,6 @@ export function Counter({ hint, count, severity }: CounterProps) {
         size="small"
         variant="outlined"
         color={severity === 'error' ? 'error' : severity === 'warning' ? 'warning' : 'default'}
-        icon={severity === undefined ? undefined : <SeverityIcon severity={severity} />}
         label={count}
       />
     </Tooltip>

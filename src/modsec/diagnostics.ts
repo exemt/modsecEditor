@@ -63,6 +63,7 @@ export const DIAGNOSTIC_CATALOG = {
   selectorNotPortable: ['warning', 'structure'],
   unknownTransform: ['warning', 'structure'],
   unknownAction: ['warning', 'structure'],
+  actionNotEditable: ['warning', 'structure'],
   operatorArgumentRequired: ['warning', 'structure'],
   operatorArgumentUnexpected: ['warning', 'structure'],
   invalidRegex: ['warning', 'structure'],

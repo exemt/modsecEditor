@@ -5,7 +5,6 @@ import Typography from '@mui/material/Typography';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import type { SvgIconProps } from '@mui/material/SvgIcon';
 import { useRule } from '../../context/ruleContext';
 import { useBuilderView } from '../../context/builderViewContext';
 import { useEditorView } from '../../context/editorViewContext';
@@ -15,22 +14,11 @@ import { quickFixFor } from '../../modsec/fixes';
 import { findRule } from '../../modsec/model';
 import type { Diagnostic } from '../../modsec/diagnostics';
 
-/**
- * Значок уровня: ошибка, предупреждение, совет.
- *
- * Остальные свойства уходят в сам значок: чип, который берёт его себе,
- * дописывает своё оформление снаружи, и без передачи значок встал бы у
- * числа вплотную.
- */
-export function SeverityIcon({
-  severity,
-  ...props
-}: SvgIconProps & { severity: Diagnostic['severity'] }) {
-  if (severity === 'error')
-    return <ErrorOutlineIcon fontSize="small" color="error" {...props} />;
-  if (severity === 'warning')
-    return <WarningAmberIcon fontSize="small" color="warning" {...props} />;
-  return <LightbulbOutlinedIcon fontSize="small" color="disabled" {...props} />;
+/** Значок уровня: ошибка, предупреждение, совет. */
+export function SeverityIcon({ severity }: { severity: Diagnostic['severity'] }) {
+  if (severity === 'error') return <ErrorOutlineIcon fontSize="small" color="error" />;
+  if (severity === 'warning') return <WarningAmberIcon fontSize="small" color="warning" />;
+  return <LightbulbOutlinedIcon fontSize="small" color="disabled" />;
 }
 
 interface DiagnosticLineProps {

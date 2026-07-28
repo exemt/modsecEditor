@@ -24,6 +24,7 @@
  * сужена до случая, в котором ошибка почти наверняка настоящая.
  */
 
+import { ACTIONS } from '../components/syntax/modsecKeywords';
 import {
   conditionConstraints,
   hasWholeBase,
@@ -38,6 +39,15 @@ import { isValidIpEntry } from './ip';
 import { reviewRegex } from './regex';
 import type { Diagnostics } from './diagnostics';
 import type { VisualActions, VisualCondition, VisualOperator, VisualTarget } from './model';
+
+/**
+ * Имена действий, известные редактору.
+ *
+ * Список тот же, по которому работает подсветка: держать второй значило бы
+ * получить действие, которое в тексте выделено, а в диагностике объявлено
+ * незнакомым.
+ */
+const KNOWN_ACTIONS = new Set<string>(ACTIONS);
 
 /* ------------------------------------------------------------------ */
 /* Контекст файла                                                      */
@@ -968,7 +978,14 @@ export function checkRule(
   }
 
   for (const action of actions.extra) {
-    diag.report('unknownAction', 'actions', { name: action.name });
+    // Имя из базы ключевых слов — просто действие, которому не нашлось поля
+    // в форме: правило верное, править его придётся текстом. Имени, которого
+    // в базе нет, ModSecurity не знает тоже, и это опечатка — говорить о ней
+    // тем же сообщением значило бы прятать ошибку среди оговорок редактора.
+    const known = KNOWN_ACTIONS.has(action.name);
+    diag.report(known ? 'actionNotEditable' : 'unknownAction', 'actions', {
+      name: action.name,
+    });
   }
 }
 

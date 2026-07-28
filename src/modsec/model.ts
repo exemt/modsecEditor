@@ -63,6 +63,19 @@ export interface VisualActions {
   msg: string;
   logdata: string;
   severity: string;
+  /**
+   * Паспорт правила: версия набора (`ver`), номер ревизии (`rev`) и
+   * самооценка обкатанности и точности (`maturity`, `accuracy`).
+   *
+   * Движок на них не смотрит вовсе — они нужны разбору логов и сборке набора
+   * под выбранный уровень паранойи. В форме стоят рядом с критичностью,
+   * потому что заполняют их из одного соображения: насколько правилу можно
+   * доверять и откуда оно взялось.
+   */
+  ver: string;
+  rev: string;
+  maturity: string;
+  accuracy: string;
   tags: string[];
   capture: boolean;
   /** `log` / `nolog`; `null` — не задано явно. */
@@ -71,7 +84,14 @@ export interface VisualActions {
   auditlog: boolean | null;
   /** Значения `setvar:...` в порядке следования. */
   setvar: string[];
-  /** Действия, которые конструктор не показывает, но обязан сохранить. */
+  /**
+   * Действия, для которых в форме поля нет: `ctl`, `initcol`, `expirevar`,
+   * `skipAfter`, `exec` и подобные.
+   *
+   * Каждое из них меняет поведение — молча их прятать нельзя, поэтому
+   * конструктор показывает их строкой только для чтения, а сохраняет
+   * дословно: правка соседнего поля не должна стоить правилу `ctl`.
+   */
   extra: RuleAction[];
 }
 
@@ -174,6 +194,10 @@ export function emptyActions(): VisualActions {
     msg: '',
     logdata: '',
     severity: '',
+    ver: '',
+    rev: '',
+    maturity: '',
+    accuracy: '',
     tags: [],
     capture: false,
     log: null,

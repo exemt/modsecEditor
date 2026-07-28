@@ -14,7 +14,7 @@
  */
 
 import { dquote, serializeActions, serializeVariableList } from './serialize';
-import { makeCondition, nextKey } from './model';
+import { emptyActions, makeCondition, nextKey } from './model';
 import type {
   VisualActions,
   VisualCondition,
@@ -32,6 +32,16 @@ const CONTINUATION_INDENT = '    ';
 
 function action(name: string, value?: string): RuleAction {
   return { raw: '', name, value, quoted: false };
+}
+
+/**
+ * Действие, значение которого принято писать в кавычках.
+ *
+ * Без кавычек `msg:текст` тоже разберётся, но наборы правил пишут иначе, и
+ * выведенное правило должно выглядеть как соседние в файле.
+ */
+function quotedAction(name: string, value: string): RuleAction {
+  return { raw: '', name, value, quoted: true };
 }
 
 /* ------------------------------------------------------------------ */
@@ -118,14 +128,14 @@ export function actionsToList(
   if (actions.auditlog === true) list.push(action('auditlog'));
   if (actions.auditlog === false) list.push(action('noauditlog'));
 
-  if (actions.msg !== '') list.push({ raw: '', name: 'msg', value: actions.msg, quoted: true });
-  if (actions.logdata !== '') {
-    list.push({ raw: '', name: 'logdata', value: actions.logdata, quoted: true });
-  }
+  if (actions.msg !== '') list.push(quotedAction('msg', actions.msg));
+  if (actions.logdata !== '') list.push(quotedAction('logdata', actions.logdata));
   if (actions.severity !== '') list.push(action('severity', actions.severity));
-  for (const tag of actions.tags) {
-    list.push({ raw: '', name: 'tag', value: tag, quoted: true });
-  }
+  if (actions.ver !== '') list.push(quotedAction('ver', actions.ver));
+  if (actions.rev !== '') list.push(quotedAction('rev', actions.rev));
+  if (actions.maturity !== '') list.push(quotedAction('maturity', actions.maturity));
+  if (actions.accuracy !== '') list.push(quotedAction('accuracy', actions.accuracy));
+  for (const tag of actions.tags) list.push(quotedAction('tag', tag));
   for (const setvar of actions.setvar) list.push(action('setvar', setvar));
 
   list.push(...actions.extra);
@@ -300,22 +310,10 @@ export function makeRule(id: string): VisualRule {
     tailIndex: -1,
     comments: [],
     conditions: [makeCondition()],
-    actions: {
-      id,
-      phase: '2',
-      disruptive: 'deny',
-      disruptiveValue: '',
-      status: '403',
-      msg: '',
-      logdata: '',
-      severity: '',
-      tags: [],
-      capture: false,
-      log: null,
-      auditlog: null,
-      setvar: [],
-      extra: [],
-    },
+    // Заготовка отличается от пустого набора ровно тем, без чего правило не
+    // загрузится или сразу получит замечание: остальные поля перечислять
+    // здесь незачем — новое поле модели не должно требовать правки заготовки.
+    actions: { ...emptyActions(), id, phase: '2', disruptive: 'deny', status: '403' },
   };
 }
 

@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
 import Collapse from '@mui/material/Collapse';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import { ChipInput } from './ChipInput';
 import { ChoiceField } from './ChoiceField';
@@ -18,6 +19,7 @@ import { Section, SECTION_PADDING } from './Section';
 import { SuggestField } from './SuggestField';
 import { ruleActionCount, ruleActionSummary } from './summary';
 import { useI18n } from '../../i18n/useI18n';
+import { serializeAction } from '../../modsec/serialize';
 import { AUDIT_FLAGS, LOG_FLAGS, takesDestination } from '../../modsec/semantics';
 import {
   disruptiveChoices,
@@ -175,6 +177,40 @@ export function ActionsPanel({
         />
       </Stack>
 
+      {/* Действия, для которых поля нет: `ctl`, `initcol`, `expirevar`,
+          `exec`. Каждое меняет поведение правила, поэтому спрятать их за
+          «Ещё» нельзя — правку соседнего поля делают, уже зная, что рядом
+          стоит `ctl:requestBodyAccess=Off`. Правятся они текстом, а здесь
+          их можно прочитать и убрать: удаление — единственная правка,
+          которую конструктор понимает однозначно. */}
+      {actions.extra.length > 0 && (
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ flexWrap: 'wrap', gap: 1, alignItems: 'center' }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            {t('builder.otherActions')}
+          </Typography>
+          {actions.extra.map((item, index) => (
+            <Tooltip key={index} title={t('builder.readOnly')}>
+              <Chip
+                size="small"
+                variant="outlined"
+                label={serializeAction(item)}
+                onDelete={() =>
+                  onChange({
+                    ...actions,
+                    extra: actions.extra.filter((_, i) => i !== index),
+                  })
+                }
+                sx={{ fontFamily: 'ui-monospace, Consolas, monospace' }}
+              />
+            </Tooltip>
+          ))}
+        </Stack>
+      )}
+
       {!alwaysExpanded && (
         <Box>
           <Button size="small" onClick={() => setMoreShown((v) => !v)}>
@@ -233,6 +269,45 @@ export function ActionsPanel({
             />
           </Stack>
 
+          {/* Паспорт правила. Движок эти поля не читает, но набор правил без
+              них не собрать: по `ver` и `rev` разбор логов отличает версию
+              правила, по `maturity` и `accuracy` набор собирают под уровень
+              паранойи. Стоят они рядом с критичностью, потому что заполняют
+              их из одного соображения — насколько правилу можно доверять. */}
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+            <CommitField
+              size="small"
+              label={t('builder.ver')}
+              placeholder="OWASP_CRS/4.0.0"
+              value={actions.ver}
+              onCommit={(ver) => onChange({ ...actions, ver })}
+              sx={{ flex: '1 1 220px' }}
+            />
+            <CommitField
+              size="small"
+              label={t('builder.rev')}
+              value={actions.rev}
+              onCommit={(rev) => onChange({ ...actions, rev })}
+              sx={{ width: 110 }}
+            />
+            <CommitField
+              size="small"
+              label={t('builder.maturity')}
+              placeholder="1–9"
+              value={actions.maturity}
+              onCommit={(maturity) => onChange({ ...actions, maturity })}
+              sx={{ width: 120 }}
+            />
+            <CommitField
+              size="small"
+              label={t('builder.accuracy')}
+              placeholder="1–9"
+              value={actions.accuracy}
+              onCommit={(accuracy) => onChange({ ...actions, accuracy })}
+              sx={{ width: 120 }}
+            />
+          </Stack>
+
           <LongTextField
             fullWidth
             label={t('builder.logdata')}
@@ -253,48 +328,45 @@ export function ActionsPanel({
             onChange={(tags) => onChange({ ...actions, tags })}
           />
 
-          <Stack spacing={0.75}>
-            <Typography variant="body2" color="text.secondary">
-              {t('builder.setvar')}
-            </Typography>
-            {actions.setvar.map((setvar, index) => (
-              <Stack key={index} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-                <LongTextField
-                  fullWidth
-                  monospace
-                  dialogTitle={t('builder.setvar')}
-                  suggestions={SETVAR_SUGGESTIONS}
-                  value={setvar}
-                  onCommit={(value) =>
-                    onChange({
-                      ...actions,
-                      setvar: actions.setvar.map((v, i) => (i === index ? value : v)),
-                    })
-                  }
-                />
-                <IconButton
-                  size="small"
-                  onClick={() =>
-                    onChange({
-                      ...actions,
-                      setvar: actions.setvar.filter((_, i) => i !== index),
-                    })
-                  }
-                >
-                  <CloseIcon fontSize="small" />
-                </IconButton>
-              </Stack>
-            ))}
-            <Box>
-              <Button
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={() => onChange({ ...actions, setvar: [...actions.setvar, ''] })}
-              >
-                setvar
-              </Button>
-            </Box>
-          </Stack>
+          {/* Только правка того, что уже есть в правиле: новое присваивание
+              набирается в текстовой вкладке. Пустой `setvar` не переживает
+              обхода через текст — компиляция отбрасывает действие без
+              значения, — а поле, которое исчезает само, хуже его отсутствия. */}
+          {actions.setvar.length > 0 && (
+            <Stack spacing={0.75}>
+              <Typography variant="body2" color="text.secondary">
+                {t('builder.setvar')}
+              </Typography>
+              {actions.setvar.map((setvar, index) => (
+                <Stack key={index} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                  <LongTextField
+                    fullWidth
+                    monospace
+                    dialogTitle={t('builder.setvar')}
+                    suggestions={SETVAR_SUGGESTIONS}
+                    value={setvar}
+                    onCommit={(value) =>
+                      onChange({
+                        ...actions,
+                        setvar: actions.setvar.map((v, i) => (i === index ? value : v)),
+                      })
+                    }
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={() =>
+                      onChange({
+                        ...actions,
+                        setvar: actions.setvar.filter((_, i) => i !== index),
+                      })
+                    }
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
+              ))}
+            </Stack>
+          )}
         </Stack>
       </Collapse>
     </Stack>

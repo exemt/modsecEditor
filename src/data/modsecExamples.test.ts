@@ -15,7 +15,7 @@ function diagnostics(code: string) {
  * честно об этом говорит — но правила они пишут верные, и без них нельзя
  * показать ни счётчик на адрес, ни переход через блок.
  */
-const ALLOWED: ReadonlySet<DiagnosticCode> = new Set(['unknownAction']);
+const ALLOWED: ReadonlySet<DiagnosticCode> = new Set(['actionNotEditable']);
 
 describe('учебные примеры', () => {
   it('дают уникальные имена и разделы', () => {
