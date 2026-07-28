@@ -1,6 +1,6 @@
 import { parseModsec, parseVariables } from './parser';
 import { serializeStatement, serializeVariableList } from './serialize';
-import { compileDocument } from './compile';
+import { analyzeDocument } from './compile';
 import { emitRule, makeRule } from './emit';
 import { selectorIssue, selectorPattern } from './quoting';
 import type { VisualTarget } from './model';
@@ -15,7 +15,7 @@ function ruleText(target: VisualTarget): string {
 
 /** Цели правила после обратного разбора собственного вывода. */
 function reparsedTargets(target: VisualTarget): VisualTarget[] | null {
-  const block = compileDocument(parseModsec(ruleText(target))).model?.blocks[0];
+  const block = analyzeDocument(parseModsec(ruleText(target))).model?.blocks[0];
   return block?.kind === 'rule' ? block.rule.conditions[0].targets : null;
 }
 
@@ -95,7 +95,7 @@ describe('selectorPattern', () => {
 
 describe('диагностика параметров', () => {
   const codes = (target: VisualTarget) =>
-    compileDocument(parseModsec(ruleText(target))).diagnostics.map((d) => d.code);
+    analyzeDocument(parseModsec(ruleText(target))).diagnostics.map((d) => d.code);
 
   it('предлагает шаблон вместо имени с пробелом', () => {
     const target: VisualTarget = {
@@ -106,7 +106,7 @@ describe('диагностика параметров', () => {
     };
     expect(codes(target)).toContain('selectorNeedsQuotes');
 
-    const diag = compileDocument(parseModsec(ruleText(target))).diagnostics.find(
+    const diag = analyzeDocument(parseModsec(ruleText(target))).diagnostics.find(
       (d) => d.code === 'selectorNeedsQuotes',
     );
     expect(diag?.params?.pattern).toBe('/^my\\x20param$/');

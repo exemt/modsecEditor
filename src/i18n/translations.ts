@@ -113,7 +113,6 @@ const en = {
   'examples.detection-only.note': 'A "deny" that looks like protection while the engine only watches.',
 
   'editor.ariaLabel': 'ModSecurity rules editor',
-  'editor.hint': 'Hover a keyword to see what it does — hold Alt for the full reference.',
 
   'debug.title': 'Debug',
   'debug.tab.diagnostics': 'Diagnostics',
@@ -127,7 +126,10 @@ const en = {
   'debug.adviceShow': 'Show advice',
   'debug.collapse': 'Collapse the panel',
   'debug.expand': 'Expand the panel',
+  'debug.inspecting': 'checking\u2026',
+  'debug.shownOf': 'showing {shown} of {total} — the rest is in the text tab',
   'debug.line': 'line {line}',
+  'debug.inBuilder': 'in the builder',
   'debug.condition': 'condition {index}',
   'debug.blocked': 'Visual editor is blocked until the errors are fixed.',
 
@@ -196,6 +198,7 @@ const en = {
   'builder.operator': 'Operator',
   'builder.value': 'Value',
   'builder.addValue': 'Add value',
+  'builder.ipInvalid': 'Not an IPv4/IPv6 address or CIDR network (e.g. 192.168.1.0/24 or 2001:db8::/32).',
   'builder.negate': 'Invert the result of this check',
   'builder.noArgument': 'This operator takes no value',
   'builder.editInWindow': 'Edit in a window',
@@ -223,6 +226,8 @@ const en = {
   'builder.unset': 'not set',
   'builder.more': 'More',
   'builder.less': 'Less',
+
+  'builder.notes': 'Notes',
 
   'builder.secAction': 'Unconditional action',
   'builder.marker': 'Marker',
@@ -262,6 +267,7 @@ const en = {
   'diag.operatorArgumentUnexpected': 'Operator "@{name}" takes no value.',
   'diag.operatorInputMismatch': 'Operator "@{name}" does not fit the value type of this check.',
   'diag.nonNumericArgument': 'Operator "@{name}" expects a number.',
+  'diag.invalidIpEntry': 'Not an IPv4/IPv6 address or CIDR network: {value}.',
   'diag.invalidRegex': 'The regular expression of "@{name}" is invalid.',
   'diag.transformNoneNotFirst': '"none" resets the pipeline and should come first.',
   'diag.duplicateTransform': 'Transformation "{name}" is applied twice.',
@@ -334,6 +340,14 @@ const en = {
   'builder.destination': 'Destination',
   'builder.collapse': 'Collapse the rule',
   'builder.expand': 'Expand the rule',
+  'builder.collapseBlock': 'Collapse the block',
+  'builder.expandBlock': 'Expand the block',
+  'builder.collapseSection': 'Collapse "{name}"',
+  'builder.expandSection': 'Expand "{name}"',
+  'builder.collapseAll': 'Collapse everything',
+  'builder.expandAll': 'Expand everything',
+  'builder.expandAllSlow': 'Expand everything — on a file this large it takes a while',
+  'builder.expandedOf': '{expanded} of {total} expanded',
   'builder.duplicateRule': 'Duplicate the rule',
   'builder.moveUp': 'Move up',
   'builder.moveDown': 'Move down',
@@ -522,8 +536,6 @@ const ru: Record<TranslationKey, string> = {
   'examples.detection-only.note': '«deny», который выглядит защитой, пока движок только смотрит.',
 
   'editor.ariaLabel': 'Редактор правил ModSecurity',
-  'editor.hint':
-    'Наведите на ключевое слово, чтобы узнать, что оно делает, — Alt раскроет подробности.',
 
   'debug.title': 'Отладка',
   'debug.tab.diagnostics': 'Диагностика',
@@ -537,7 +549,10 @@ const ru: Record<TranslationKey, string> = {
   'debug.adviceShow': 'Показать подсказки',
   'debug.collapse': 'Свернуть панель',
   'debug.expand': 'Развернуть панель',
+  'debug.inspecting': 'проверяем\u2026',
+  'debug.shownOf': 'показано {shown} из {total} — остальное в текстовой вкладке',
   'debug.line': 'строка {line}',
+  'debug.inBuilder': 'в конструкторе',
   'debug.condition': 'условие {index}',
   'debug.blocked': 'Визуальный редактор заблокирован, пока есть ошибки.',
 
@@ -605,6 +620,7 @@ const ru: Record<TranslationKey, string> = {
   'builder.operator': 'Оператор',
   'builder.value': 'Значение',
   'builder.addValue': 'Добавить значение',
+  'builder.ipInvalid': 'Не похоже на IPv4/IPv6-адрес или сеть CIDR (например, 192.168.1.0/24 или 2001:db8::/32).',
   'builder.negate': 'Инвертировать результат проверки',
   'builder.noArgument': 'Оператор не принимает значение',
   'builder.editInWindow': 'Редактировать в окне',
@@ -632,6 +648,8 @@ const ru: Record<TranslationKey, string> = {
   'builder.unset': 'не задано',
   'builder.more': 'Ещё',
   'builder.less': 'Свернуть',
+
+  'builder.notes': 'Замечания',
 
   'builder.secAction': 'Безусловное действие',
   'builder.marker': 'Метка',
@@ -671,6 +689,7 @@ const ru: Record<TranslationKey, string> = {
   'diag.operatorArgumentUnexpected': 'Оператор «@{name}» не принимает значение.',
   'diag.operatorInputMismatch': 'Оператор «@{name}» не подходит к типу значения этой проверки.',
   'diag.nonNumericArgument': 'Оператор «@{name}» ожидает число.',
+  'diag.invalidIpEntry': 'Не похоже на IPv4/IPv6-адрес или сеть CIDR: {value}.',
   'diag.invalidRegex': 'Регулярное выражение оператора «@{name}» некорректно.',
   'diag.transformNoneNotFirst': '«none» сбрасывает конвейер и должно стоять первым.',
   'diag.duplicateTransform': 'Преобразование «{name}» применяется дважды.',
@@ -743,6 +762,14 @@ const ru: Record<TranslationKey, string> = {
   'builder.destination': 'Адрес',
   'builder.collapse': 'Свернуть правило',
   'builder.expand': 'Развернуть правило',
+  'builder.collapseBlock': 'Свернуть блок',
+  'builder.expandBlock': 'Развернуть блок',
+  'builder.collapseSection': 'Свернуть «{name}»',
+  'builder.expandSection': 'Развернуть «{name}»',
+  'builder.collapseAll': 'Свернуть все',
+  'builder.expandAll': 'Раскрыть все',
+  'builder.expandAllSlow': 'Раскрыть все — на файле такого размера это займёт время',
+  'builder.expandedOf': 'Раскрыто {expanded} из {total}',
   'builder.duplicateRule': 'Дублировать правило',
   'builder.moveUp': 'Переместить выше',
   'builder.moveDown': 'Переместить ниже',

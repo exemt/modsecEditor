@@ -6,8 +6,10 @@ import { store } from '../../store';
 import { applyRuleSource } from '../../store/ruleSlice';
 import { I18nProvider } from '../../i18n/I18nProvider';
 import { RuleProvider } from '../../context/RuleProvider';
+import { BuilderViewProvider } from '../../context/BuilderViewProvider';
 import { EditorViewProvider } from '../../context/EditorViewProvider';
 import { setFullList } from './fullList';
+import { EditorToolbar } from '../EditorToolbar';
 import { VisualBuilder } from './VisualBuilder';
 
 const theme = createTheme();
@@ -24,7 +26,13 @@ function renderBuilder(source: string) {
         <ThemeProvider theme={theme}>
           <RuleProvider>
             <EditorViewProvider>
-              <VisualBuilder />
+              {/* Панель режима стоит в строке вкладок, но принадлежит
+                  визуальному режиму: тесты видят её вместе со списком,
+                  как её видит человек. */}
+              <BuilderViewProvider>
+                <EditorToolbar tab="visual" />
+                <VisualBuilder />
+              </BuilderViewProvider>
             </EditorViewProvider>
           </RuleProvider>
         </ThemeProvider>
@@ -34,6 +42,27 @@ function renderBuilder(source: string) {
 }
 
 const source = () => store.getState().rule.source;
+
+/** Документ из `count` однотипных правил с номерами от 1001. */
+function manyRules(count: number): string {
+  const rules: string[] = [];
+  for (let i = 0; i < count; i++) {
+    rules.push(`SecRule ARGS "@rx attack${i}" "id:${1001 + i},phase:2,deny,log"`, '');
+  }
+  return rules.join('\n');
+}
+
+/** Карточка правила с этим номером — по полю номера в её заголовке. */
+function cardOf(id: string): HTMLElement {
+  const field = screen
+    .getAllByRole('textbox', { name: 'ID правила' })
+    .find((input) => (input as HTMLInputElement).value === id);
+  if (field === undefined) throw new Error(`нет карточки правила ${id}`);
+  return field.closest('.MuiPaper-root') as HTMLElement;
+}
+
+const expandedCards = () => screen.queryAllByRole('button', { name: 'Свернуть правило' });
+const collapsedCards = () => screen.queryAllByRole('button', { name: 'Развернуть правило' });
 
 const BAD_BOT = [
   '# Блокируем известного зловредного User-Agent',
@@ -442,6 +471,98 @@ describe('VisualBuilder — правки уходят в текст правил
 
     await waitFor(() => expect(source()).not.toContain('SecRule'));
     expect(source()).not.toContain('Блокируем');
+  });
+});
+
+describe('VisualBuilder — большой файл', () => {
+  it('раскрывает первые десять правил, остальные показывает строкой', () => {
+    renderBuilder(manyRules(13));
+
+    expect(expandedCards()).toHaveLength(10);
+    expect(collapsedCards()).toHaveLength(3);
+  });
+
+  // Проверка идёт по самому DOM, а не по дереву доступности: спрятанное поле
+  // из запросов по роли тоже исчезает, а стоит столько же, сколько показанное.
+  it('не держит в DOM полей свёрнутого правила', () => {
+    renderBuilder(manyRules(13));
+
+    // У свёрнутой карточки остаётся одно поле — номер правила в заголовке.
+    expect(cardOf('1013').querySelectorAll('input')).toHaveLength(1);
+    expect(cardOf('1001').querySelectorAll('input').length).toBeGreaterThan(1);
+  });
+
+  it('сворачивает и раскрывает весь файл разом', async () => {
+    const user = userEvent.setup();
+    renderBuilder(manyRules(13));
+
+    await user.click(screen.getByRole('button', { name: 'Свернуть все' }));
+
+    // Поля отпускаются не в тот же миг: карточка сначала складывается, и
+    // только по концу перехода её содержимое уходит из DOM.
+    await waitFor(
+      () => expect(screen.queryAllByRole('combobox', { name: 'Оператор' })).toHaveLength(0),
+      { timeout: 10_000 },
+    );
+    expect(expandedCards()).toHaveLength(0);
+
+    await user.click(screen.getByRole('button', { name: 'Раскрыть все' }));
+
+    await waitFor(
+      () => expect(screen.getAllByRole('combobox', { name: 'Оператор' })).toHaveLength(13),
+      { timeout: 10_000 },
+    );
+    expect(collapsedCards()).toHaveLength(0);
+  });
+
+  it('считает раскрытые правила в панели', () => {
+    renderBuilder(manyRules(13));
+    expect(screen.getByText('Раскрыто 10 из 13')).toBeInTheDocument();
+  });
+
+  // Раскрытие помнится за номером правила, а не за его местом в файле:
+  // удаление правила выше сдвигает все строки ниже, и привязка к строке
+  // «переехала» бы на соседа.
+  it('держит раскрытие за правилом, а не за его местом в файле', async () => {
+    const user = userEvent.setup();
+    renderBuilder(manyRules(12));
+
+    expect(within(cardOf('1012')).getByRole('button', { name: 'Развернуть правило' }));
+    await user.click(within(cardOf('1012')).getByRole('button', { name: 'Развернуть правило' }));
+    await waitFor(() =>
+      expect(within(cardOf('1012')).getByRole('button', { name: 'Свернуть правило' })),
+    );
+
+    await user.click(within(cardOf('1001')).getByRole('button', { name: 'Удалить правило' }));
+
+    await waitFor(() => expect(source()).not.toContain('id:1001'));
+    expect(within(cardOf('1012')).getByRole('button', { name: 'Свернуть правило' }));
+  });
+
+  it('показывает раскрытым только что добавленное правило', async () => {
+    const user = userEvent.setup();
+    renderBuilder(manyRules(12));
+
+    expect(expandedCards()).toHaveLength(10);
+
+    await user.click(screen.getByRole('button', { name: 'Добавить правило' }));
+
+    await waitFor(() => expect(expandedCards()).toHaveLength(11));
+  });
+
+  /**
+   * Бюджет узлов DOM.
+   *
+   * Развёрнутая карточка — около четырёхсот узлов, и цена свёрнутого вида
+   * целиком в том, что её содержимое размонтировано, а не спрятано. Разница
+   * не видна глазами: потерянный `unmountOnExit` выглядит точно так же, но
+   * возвращает файлу на тысячу правил четыреста тысяч узлов. Поэтому цена
+   * проверяется числом.
+   */
+  it('держит число узлов DOM в пределах бюджета', () => {
+    const { container } = renderBuilder(manyRules(100));
+
+    expect(container.querySelectorAll('*').length).toBeLessThan(10_000);
   });
 });
 

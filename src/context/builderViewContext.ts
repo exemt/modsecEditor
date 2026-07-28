@@ -1,0 +1,101 @@
+import { createContext, useContext } from 'react';
+import type { VisualBlock, VisualModel } from '../modsec/model';
+
+/**
+ * Сколько правил раскрыто, когда документ только открыли.
+ *
+ * Число, а не «все» и не «ни одного»: в файле из трёх правил свёрнутый вид
+ * прячет ровно то, за чем пришли, а в файле из двух тысяч развёрнутый вид
+ * не даёт даже прокрутить страницу. Десяток — это примерно экран работы:
+ * начало файла видно целиком, остальное ждёт, пока о нём спросят.
+ */
+export const INITIALLY_EXPANDED = 10;
+
+/**
+ * Ключ, под которым запоминается раскрытие блока.
+ *
+ * Ключ модели (`block.key`) для этого не годится: он собран из номера
+ * утверждения в файле, поэтому вставка строки выше меняет ключи всех блоков
+ * ниже — и раскрытие «переезжало» бы на соседей после каждой правки. Номер
+ * правила такого недостатка не имеет: в документе, который компилируется, он
+ * есть у каждого правила и ни с кем не совпадает, а если это не так, то
+ * конструктор всё равно заблокирован и запоминать нечего.
+ *
+ * У метки и прочих директив ключа нет вовсе: они занимают одну строку,
+ * сворачивать у них нечего.
+ */
+export function blockExpansionKey(block: VisualBlock): string | null {
+  if (block.kind === 'rule') return block.rule.actions.id || block.key;
+  if (block.kind === 'action') return block.actions.id || block.key;
+  return null;
+}
+
+/** Ключи сворачиваемых блоков в порядке файла, без повторов. */
+export function collapsibleKeys(model: VisualModel | null): string[] {
+  if (model === null) return [];
+  const keys: string[] = [];
+  const seen = new Set<string>();
+  for (const block of model.blocks) {
+    const key = blockExpansionKey(block);
+    if (key === null || seen.has(key)) continue;
+    seen.add(key);
+    keys.push(key);
+  }
+  return keys;
+}
+
+/**
+ * Просьба показать блок: ключ модели плюс счётчик, чтобы повтор тоже сработал.
+ *
+ * Ключ здесь — `block.key`, тот самый, которым адресуется диагностика, а не
+ * ключ раскрытия: просящий знает правило по сообщению об ошибке и о внутренней
+ * бухгалтерии раскрытий знать не должен.
+ */
+export interface RevealBlockRequest {
+  blockKey: string;
+  seq: number;
+}
+
+/**
+ * Что в конструкторе раскрыто.
+ *
+ * Состояние вынесено из карточки в контекст по трём причинам, и каждой из них
+ * хватило бы одной: карточку пересоздаёт любая правка выше по файлу, и своё
+ * состояние она при этом теряет; список умеет раскрыть или свернуть всё сразу,
+ * а для этого решение должно быть общим; наконец, свёрнутая карточка
+ * размонтирована, и спросить её саму, свёрнута ли она, уже не у кого.
+ */
+export interface BuilderViewValue {
+  isExpanded: (key: string) => boolean;
+  toggleExpanded: (key: string) => void;
+  expandAll: () => void;
+  collapseAll: () => void;
+  /** Показать раскрытым тот блок, который появится следующим. */
+  expandNext: () => void;
+  /** Забыть раскрытия: документ заменили целиком. */
+  resetExpanded: () => void;
+  /**
+   * Открыть конструктор, раскрыть правило и подвести к нему.
+   *
+   * Без этого переход по сообщению диагностики упирался бы в виртуализацию:
+   * правило, о котором речь, может быть не только свёрнуто, но и вовсе не
+   * смонтировано, и найти его глазами в списке из двух тысяч строк нельзя.
+   */
+  revealRule: (ruleKey: string) => void;
+  /** Последняя просьба; `null`, пока никто ни о чём не просил. */
+  reveal: RevealBlockRequest | null;
+  /** Сколько блоков раскрыто и сколько их всего — для сводки в панели. */
+  expandedCount: number;
+  collapsibleCount: number;
+}
+
+export const BuilderViewContext = createContext<BuilderViewValue | null>(null);
+
+/** Доступ к состоянию конструктора. Бросает, если вызван вне провайдера. */
+export function useBuilderView(): BuilderViewValue {
+  const ctx = useContext(BuilderViewContext);
+  if (ctx === null) {
+    throw new Error('useBuilderView must be used within a <BuilderViewProvider>');
+  }
+  return ctx;
+}

@@ -1,11 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
 import Popper from '@mui/material/Popper';
-import Tooltip from '@mui/material/Tooltip';
-import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import RedoIcon from '@mui/icons-material/Redo';
-import UndoIcon from '@mui/icons-material/Undo';
 import { tokenize } from './syntax/modsecHighlight';
 import { lookupKeyword, type KeywordDoc } from './syntax/modsecKeywords';
 import KeywordTooltip from './KeywordTooltip';
@@ -59,79 +53,13 @@ function useAltHeld(swallow: boolean): [boolean, (next: boolean) => void] {
   return [held, sync];
 }
 
-/**
- * Отмена и повтор.
- *
- * История общая с конструктором: шаг назад может откатить как набор текста,
- * так и правку из формы. Кнопки стоят рядом с текстом не для красоты —
- * сочетание клавиш само себя не показывает.
- */
-function HistoryButtons() {
-  const { t } = useI18n();
-  const { undo, redo, canUndo, canRedo } = useRule();
-
-  return (
-    <>
-      <Tooltip title={t('toolbar.undo')}>
-        <span>
-          <IconButton
-            className="rule-editor__icon"
-            size="small"
-            disabled={!canUndo}
-            onClick={undo}
-            aria-label={t('toolbar.undo')}
-          >
-            <UndoIcon fontSize="small" />
-          </IconButton>
-        </span>
-      </Tooltip>
-      <Tooltip title={t('toolbar.redo')}>
-        <span>
-          <IconButton
-            className="rule-editor__icon"
-            size="small"
-            disabled={!canRedo}
-            onClick={redo}
-            aria-label={t('toolbar.redo')}
-          >
-            <RedoIcon fontSize="small" />
-          </IconButton>
-        </span>
-      </Tooltip>
-    </>
-  );
-}
-
-/** Кнопка «разложить правило по строкам». */
-function FormatButton() {
-  const { t } = useI18n();
-  const { formatSource, canFormat } = useRule();
-
-  return (
-    <Tooltip title={t(canFormat ? 'toolbar.formatHint' : 'toolbar.formatDone')}>
-      {/* Обёртка нужна, чтобы подсказка работала и у выключенной кнопки. */}
-      <span>
-        <Button
-          className="rule-editor__button"
-          size="small"
-          disabled={!canFormat}
-          onClick={formatSource}
-          startIcon={<AutoFixHighIcon fontSize="small" />}
-        >
-          {t('toolbar.format')}
-        </Button>
-      </span>
-    </Tooltip>
-  );
-}
-
 function RuleEditor() {
   const { t } = useI18n();
   const {
     source,
     setSource,
     formatSource,
-    compiled,
+    analysis,
     undo: undoEdit,
     redo: redoEdit,
   } = useRule();
@@ -154,13 +82,13 @@ function RuleEditor() {
   const marks = useMemo(() => {
     const rank: Record<DiagnosticSeverity, number> = { advice: 0, warning: 1, error: 2 };
     const worst = new Map<number, DiagnosticSeverity>();
-    for (const d of compiled.diagnostics) {
+    for (const d of analysis.diagnostics) {
       if (d.line === undefined) continue;
       const seen = worst.get(d.line);
       if (seen === undefined || rank[d.severity] > rank[seen]) worst.set(d.line, d.severity);
     }
     return worst;
-  }, [compiled.diagnostics]);
+  }, [analysis.diagnostics]);
 
   // Просьба показать строку приходит из панели диагностик. Одной прокрутки
   // мало: среди похожих директив нужно ещё и указать, какая именно, — поэтому
@@ -249,12 +177,6 @@ function RuleEditor() {
 
   return (
     <div className="rule-editor-shell">
-      <div className="rule-editor__toolbar">
-        <HistoryButtons />
-        <FormatButton />
-        <span className="rule-editor__hint">{t('editor.hint')}</span>
-      </div>
-
       <div className="rule-editor">
         <div className="rule-editor__inner">
           {/* Номера строк рисуются построчно, а не одним текстом: только так

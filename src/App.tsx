@@ -1,5 +1,6 @@
 import Box from '@mui/material/Box';
 import Dialog from '@mui/material/Dialog';
+import Divider from '@mui/material/Divider';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Tab from '@mui/material/Tab';
@@ -10,12 +11,14 @@ import Tooltip from '@mui/material/Tooltip';
 import RuleEditor from './components/RuleEditor';
 import { DocumentBar } from './components/DocumentBar';
 import { DebugPanel } from './components/DebugPanel';
+import { EditorToolbar, HistoryButtons } from './components/EditorToolbar';
 import { VisualBuilder } from './components/builder/VisualBuilder';
 import { modsecExamples } from './data/modsecExamples';
 import { useI18n } from './i18n/useI18n';
 import { LOCALE_LABELS, type Locale } from './i18n/translations';
 import { RuleProvider } from './context/RuleProvider';
 import { useRule } from './context/ruleContext';
+import { BuilderViewProvider } from './context/BuilderViewProvider';
 import { EditorViewProvider } from './context/EditorViewProvider';
 import { useEditorView } from './context/editorViewContext';
 import type { EditorTab } from './context/editorViewContext';
@@ -40,8 +43,28 @@ function EditorTabs() {
     <>
       <DocumentBar />
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={tab} onChange={(_, next: EditorTab) => setTab(next)}>
+      {/* Панель режима живёт в строке вкладок, а не над содержимым: своей
+          полосы она не заработала, а вкладки её высоту всё равно задают.
+          Порядок в строке — от общего к частному: история документа, взгляд
+          на него, что умеет этот взгляд, главное действие. */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          pl: 1,
+          borderBottom: 1,
+          borderColor: 'divider',
+        }}
+      >
+        <HistoryButtons />
+        <Divider orientation="vertical" sx={{ height: 20 }} />
+
+        <Tabs
+          value={tab}
+          onChange={(_, next: EditorTab) => setTab(next)}
+          sx={{ flexShrink: 0 }}
+        >
           <Tab value="text" label={t('tab.text')} />
           <Tab
             value="visual"
@@ -53,6 +76,8 @@ function EditorTabs() {
             disabled={visualBlocked && tab !== 'visual'}
           />
         </Tabs>
+
+        <EditorToolbar tab={tab} />
       </Box>
 
       <Box sx={{ flex: 1, minHeight: 0 }}>
@@ -101,8 +126,12 @@ function App() {
       >
         <RuleProvider persist initialSource={modsecExamples[0].code}>
           <EditorViewProvider>
-            <EditorTabs />
-            <DebugPanel />
+            {/* Раскрытие карточек живёт выше вкладок: уйти в текст и вернуться —
+                не повод забыть, какие правила были открыты. */}
+            <BuilderViewProvider>
+              <EditorTabs />
+              <DebugPanel />
+            </BuilderViewProvider>
           </EditorViewProvider>
         </RuleProvider>
       </DialogContent>

@@ -6,6 +6,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useRule } from '../../context/ruleContext';
+import { useBuilderView } from '../../context/builderViewContext';
 import { useEditorView } from '../../context/editorViewContext';
 import { useI18n } from '../../i18n/useI18n';
 import { diagnosticKey, fixKey, slotKey } from '../../i18n/translations';
@@ -42,6 +43,7 @@ export function DiagnosticLine({ diagnostic, showPlace = false }: DiagnosticLine
   const { t } = useI18n();
   const { compiled, updateRule } = useRule();
   const { revealLine } = useEditorView();
+  const { revealRule } = useBuilderView();
   const { anchor } = diagnostic;
 
   // Чинить можно только то, что компилятор разложил в модель: пока в тексте
@@ -87,6 +89,20 @@ export function DiagnosticLine({ diagnostic, showPlace = false }: DiagnosticLine
         <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
           {place.join(' · ')}
         </Typography>
+      )}
+
+      {/* Две ссылки, а не одна: у текста и у конструктора разные сильные
+          стороны, и выбор между ними — за человеком, а не за панелью. */}
+      {showPlace && rule !== null && anchor !== undefined && (
+        <Link
+          component="button"
+          variant="caption"
+          underline="hover"
+          onClick={() => revealRule(anchor.ruleKey)}
+          sx={{ whiteSpace: 'nowrap' }}
+        >
+          {t('debug.inBuilder')}
+        </Link>
       )}
 
       {line !== undefined && (

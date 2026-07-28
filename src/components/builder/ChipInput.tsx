@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
@@ -22,7 +22,14 @@ import type { ChipProps } from '@mui/material/Chip';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { filterSuggestions, useSuggestionList } from './useSuggestionList';
 import { useI18n } from '../../i18n/useI18n';
-import { CONTROL_HEIGHT, DIALOG_FIELD_TOP, FIELD_GUTTER } from '../../theme';
+import {
+  CHIP_HEIGHT,
+  CONTROL_HEIGHT,
+  DIALOG_FIELD_TOP,
+  FIELD_ACTION_HEIGHT,
+  FIELD_ACTION_INSET,
+  FIELD_GUTTER,
+} from '../../theme';
 import type { Suggestion } from '../../modsec/suggestions';
 
 interface ChipInputProps {
@@ -54,10 +61,39 @@ interface ChipInputProps {
   separators?: string[];
   /** Готовые варианты очередного значения; пустой список ничего не меняет. */
   suggestions?: Suggestion[];
+  /**
+   * Проверка отдельного значения — например, что запись похожа на IPv4-
+   * или IPv6-адрес. Без неё все чипы равноправны.
+   */
+  isValueValid?: (value: string) => boolean;
+  /** Что показать про значение, не прошедшее `isValueValid`. */
+  invalidHint?: string;
   monospace?: boolean;
   fullWidth?: boolean;
   sx?: SxProps<Theme>;
 }
+
+/** Просвет между содержимым строки и рядом значков в углу поля. */
+const ACTIONS_GAP = 4;
+
+/**
+ * Высота строки внутри поля — по самому высокому, что в ней стоит: по
+ * служебной кнопке. Чипы и текст ниже и встают в строке по центру.
+ */
+const ROW_HEIGHT = FIELD_ACTION_HEIGHT;
+
+/**
+ * Отступ содержимого сверху и снизу: со строкой он и составляет высоту поля
+ * с одной строкой. Рамка в счёт не идёт — её рисует отдельный слой поверх,
+ * своего места в поле она не занимает.
+ */
+const ROW_PAD = (CONTROL_HEIGHT - ROW_HEIGHT) / 2;
+
+/** Подъём чипа до середины строки: строка выше чипа на просвет между строками. */
+const CHIP_LIFT = (ROW_HEIGHT - CHIP_HEIGHT) / 2;
+
+/** Место под очередное значение, пока его не набрали. */
+const DRAFT_MIN_WIDTH = 60;
 
 /**
  * Разбивает введённый текст на готовые значения.
@@ -92,6 +128,12 @@ function splitValues(raw: string, separators: string[]): string[] {
  * целиком, вставить готовый перечень из чужого конфига или просто прочитать
  * длинный список, не помещающийся в строку, проще текстом — это и делает
  * окно правки за карандашом: те же значения, по одному в строке.
+ *
+ * Опечатка в одном значении списка — самая незаметная из ошибок: остальные
+ * чипы выглядят так же, и найти среди десятка адресов один не-адрес можно
+ * только построчным сравнением. С `isValueValid` сломанный чип краснеет
+ * сам, на своём месте, и подсказывает почему — искать его по всему списку
+ * не нужно.
  */
 export function ChipInput({
   values,
@@ -108,6 +150,8 @@ export function ChipInput({
   renderLabel,
   separators = [],
   suggestions = [],
+  isValueValid,
+  invalidHint,
   monospace = false,
   fullWidth = false,
   sx,
@@ -119,6 +163,32 @@ export function ChipInput({
   // Текст окна правки; `null` — окно закрыто.
   const [text, setText] = useState<string | null>(null);
   const { slotProps, groupBy, renderGroup, renderOption } = useSuggestionList(suggestions);
+
+  // Ряд значков в углу поля стоит вне строк и в переносе чипов не участвует:
+  // иначе при заполнении поля он «плывёт» вслед за последним чипом вместо
+  // того, чтобы стоять на месте. Место в первой строке под него занимает
+  // распорка, а её ширина меряется по самому ряду: значков то один, то три —
+  // крестик списка появляется только с набранным текстом.
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const [actionsWidth, setActionsWidth] = useState(0);
+
+  useEffect(() => {
+    const node = actionsRef.current;
+    if (node === null) {
+      setActionsWidth(0);
+      return;
+    }
+    const observer = new ResizeObserver(([entry]) =>
+      setActionsWidth(entry.contentRect.width),
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  /** Место, отданное значкам в первой строке: сам ряд и просвет до него. */
+  const reserved = actionsWidth === 0 ? 0 : actionsWidth + ACTIONS_GAP;
+
+  const invalidCount = isValueValid ? values.filter((v) => !isValueValid(v)).length : 0;
 
   const commit = (raw: string) => {
     const added = splitValues(raw, separators).filter((v) => !values.includes(v));
@@ -174,6 +244,12 @@ export function ChipInput({
     }
   };
 
+  /**
+   * Есть ли у поля значки в углу: карандаш поля и, со списком подсказок,
+   * крестик со стрелкой самого списка.
+   */
+  const hasActions = dialogTitle !== undefined || suggestions.length > 0;
+
   const editButton = dialogTitle === undefined ? undefined : (
     <InputAdornment position="end">
       <Tooltip title={t('builder.editInWindow')}>
@@ -196,7 +272,7 @@ export function ChipInput({
       size="small"
       fullWidth={fullWidth || params !== undefined}
       disabled={disabled}
-      error={error}
+      error={error || invalidCount > 0}
       sx={params === undefined ? sx : undefined}
     >
       {label !== undefined && (
@@ -222,72 +298,127 @@ export function ChipInput({
           setDraft('');
         }}
         startAdornment={
-          (prefix !== undefined || values.length > 0) && (
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: 0.5,
-                mr: 0.5,
-                // Список чипов сжимается до ширины поля вместо того, чтобы
-                // распирать его: без этого одно длинное значение вылезало за
-                // правую границу поля и лезло на соседнюю полосу условия.
-                minWidth: 0,
-              }}
-            >
-              {prefix}
-              {values.map((value, index) => (
+          <>
+            {/* Распорка отдаёт значкам место в первой строке и только в ней:
+                строку укорачивает всякий обтекаемый блок, который её
+                задевает, поэтому распорке хватает пикселя высоты — второй
+                строки она уже не касается, и та идёт во всю ширину поля.
+                Стоять распорка обязана перед содержимым: блок, встреченный
+                посреди строки, отодвигает не её, а следующие за ней. */}
+            {reserved > 0 && (
+              <Box aria-hidden sx={{ float: 'right', width: `${reserved}px`, height: '1px' }} />
+            )}
+            {prefix}
+            {values.map((value, index) => {
+              const valid = isValueValid === undefined || isValueValid(value);
+              // Длинное значение обрезается многоточием по краю поля.
+              // Прочитать его целиком есть где: окно за карандашом
+              // показывает весь список построчным текстом. Невалидному
+              // значению название добавляется к подсказке — иначе то,
+              // что с ним не так, видно только по цвету.
+              const title = valid
+                ? value
+                : invalidHint === undefined
+                  ? value
+                  : `${value} — ${invalidHint}`;
+              return (
                 <Chip
                   key={`${value}-${index}`}
                   size="small"
-                  color={chipColor}
-                  variant="outlined"
+                  color={valid ? chipColor : 'error'}
+                  variant={valid ? 'outlined' : 'filled'}
                   label={renderLabel === undefined ? value : renderLabel(value)}
                   disabled={disabled}
                   onDelete={() => onChange(values.filter((_, i) => i !== index))}
-                  // Длинное значение обрезается многоточием по краю поля.
-                  // Прочитать его целиком есть где: окно за карандашом
-                  // показывает весь список построчным текстом.
-                  title={value}
-                  sx={{
-                    maxWidth: '100%',
-                    ...(monospace ? { fontFamily: 'ui-monospace, Consolas, monospace' } : {}),
-                  }}
+                  title={title}
+                  sx={monospace ? { fontFamily: 'ui-monospace, Consolas, monospace' } : undefined}
                 />
-              ))}
+              );
+            })}
+          </>
+        }
+        endAdornment={
+          hasActions && (
+            <Box
+              ref={actionsRef}
+              sx={{
+                // Ряд стоит в углу поля вне строк — место ему держит
+                // распорка. Правый край ряда — это край содержимого поля:
+                // от рамки значок отстоит на столько же, на сколько текст.
+                position: 'absolute',
+                top: `${ROW_PAD}px`,
+                right: `${FIELD_ACTION_INSET}px`,
+                height: `${ROW_HEIGHT}px`,
+                display: 'flex',
+                alignItems: 'center',
+                // Вертикальные поля кнопкам сбавляет тема: в обычном поле
+                // ряд стоит в строке текста и не должен делать поле выше
+                // неё. Здесь высоту держит строка, а ряд вынесен из неё —
+                // сбавка осталась бы просто сдвигом на полпикселя.
+                '& .MuiAutocomplete-endAdornment, & .MuiInputAdornment-positionEnd': {
+                  my: 0,
+                },
+              }}
+            >
+              {params?.slotProps.input.endAdornment}
+              {editButton}
             </Box>
           )
         }
-        endAdornment={
-          editButton === undefined && params === undefined ? undefined : (
-            <>
-              {params?.slotProps.input.endAdornment}
-              {editButton}
-            </>
-          )
-        }
         sx={{
-          minHeight: CONTROL_HEIGHT,
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          rowGap: 0.5,
-          // Содержимое поле собирает само, поэтому и отступ держит само —
-          // иначе его левый край не совпадёт с краем соседних полей.
-          px: `${FIELD_GUTTER}px`,
-          py: '2px',
-          // Поле ввода занимает остаток строки и переносится вместе с чипами,
-          // иначе длинный список выталкивал бы каретку за границу.
-          '& .MuiInputBase-input': {
-            flex: '1 1 60px',
-            minWidth: 60,
-            width: 'auto',
-            p: 0,
-            ...(monospace ? { fontFamily: 'ui-monospace, Consolas, monospace' } : {}),
+          // Отступы и раскладку поля со списком MUI считает сам, и его
+          // правила весят три класса — обычному `sx` они не уступают.
+          // Раскладка набора чипов повторяет этот вес, иначе поле с
+          // подсказками и поле без них разъезжаются по отступам.
+          '&.MuiOutlinedInput-root.MuiInputBase-root.MuiInputBase-sizeSmall': {
+            position: 'relative',
+            // Строки поля — обычные строки текста, а не ряды флексбокса:
+            // только их умеет обтекать блок в углу, и только так первая
+            // строка кончается перед значками, а все следующие идут во всю
+            // ширину. Чипы и поле ввода встают в строку как слова.
+            display: 'block',
+            minHeight: CONTROL_HEIGHT,
+            lineHeight: `${ROW_HEIGHT}px`,
+            // Содержимое поле собирает само, поэтому и отступ держит само —
+            // иначе его левый край не совпадёт с краем соседних полей.
+            // Справа содержимое кончается там, где начинается ряд значков.
+            pl: `${FIELD_GUTTER}px`,
+            pr: `${hasActions ? FIELD_ACTION_INSET : FIELD_GUTTER}px`,
+            py: `${ROW_PAD}px`,
+            '& > .MuiChip-root': {
+              verticalAlign: 'top',
+              mt: `${CHIP_LIFT}px`,
+              mr: `${ACTIONS_GAP}px`,
+              // Чип шире первой строки обрезается по её краю, а не уезжает
+              // под неё целиком, оставляя строку из одних значков. В счёт
+              // идёт и просвет справа от самого чипа: строку он занимает
+              // так же, как чип, и без него длинный чип в неё не влезает.
+              maxWidth: `calc(100% - ${reserved + ACTIONS_GAP}px)`,
+            },
+            // Поле ввода идёт за последним чипом и переносится вместе с
+            // ними. Ширину берёт по набранному — `field-sizing`: строку
+            // впустую оно не занимает, а конец длинного значения не прячет.
+            '& .MuiInputBase-input': {
+              display: 'inline-block',
+              verticalAlign: 'top',
+              // Высота — в строку: своя высота поля ввода у MUI на пару
+              // пикселей ниже, и набранное значение вставало над чипами.
+              height: `${ROW_HEIGHT}px`,
+              width: 'auto',
+              minWidth: DRAFT_MIN_WIDTH,
+              maxWidth: '100%',
+              fieldSizing: 'content',
+              p: 0,
+              ...(monospace ? { fontFamily: 'ui-monospace, Consolas, monospace' } : {}),
+            },
           },
         }}
       />
-      {helperText !== undefined && <FormHelperText>{helperText}</FormHelperText>}
+      {invalidCount > 0 && invalidHint !== undefined ? (
+        <FormHelperText>{invalidHint}</FormHelperText>
+      ) : (
+        helperText !== undefined && <FormHelperText>{helperText}</FormHelperText>
+      )}
     </FormControl>
   );
 

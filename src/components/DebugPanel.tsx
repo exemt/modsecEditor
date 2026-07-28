@@ -18,6 +18,16 @@ type DebugTab = 'diagnostics' | 'model' | 'parsed';
 const OPEN_KEY = 'exeditor.debugOpen';
 
 /**
+ * Сколько сообщений панель рисует.
+ *
+ * Три тысячи сообщений не читает никто, а нарисовать их стоит примерно как
+ * весь остальной редактор. Двести — это заметно больше, чем можно осмотреть
+ * за один раз, поэтому потолок не мешает работать, а остаток честно назван
+ * числом: «показано 200 из 2995» — это ответ, а тишина была бы обманом.
+ */
+const SHOWN_LIMIT = 200;
+
+/**
  * Развёрнута ли панель. По умолчанию да: разбираться, куда делась
  * диагностика, хуже, чем свернуть панель один раз самому.
  */
@@ -74,7 +84,7 @@ function JsonView({ value, empty }: { value: unknown; empty: string }) {
  */
 export function DebugPanel() {
   const { t } = useI18n();
-  const { parsed, parseError, compiled } = useRule();
+  const { parsed, parseError, compiled, analysis } = useRule();
   const [tab, setTab] = useState<DebugTab>('diagnostics');
   const [open, setOpen] = useState(readOpen);
   const [showAdvice, setShowAdvice] = useState(true);
@@ -85,17 +95,18 @@ export function DebugPanel() {
   // встретились: показывать все семь, когда заняты две, незачем.
   const byTopic = useMemo(() => {
     const counts = new Map<DiagnosticTopic, number>();
-    for (const d of compiled.diagnostics) {
+    for (const d of analysis.diagnostics) {
       counts.set(d.topic, (counts.get(d.topic) ?? 0) + 1);
     }
     return [...counts.entries()];
-  }, [compiled.diagnostics]);
+  }, [analysis.diagnostics]);
 
   // Советы и целые темы можно убрать: при переносе чужого набора правил
   // замечания о стиле мешают разглядеть настоящие проблемы.
-  const shown = compiled.diagnostics.filter(
+  const matching = analysis.diagnostics.filter(
     (d) => (showAdvice || d.severity !== 'advice') && !muted.has(d.topic),
   );
+  const shown = matching.slice(0, SHOWN_LIMIT);
 
   const changeOpen = (next: boolean) => {
     setOpen(next);
@@ -140,25 +151,37 @@ export function DebugPanel() {
           <Tab value="model" label={t('debug.tab.model')} sx={{ minHeight: 36 }} />
           <Tab value="parsed" label={t('debug.tab.parsed')} sx={{ minHeight: 36 }} />
         </Tabs>
-        {compiled.adviceCount > 0 && (
+        {analysis.adviceCount > 0 && (
           <Chip
             size="small"
             variant={showAdvice ? 'filled' : 'outlined'}
             onClick={() => setShowAdvice((v) => !v)}
             title={t(showAdvice ? 'debug.adviceHide' : 'debug.adviceShow')}
-            label={t('debug.advice', { advice: String(compiled.adviceCount) })}
+            label={t('debug.advice', { advice: String(analysis.adviceCount) })}
           />
         )}
         {/* Совет не влияет на цвет сводки: зелёный здесь значит «работает
             так, как написано», а не «написано идеально». */}
         <Chip
           size="small"
-          color={compiled.errorCount > 0 ? 'error' : compiled.warningCount > 0 ? 'warning' : 'success'}
+          color={
+            analysis.errorCount > 0
+              ? 'error'
+              : analysis.warningCount > 0
+                ? 'warning'
+                : 'success'
+          }
           variant="outlined"
-          label={t('debug.summary', {
-            errors: String(compiled.errorCount),
-            warnings: String(compiled.warningCount),
-          })}
+          // Пока проход идёт, счётчик неполон, и сводка говорит об этом сама:
+          // «ошибок нет» и «пока не нашли» — разные новости.
+          label={
+            analysis.inspecting
+              ? t('debug.inspecting')
+              : t('debug.summary', {
+                  errors: String(analysis.errorCount),
+                  warnings: String(analysis.warningCount),
+                })
+          }
         />
         <IconButton
           size="small"
@@ -209,6 +232,14 @@ export function DebugPanel() {
                 {shown.map((diagnostic, index) => (
                   <DiagnosticLine key={index} diagnostic={diagnostic} showPlace />
                 ))}
+                {matching.length > shown.length && (
+                  <Typography variant="caption" color="text.secondary" sx={{ py: 1 }}>
+                    {t('debug.shownOf', {
+                      shown: String(shown.length),
+                      total: String(matching.length),
+                    })}
+                  </Typography>
+                )}
               </Box>
             ))}
 

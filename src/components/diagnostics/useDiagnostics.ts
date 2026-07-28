@@ -1,19 +1,19 @@
-import { useMemo } from 'react';
 import { useRule } from '../../context/ruleContext';
 import type { Diagnostic } from '../../modsec/diagnostics';
+
+const NONE: Diagnostic[] = [];
 
 /**
  * Все сообщения одного правила — и о его звеньях, и о его действиях.
  *
  * Карточка правила берёт список один раз и раздаёт по местам сама: так
- * каждое поле не перебирает диагностику всего файла заново.
+ * каждое поле не перебирает диагностику всего файла заново. По той же причине
+ * раскладка по правилам считается разом при разборе документа, а не каждой
+ * карточкой отдельно.
  */
 export function useRuleDiagnostics(ruleKey: string): Diagnostic[] {
-  const { compiled } = useRule();
-  return useMemo(
-    () => compiled.diagnostics.filter((d) => d.anchor?.ruleKey === ruleKey),
-    [compiled.diagnostics, ruleKey],
-  );
+  const { analysis } = useRule();
+  return analysis.byRule.get(ruleKey) ?? NONE;
 }
 
 /**

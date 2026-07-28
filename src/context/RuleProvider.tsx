@@ -16,6 +16,7 @@ import { formatDocument } from '../modsec/format';
 import type { ParsedDocument } from '../modsec/types';
 import type { VisualRule } from '../modsec/model';
 import { RuleContext } from './ruleContext';
+import { useInspection } from './useInspection';
 import type { RuleContextValue } from './ruleContext';
 
 interface RuleProviderProps {
@@ -65,6 +66,7 @@ export function RuleProvider({ initialSource, persist, children }: RuleProviderP
   }, [persist, source]);
 
   const compiled = useMemo(() => compileDocument(parsed), [parsed]);
+  const analysis = useInspection(compiled, parsed);
 
   // Актуальная модель для колбэков без пересоздания на каждый рендер.
   const parsedRef = useRef<ParsedDocument | null>(parsed);
@@ -129,6 +131,7 @@ export function RuleProvider({ initialSource, persist, children }: RuleProviderP
       parsed,
       parseError,
       compiled,
+      analysis,
       setSource,
       updateRule,
       replaceLines,
@@ -148,6 +151,7 @@ export function RuleProvider({ initialSource, persist, children }: RuleProviderP
       parsed,
       parseError,
       compiled,
+      analysis,
       setSource,
       updateRule,
       replaceLines,

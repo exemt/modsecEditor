@@ -1,51 +1,11 @@
-/* Панель инструментов не скроллится вместе с текстом, поэтому редактор
-   живёт в колонке: фиксированная шапка + растягивающаяся область кода. */
+/* Область кода растягивается на всю высоту вкладки: органы управления
+   текстовым режимом стоят выше, в строке вкладок, и к редактору не
+   относятся. */
 .rule-editor-shell {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
-}
-
-.rule-editor__toolbar {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 8px;
-  background: #252526;
-  border-bottom: 1px solid #3c3c3c;
-}
-
-/* MUI-кнопка на тёмной подложке: своя палитра вместо темы диалога. */
-.rule-editor__button {
-  color: #cccccc !important;
-  text-transform: none !important;
-  letter-spacing: normal !important;
-}
-.rule-editor__button:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
-}
-.rule-editor__button.Mui-disabled {
-  color: #6e7681 !important;
-}
-
-/* Иконки на тёмной подложке редактора: тема диалога сюда не достаёт. */
-.rule-editor__icon {
-  color: #cccccc !important;
-}
-.rule-editor__icon:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
-}
-.rule-editor__icon.Mui-disabled {
-  color: #5a5a5a !important;
-}
-
-.rule-editor__hint {
-  margin-left: auto;
-  color: #8b8b8b;
-  font-family: system-ui, sans-serif;
-  font-size: 12px;
 }
 
 .rule-editor {

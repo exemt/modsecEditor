@@ -28,11 +28,13 @@ import {
   conditionConstraints,
   hasWholeBase,
   operatorMeta,
+  splitOperatorArgument,
   takesDestination,
   transformMeta,
   variableMeta,
 } from './semantics';
 import { selectorIssue, selectorPattern } from './quoting';
+import { isValidIpEntry } from './ip';
 import { reviewRegex } from './regex';
 import type { Diagnostics } from './diagnostics';
 import type { VisualActions, VisualCondition, VisualOperator, VisualTarget } from './model';
@@ -614,10 +616,9 @@ function checkOperator(
 ): void {
   const { name, argument, negated } = condition.operator;
   const meta = operatorMeta(name);
-  if (!meta) {
-    diag.report('unknownOperator', 'operator', { name });
-    return;
-  }
+  // О незнакомом операторе уже сказано структурной проверкой: без него
+  // неизвестно ни что оператор принимает, ни что отдаёт, и проверять нечем.
+  if (!meta) return;
 
   const value = argument.trim();
   const constraints = conditionConstraints(condition.targets, condition.transforms);
@@ -632,6 +633,10 @@ function checkOperator(
   }
   if (meta.arg === 'number' && value !== '' && !isNumeric(value) && !isMacro(value)) {
     diag.report('nonNumericArgument', 'operator', { name });
+  }
+  if (meta.arg === 'ipList' && value !== '') {
+    const bad = splitOperatorArgument(value, ',').filter((entry) => !isValidIpEntry(entry));
+    if (bad.length > 0) diag.report('invalidIpEntry', 'operator', { value: short(bad.join(', ')) });
   }
   // Подсчёт (`&TX:...`) — снова число, известное наверняка, поэтому
   // послабление касается только целей, читающих само значение.
@@ -744,6 +749,23 @@ function checkRegexArgument(
 }
 
 /**
+ * Структурные проверки условия: то, без чего условия попросту нет.
+ *
+ * Вынесены из смыслового прохода, потому что это единственные его ошибки, а
+ * от ошибок зависит доступность визуальной вкладки. Смысловой проход идёт с
+ * задержкой, и вкладка мигала бы: сперва открылась, потом заблокировалась.
+ */
+export function checkConditionStructure(condition: VisualCondition, diag: Diagnostics): void {
+  if (condition.targets.length === 0) {
+    diag.report('emptyTargets', 'targets');
+    return;
+  }
+
+  const { name } = condition.operator;
+  if (!operatorMeta(name)) diag.report('unknownOperator', 'operator', { name });
+}
+
+/**
  * Проверяет одно условие цепочки.
  *
  * Порядок разделов повторяет порядок чтения правила: что проверяем, чем
@@ -754,10 +776,9 @@ export function checkCondition(
   ctx: ConditionContext,
   diag: Diagnostics,
 ): void {
-  if (condition.targets.length === 0) {
-    diag.report('emptyTargets', 'targets');
-    return;
-  }
+  // Условие без областей проверки разбирать не по чему; сказано о нём в
+  // структурной фазе.
+  if (condition.targets.length === 0) return;
 
   checkTargets(condition, ctx, diag);
   checkTransforms(condition, diag);

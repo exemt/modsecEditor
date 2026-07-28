@@ -1,10 +1,10 @@
 import { parseModsec } from './parser';
-import { compileDocument } from './compile';
+import { analyzeDocument } from './compile';
 import { DIAGNOSTIC_CATALOG } from './diagnostics';
 import type { DiagnosticCode } from './diagnostics';
 
 function codes(source: string): DiagnosticCode[] {
-  return compileDocument(parseModsec(source)).diagnostics.map((d) => d.code);
+  return analyzeDocument(parseModsec(source)).diagnostics.map((d) => d.code);
 }
 
 /** Действия, с которыми правило само по себе не порождает замечаний. */
@@ -98,6 +98,26 @@ describe('проверка срабатывает всегда', () => {
 
   it('ловит сравнение количества с нулём снизу', () => {
     expect(codes(`SecRule &ARGS "@ge 0" "${CLEAN}"`)).toContain('alwaysTrueComparison');
+  });
+});
+
+describe('список IP-адресов', () => {
+  it('ловит опечатку в адресе', () => {
+    expect(codes(`SecRule REMOTE_ADDR "@ipMatch 192.168.1.999" "${CLEAN}"`)).toContain(
+      'invalidIpEntry',
+    );
+  });
+
+  it('молчит про обычную сеть CIDR', () => {
+    expect(
+      codes(`SecRule REMOTE_ADDR "@ipMatch 10.0.0.0/8,2001:db8::/32" "${CLEAN}"`),
+    ).not.toContain('invalidIpEntry');
+  });
+
+  it('молчит про макрос — что в нём окажется, знает только движок', () => {
+    expect(
+      codes(`SecRule REMOTE_ADDR "@ipMatch %{tx.allowed_ips}" "${CLEAN}"`),
+    ).not.toContain('invalidIpEntry');
   });
 });
 
@@ -288,7 +308,7 @@ describe('каталог диагностик', () => {
   // выдавать код с другим уровнем, разойдётся весь фильтр по темам.
   it('выдаёт уровень и тему строго из каталога', () => {
     const source = `SecRule ARGS "@rx .*" "${CLEAN},t:lowercase,t:uppercase"`;
-    for (const diagnostic of compileDocument(parseModsec(source)).diagnostics) {
+    for (const diagnostic of analyzeDocument(parseModsec(source)).diagnostics) {
       const [severity, topic] = DIAGNOSTIC_CATALOG[diagnostic.code];
       expect(diagnostic.severity).toBe(severity);
       expect(diagnostic.topic).toBe(topic);
@@ -296,7 +316,7 @@ describe('каталог диагностик', () => {
   });
 
   it('привязывает сообщение к звену цепочки и к полю правила', () => {
-    const result = compileDocument(
+    const result = analyzeDocument(
       parseModsec(
         [
           `SecRule ARGS "@rx \\d+" "${CLEAN},chain"`,

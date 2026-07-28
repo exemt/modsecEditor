@@ -1,11 +1,11 @@
 import { parseModsec } from '../modsec/parser';
-import { compileDocument } from '../modsec/compile';
+import { analyzeDocument } from '../modsec/compile';
 import { modsecExamples } from './modsecExamples';
 import type { DiagnosticCode } from '../modsec/diagnostics';
 
 /** Замечания к примеру: код и строка — по ним ошибку и ищут. */
 function diagnostics(code: string) {
-  return compileDocument(parseModsec(code)).diagnostics.map((d) => `${d.code}@${d.line ?? '?'}`);
+  return analyzeDocument(parseModsec(code)).diagnostics.map((d) => `${d.code}@${d.line ?? '?'}`);
 }
 
 /**
@@ -27,7 +27,7 @@ describe('учебные примеры', () => {
   // ровно то, ради чего его и открыли.
   it('компилируются без ошибок', () => {
     for (const example of modsecExamples) {
-      const errors = compileDocument(parseModsec(example.code)).diagnostics.filter(
+      const errors = analyzeDocument(parseModsec(example.code)).diagnostics.filter(
         (d) => d.severity === 'error',
       );
       expect({ id: example.id, errors }).toEqual({ id: example.id, errors: [] });

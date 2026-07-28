@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
 import Collapse from '@mui/material/Collapse';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
@@ -13,7 +14,9 @@ import { ChipInput } from './ChipInput';
 import { ChoiceField } from './ChoiceField';
 import { CommitField } from './CommitField';
 import { LongTextField } from './LongTextField';
+import { Section, SECTION_PADDING } from './Section';
 import { SuggestField } from './SuggestField';
+import { ruleActionCount, ruleActionSummary } from './summary';
 import { useI18n } from '../../i18n/useI18n';
 import { AUDIT_FLAGS, LOG_FLAGS, takesDestination } from '../../modsec/semantics';
 import {
@@ -34,7 +37,11 @@ import type { VisualActions } from '../../modsec/model';
 interface ActionsPanelProps {
   actions: VisualActions;
   onChange: (next: VisualActions) => void;
-  /** `SecAction` не имеет условий — прятать нечего, показываем всё сразу. */
+  /**
+   * `SecAction` не имеет условий: панель — всё содержимое его карточки. Своего
+   * заголовка и своей раскрывашки у неё тогда нет — их роль играет шапка
+   * карточки, — а поля показаны сразу: прятать в блоке нечего.
+   */
   alwaysExpanded?: boolean;
   /**
    * Номер правила правится в шапке карточки. Второе поле для того же
@@ -74,7 +81,10 @@ export function ActionsPanel({
   hideId,
 }: ActionsPanelProps) {
   const { t } = useI18n();
-  const [expanded, setExpanded] = useState(false);
+  // Показаны ли редкие поля — журналы, теги, `setvar`. Это не сворачивание
+  // блока целиком, а его вторая половина: у большинства правил эти поля
+  // пусты, и на виду они прячут за собой те, что заполняют всегда.
+  const [moreShown, setMoreShown] = useState(false);
 
   const statusRelevant =
     actions.disruptive === 'deny' || actions.disruptive === 'redirect';
@@ -85,12 +95,8 @@ export function ActionsPanel({
   const log = flagName(actions.log, LOG_FLAGS);
   const auditlog = flagName(actions.auditlog, AUDIT_FLAGS);
 
-  return (
-    <Stack spacing={1.5} sx={{ px: 1, pt: 0.5, pb: 1 }}>
-      <Typography variant="subtitle2" color="text.secondary">
-        {t('builder.actions')}
-      </Typography>
-
+  const body = (
+    <Stack spacing={1.5}>
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
         {!hideId && (
           <CommitField
@@ -171,13 +177,13 @@ export function ActionsPanel({
 
       {!alwaysExpanded && (
         <Box>
-          <Button size="small" onClick={() => setExpanded((v) => !v)}>
-            {expanded ? t('builder.less') : t('builder.more')}
+          <Button size="small" onClick={() => setMoreShown((v) => !v)}>
+            {moreShown ? t('builder.less') : t('builder.more')}
           </Button>
         </Box>
       )}
 
-      <Collapse in={alwaysExpanded || expanded} unmountOnExit>
+      <Collapse in={alwaysExpanded || moreShown} unmountOnExit>
         <Stack spacing={1.5}>
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
             <Box sx={{ width: 200 }}>
@@ -292,5 +298,20 @@ export function ActionsPanel({
         </Stack>
       </Collapse>
     </Stack>
+  );
+
+  // Панель, которая и есть тело карточки, держит её внутреннее поле сама:
+  // блока с заголовком вокруг неё нет, а отступ должен быть тот же.
+  if (alwaysExpanded) return <Box sx={{ p: SECTION_PADDING }}>{body}</Box>;
+
+  return (
+    <Section
+      title={t('builder.actions')}
+      summary={ruleActionSummary(actions)}
+      monospace
+      counters={<Chip size="small" variant="outlined" label={ruleActionCount(actions)} />}
+    >
+      {body}
+    </Section>
   );
 }

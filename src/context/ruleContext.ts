@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { ParsedDocument } from '../modsec/types';
 import type { CompileResult } from '../modsec/compile';
+import type { Analysis } from './useInspection';
 import type { VisualRule } from '../modsec/model';
 
 /**
@@ -18,10 +19,18 @@ export interface RuleContextValue {
   /** Ошибка разбора, если парсер неожиданно упал. */
   parseError: string | null;
   /**
-   * Результат компиляции: модель конструктора и список диагностик.
+   * Результат компиляции: модель конструктора и структурные замечания.
    * `compiled.ok === false` означает, что визуальная вкладка недоступна.
    */
   compiled: CompileResult;
+  /**
+   * Все замечания о документе — структурные и смысловые вместе.
+   *
+   * Отдельно от `compiled`, потому что появляются они в разное время:
+   * структура готова к первому же кадру, смысл на большом файле догоняет
+   * в паузах. Кто показывает список замечаний, берёт его отсюда.
+   */
+  analysis: Analysis;
 
   /** Обновить текст правила (запускает повторный разбор и компиляцию). */
   setSource: (source: string) => void;

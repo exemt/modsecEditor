@@ -1,5 +1,5 @@
 import { parseModsec } from './parser';
-import { compileDocument } from './compile';
+import { analyzeDocument } from './compile';
 import { applyRule } from './emit';
 import { quickFixFor } from './fixes';
 import { findRule } from './model';
@@ -14,7 +14,7 @@ import type { FixKind } from './fixes';
  */
 function applyFix(source: string, code: DiagnosticCode): { text: string; kind: FixKind } {
   const doc = parseModsec(source);
-  const compiled = compileDocument(doc);
+  const compiled = analyzeDocument(doc);
   const diagnostic = compiled.diagnostics.find((d) => d.code === code);
   if (!diagnostic) throw new Error(`нет диагностики ${code}`);
 
@@ -30,7 +30,7 @@ function applyFix(source: string, code: DiagnosticCode): { text: string; kind: F
 /** Правка чинит именно то, на что жаловались, и не ломает остального. */
 function expectFixed(source: string, code: DiagnosticCode): string {
   const { text } = applyFix(source, code);
-  const after = compileDocument(parseModsec(text));
+  const after = analyzeDocument(parseModsec(text));
   expect(after.diagnostics.map((d) => d.code)).not.toContain(code);
   expect(after.errorCount).toBe(0);
   return text;
@@ -189,7 +189,7 @@ describe('правки целей и действий', () => {
 
 describe('границы применимости', () => {
   it('не предлагает правку там, где выбор за автором правила', () => {
-    const compiled = compileDocument(
+    const compiled = analyzeDocument(
       parseModsec('SecRule ARGS "@rx \\d+" "id:1001,phase:2,msg:\'x\'"'),
     );
     const noReaction = compiled.diagnostics.find((d) => d.code === 'noDisruptive');

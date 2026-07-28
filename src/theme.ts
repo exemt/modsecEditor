@@ -11,6 +11,18 @@ import { alpha, createTheme } from '@mui/material/styles';
 export const CONTROL_HEIGHT = 32;
 
 /**
+ * Высота полосы заголовка блока конструктора: одна строка органов управления
+ * плюс поля сверху и снизу.
+ *
+ * Задана числом, а не собрана из содержимого, потому что по ней считаются
+ * распорки виртуализированного списка: чтобы не рисовать тысячу свёрнутых
+ * блоков, надо знать высоту одного заранее, а не после того, как он
+ * нарисовался. Полосу заголовка имеют все блоки — и правило, и метка, и
+ * директива, — поэтому свёрнутый список идёт ровным шагом.
+ */
+export const BLOCK_ROW = CONTROL_HEIGHT + 16;
+
+/**
  * Горизонтальный отступ внутри поля.
  *
  * По нему выравнивается всё содержимое — текст, чипы, плавающая подпись, —
@@ -50,7 +62,24 @@ export const DIALOG_FIELD_TOP = LABEL_LIFT + 3;
 const FIELD_ACTION_ICON = 18;
 const FIELD_ACTION_PAD = 3;
 const FIELD_ACTION_GAP = 2;
-const FIELD_ACTION_INSET = FIELD_GUTTER - 4;
+export const FIELD_ACTION_INSET = FIELD_GUTTER - 4;
+
+/**
+ * Высота кнопки в поле: значок со своими полями.
+ *
+ * Самое высокое в строке поля — эта кнопка, поэтому по ней считается и
+ * высота строки в поле, которое собирает содержимое само: набор чипов
+ * обязан оставить ряду кнопок ровно строку, не больше и не меньше.
+ */
+export const FIELD_ACTION_HEIGHT = FIELD_ACTION_ICON + 2 * FIELD_ACTION_PAD;
+
+/**
+ * Высота чипа-значения.
+ *
+ * Чип ниже строки поля, и поднимать его до её середины приходится тому, кто
+ * строку собирает, — поэтому число нужно не только теме.
+ */
+export const CHIP_HEIGHT = 20;
 
 /**
  * Поле выпадающего списка сверху и снизу.
@@ -63,6 +92,16 @@ export const LIST_PADDING = 4;
 
 /** Ширина полосы, которой список отмечает уже выбранный вариант. */
 const LIST_ACCENT = 2;
+
+/**
+ * Поле вокруг значка в иконочной кнопке.
+ *
+ * Число нужно не только теме: тот, кто собирает из таких кнопок ряд, считает
+ * по нему свои отступы. Просвет разметки складывается с этим полем, поэтому
+ * одинаковые на вид отступы дают разные просветы — до подписи один, между
+ * значками вдвое больший, — и вычитать поле приходится там, где ряд строится.
+ */
+export const ICON_BUTTON_PAD = 4;
 
 /**
  * Скругление углов. Правило ModSecurity — техническая конструкция из
@@ -264,7 +303,7 @@ export const theme = createTheme({
     // сетки, и круглая подсветка при наведении выпадает из этих колонок.
     MuiIconButton: {
       defaultProps: { size: 'small' },
-      styleOverrides: { sizeSmall: { padding: 4, borderRadius: RADIUS } },
+      styleOverrides: { sizeSmall: { padding: ICON_BUTTON_PAD, borderRadius: RADIUS } },
     },
 
     // Кнопка внутри поля не задаёт его высоту. Иконка с полями кнопки выше
@@ -311,7 +350,7 @@ export const theme = createTheme({
     MuiChip: {
       defaultProps: { size: 'small' },
       styleOverrides: {
-        sizeSmall: { height: 20, borderRadius: RADIUS - 1 },
+        sizeSmall: { height: CHIP_HEIGHT, borderRadius: RADIUS - 1 },
         label: ({ ownerState }) =>
           ownerState.size === 'small' ? { paddingLeft: 6, paddingRight: 6 } : {},
         deleteIcon: ({ ownerState }) =>

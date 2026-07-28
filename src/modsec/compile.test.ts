@@ -1,10 +1,17 @@
 import { parseModsec } from './parser';
-import { compileDocument, groupTargets } from './compile';
+import { analyzeDocument, compileDocument, groupTargets } from './compile';
 import type { DiagnosticCode } from './compile';
 import type { VisualRule } from './model';
 
+/**
+ * Полный разбор документа: структура и смысл вместе.
+ *
+ * Приложение ведёт смысловой проход отдельно и с задержкой, но проверять
+ * его отдельно от компиляции здесь незачем: тесту нужен ответ о документе
+ * целиком.
+ */
 function compile(source: string) {
-  return compileDocument(parseModsec(source));
+  return analyzeDocument(parseModsec(source));
 }
 
 function codes(source: string): DiagnosticCode[] {
@@ -155,6 +162,28 @@ describe('compileDocument — blocking errors', () => {
   it('rejects unbalanced quotes', () => {
     expect(codes('SecRule ARGS "@rx foo "id:1001,phase:2,deny"')).toContain(
       'unbalancedQuotes',
+    );
+  });
+
+  /**
+   * Все ошибки известны без смыслового прохода.
+   *
+   * От этого зависит вся отложенность: `ok` решает, доступна ли визуальная
+   * вкладка, и решаться это должно сразу. Стоит одной ошибке уехать в
+   * отложенный проход — и вкладка сперва откроется, а потом заблокируется.
+   */
+  it('knows every blocking error from the structure alone', () => {
+    const structural = (source: string) =>
+      compileDocument(parseModsec(source)).diagnostics.map((d) => d.code);
+
+    expect(structural('SecRule ARGS "@nope foo" "id:1001,phase:2,deny"')).toContain(
+      'unknownOperator',
+    );
+    expect(structural('SecRule "" "@rx foo" "id:1001,phase:2,deny"')).toContain('emptyTargets');
+
+    // И наоборот: смысловое замечание в структурную фазу не просочилось.
+    expect(structural('SecRule &ARGS "@gt 10" "id:1001,phase:2,deny,t:lowercase"')).not.toContain(
+      'countWithTransforms',
     );
   });
 });

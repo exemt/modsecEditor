@@ -5,6 +5,7 @@ import {
   screen,
   waitFor,
   waitForElementToBeRemoved,
+  within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
@@ -148,6 +149,47 @@ describe('App', () => {
     await waitFor(() => expect(editor).toHaveFocus());
     const selected = editor.value.slice(editor.selectionStart, editor.selectionEnd);
     expect(selected).toContain('@streq TWO');
+  });
+
+  /**
+   * Второй адрес того же замечания — карточка в конструкторе.
+   *
+   * Правило может быть свёрнуто, а на большом файле — и вовсе не смонтировано,
+   * поэтому «перейти» здесь означает раскрыть его и подвести к нему, а не
+   * просто переключить вкладку.
+   */
+  it('jumps from a diagnostic to its rule in the builder', async () => {
+    const user = userEvent.setup();
+    renderApp('en');
+    const editor = screen.getByRole<HTMLTextAreaElement>('textbox', {
+      name: 'ModSecurity rules editor',
+    });
+
+    await user.clear(editor);
+    // Двенадцать правил: замечание относится к последнему, а раскрытыми
+    // изначально бывают только первые десять.
+    await user.paste(
+      Array.from({ length: 12 }, (_, i) =>
+        i === 11
+          ? 'SecRule ARGS "@streq TWO" "id:12,phase:2,deny,msg:\'z\',t:lowercase"'
+          : `SecRule ARGS "@rx ok" "id:${i + 1},phase:2,deny,msg:'a'"`,
+      ).join('\n'),
+    );
+
+    // Сообщение адресуется строкой, поэтому и ищется по ней: у соседних
+    // правил свои замечания, и «первая ссылка в панели» была бы не той.
+    const lines = await screen.findAllByRole('button', { name: 'line 12' });
+    const row = lines[0].parentElement;
+    if (row === null) throw new Error('сообщение диагностики без строки');
+    await user.click(within(row).getByRole('button', { name: 'in the builder' }));
+
+    // Вкладка сменилась сама, и карточка того самого правила раскрыта:
+    // сообщение видно в поле, а не только в свёрнутой сводке.
+    expect(await screen.findByDisplayValue('z')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Visual' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
   });
 
   // Адрес перенаправления раньше терялся при первой же правке в форме.

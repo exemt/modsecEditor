@@ -17,6 +17,7 @@ import type { ModsecExample } from '../data/modsecExamples';
 import { useI18n } from '../i18n/useI18n';
 import type { TranslationKey } from '../i18n/translations';
 import { useRule } from '../context/ruleContext';
+import { useBuilderView } from '../context/builderViewContext';
 
 type Example = ModsecExample;
 
@@ -35,6 +36,7 @@ const DEFAULT_NAME = 'rules.conf';
 export function DocumentBar() {
   const { t } = useI18n();
   const { source, setSource } = useRule();
+  const { resetExpanded } = useBuilderView();
 
   // Текст на момент последнего открытия или сохранения.
   const [baseline, setBaseline] = useState(modsecExamples[0].code);
@@ -53,10 +55,13 @@ export function DocumentBar() {
   const documentLabel =
     fileName ?? (activeExample === undefined ? null : t(activeExample.labelKey));
 
+  // Новый документ — новый взгляд на него: раскрытые карточки прежнего файла
+  // забываются, и конструктор снова показывает начало.
   const openExample = (example: Example) => {
     setActiveId(example.id);
     setFileName(null);
     setBaseline(example.code);
+    resetExpanded();
     setSource(example.code);
   };
 
@@ -65,6 +70,7 @@ export function DocumentBar() {
     setActiveId(null);
     setFileName(file.name);
     setBaseline(text);
+    resetExpanded();
     setSource(text);
   };
 

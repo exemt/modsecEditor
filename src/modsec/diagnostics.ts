@@ -80,6 +80,7 @@ export const DIAGNOSTIC_CATALOG = {
   excludeWithoutBase: ['warning', 'logic'],
   operatorInputMismatch: ['warning', 'logic'],
   nonNumericArgument: ['warning', 'logic'],
+  invalidIpEntry: ['warning', 'logic'],
   transformNoneNotFirst: ['warning', 'logic'],
   duplicateTransform: ['warning', 'logic'],
   statusWithoutBlock: ['warning', 'logic'],

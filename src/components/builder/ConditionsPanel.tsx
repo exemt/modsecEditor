@@ -1,16 +1,11 @@
-import { useState } from 'react';
-import Accordion from '@mui/material/Accordion';
-import AccordionDetails from '@mui/material/AccordionDetails';
-import AccordionSummary from '@mui/material/AccordionSummary';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Bracket, BracketLine } from './Bracket';
 import { ConditionRow } from './ConditionRow';
+import { Section } from './Section';
 import { conditionSummary } from './summary';
 import { conditionDiagnostics } from '../diagnostics/useDiagnostics';
 import { useI18n } from '../../i18n/useI18n';
@@ -37,7 +32,6 @@ export function ConditionsPanel({
   onChange,
 }: ConditionsPanelProps) {
   const { t } = useI18n();
-  const [expanded, setExpanded] = useState(true);
 
   const replace = (index: number, next: VisualCondition) =>
     onChange(conditions.map((c, i) => (i === index ? next : c)));
@@ -57,75 +51,46 @@ export function ConditionsPanel({
   const preview = conditions.map(conditionSummary).join(`  ${t('builder.and')}  `);
 
   return (
-    <Accordion
-      disableGutters
-      elevation={0}
-      expanded={expanded}
-      onChange={(_, open) => setExpanded(open)}
-      sx={{ bgcolor: 'transparent' }}
-    >
-      <AccordionSummary
-        expandIcon={<ExpandMoreIcon />}
-        // Без этого выжимка распирает заголовок вместо того, чтобы
-        // обрезаться многоточием по его правому краю.
-        sx={{ px: 1, '& .MuiAccordionSummary-content': { minWidth: 0 } }}
-      >
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{ alignItems: 'center', minWidth: 0, flex: 1, pr: 1 }}
-        >
-          <Typography variant="subtitle2" sx={{ flexShrink: 0 }}>
-            {t('builder.conditions')}
-          </Typography>
-          {!expanded && (
-            <>
-              <Chip size="small" variant="outlined" label={conditions.length} />
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                noWrap
-                sx={{ flex: 1, minWidth: 0, fontFamily: 'ui-monospace, Consolas, monospace' }}
-              >
-                {preview}
-              </Typography>
-            </>
-          )}
-          {!expanded && inside.length > 0 && (
+    <Section
+      title={t('builder.conditions')}
+      summary={preview}
+      monospace
+      counters={
+        <>
+          <Chip size="small" variant="outlined" label={conditions.length} />
+          {inside.length > 0 && (
             <Chip size="small" color={worst} variant="outlined" label={inside.length} />
           )}
+        </>
+      }
+    >
+      <Bracket label={t('builder.and')} color="error.main" line="condition">
+        <Stack spacing={1.5}>
+          {conditions.map((condition, index) => (
+            <ConditionRow
+              key={condition.key}
+              condition={condition}
+              diagnostics={conditionDiagnostics(diagnostics, index)}
+              canRemove={conditions.length > 1}
+              onChange={(next) => replace(index, next)}
+              onRemove={() => onChange(conditions.filter((_, i) => i !== index))}
+            />
+          ))}
+
+          {/* Кнопка отмечена как звено цепочки: скобка доводится до неё,
+              и видно, что добавляется ещё одно условие по И. */}
+          <Box sx={{ position: 'relative', display: 'flex' }}>
+            <BracketLine name="condition" height="100%" />
+            <Button
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={() => onChange([...conditions, makeCondition()])}
+            >
+              {t('builder.addCondition')}
+            </Button>
+          </Box>
         </Stack>
-      </AccordionSummary>
-
-      <AccordionDetails sx={{ px: 1, pt: 0 }}>
-        <Bracket label={t('builder.and')} color="error.main" line="condition">
-          <Stack spacing={1.5}>
-            {conditions.map((condition, index) => (
-              <ConditionRow
-                key={condition.key}
-                condition={condition}
-                diagnostics={conditionDiagnostics(diagnostics, index)}
-                canRemove={conditions.length > 1}
-                onChange={(next) => replace(index, next)}
-                onRemove={() => onChange(conditions.filter((_, i) => i !== index))}
-              />
-            ))}
-
-            {/* Кнопка отмечена как звено цепочки: скобка доводится до неё,
-                и видно, что добавляется ещё одно условие по И. */}
-            <Box sx={{ position: 'relative', display: 'flex' }}>
-              <BracketLine name="condition" height="100%" />
-              <Button
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={() => onChange([...conditions, makeCondition()])}
-              >
-                {t('builder.addCondition')}
-              </Button>
-            </Box>
-          </Stack>
-        </Bracket>
-      </AccordionDetails>
-    </Accordion>
+      </Bracket>
+    </Section>
   );
 }

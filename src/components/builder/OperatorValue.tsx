@@ -17,6 +17,7 @@ import {
   splitOperatorArgument,
 } from '../../modsec/semantics';
 import { operatorChoices } from '../../modsec/choices';
+import { isValidIpEntry } from '../../modsec/ip';
 import { operatorValueSuggestions, recommendedOperators } from '../../modsec/suggestions';
 import type { ValueKind } from '../../modsec/semantics';
 import type { VisualOperator, VisualTarget } from '../../modsec/model';
@@ -134,6 +135,10 @@ export function OperatorValue({
           onChange={(values) =>
             onChange({ ...operator, argument: values.join(separator) })
           }
+          // Сеть или адрес — единственный список, форму записи которого
+          // можно проверить саму по себе, без знания, что в неё попадёт.
+          isValueValid={meta?.arg === 'ipList' ? isValidIpEntry : undefined}
+          invalidHint={meta?.arg === 'ipList' ? t('builder.ipInvalid') : undefined}
           sx={{ minWidth: 0 }}
         />
       )}

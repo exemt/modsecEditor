@@ -1,0 +1,155 @@
+import { useState } from 'react';
+import type { ReactNode } from 'react';
+import Box from '@mui/material/Box';
+import ButtonBase from '@mui/material/ButtonBase';
+import Collapse from '@mui/material/Collapse';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { CHEVRON_COLUMN, TITLE_COLUMN } from './layout';
+import { useI18n } from '../../i18n/useI18n';
+import { BLOCK_ROW } from '../../theme';
+
+/**
+ * Внутреннее поле блока — то же, что у шапки карточки.
+ *
+ * Значение нужно не только самому блоку: панель, которая занимает карточку
+ * целиком и обходится без заголовка, обязана отступать на столько же.
+ */
+export const SECTION_PADDING = 1.5;
+
+interface SectionProps {
+  title: string;
+  /**
+   * Строка о содержимом: она видна, пока блок свёрнут. Свёрнутый блок не
+   * должен превращаться в закрытую дверь — по этой строке решают, разворачивать
+   * его или пролистнуть.
+   */
+  summary?: string;
+  /** Выжимка — часть правила, а не проза: её сверяют с текстом файла глазами. */
+  monospace?: boolean;
+  /** Счётчики справа: сколько внутри и сколько об этом сказано. */
+  counters?: ReactNode;
+  /** Развёрнут ли блок при появлении карточки. */
+  defaultExpanded?: boolean;
+  children: ReactNode;
+}
+
+/**
+ * Сворачиваемый блок карточки: условия, действия, замечания.
+ *
+ * Блоки собраны в один компонент, потому что свёрнутыми они обязаны выглядеть
+ * одинаково. Карточка — таблица, а не набор панелей: полоса блока повторяет
+ * шапку правила по высоте и по колонкам — раскрывашка, название, строка о
+ * содержимом, счётчики у правого края. Тогда свёрнутая карточка читается
+ * сверху вниз одним движением, а не тремя разными способами.
+ *
+ * Раскрывашка стоит слева — там же, где у самой карточки. Справа она уезжала
+ * бы вслед за шириной окна, а колонка значков должна быть одна на все уровни.
+ *
+ * Заголовок нажимается целиком: полоса шириной во всю карточку — цель, в
+ * которую не надо попадать.
+ *
+ * Черта сверху есть у каждого блока — она же отделяет первый из них от шапки
+ * карточки, — и вторая появляется у раскрытого, между его полосой и полями.
+ * Так конец содержимого всегда упирается либо в полосу следующего блока, либо
+ * в рамку карточки, и ни одна линия не удваивается.
+ *
+ * Свёрнутый блок отпускает содержимое, а не прячет его. Поля конструктора
+ * дороги, и спрятанное правило стоит столько же, сколько показанное, — то же
+ * решение, что у карточки и у списка блоков.
+ */
+export function Section({
+  title,
+  summary,
+  monospace,
+  counters,
+  defaultExpanded = true,
+  children,
+}: SectionProps) {
+  const { t } = useI18n();
+  const [expanded, setExpanded] = useState(defaultExpanded);
+
+  return (
+    <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
+      <ButtonBase
+        onClick={() => setExpanded((open) => !open)}
+        aria-expanded={expanded}
+        aria-label={t(expanded ? 'builder.collapseSection' : 'builder.expandSection', {
+          name: title,
+        })}
+        sx={{
+          width: '100%',
+          height: BLOCK_ROW,
+          px: SECTION_PADDING,
+          gap: 1,
+          // Заголовок — кнопка, а кнопка центрирует текст: без этого выжимка
+          // о содержимом висела бы посередине полосы, оторванная от названия.
+          textAlign: 'left',
+          // Скругление здесь лишнее: полоса идёт от края до края карточки,
+          // и её углы — это углы самой карточки.
+          borderRadius: 0,
+        }}
+      >
+        <Box
+          sx={{
+            width: CHEVRON_COLUMN,
+            flexShrink: 0,
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
+          {expanded ? (
+            <ExpandMoreIcon fontSize="small" />
+          ) : (
+            <ChevronRightIcon fontSize="small" />
+          )}
+        </Box>
+
+        <Typography variant="subtitle2" noWrap sx={{ width: TITLE_COLUMN, flexShrink: 0 }}>
+          {title}
+        </Typography>
+
+        {expanded || summary === undefined ? (
+          <Box sx={{ flex: 1 }} />
+        ) : (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            noWrap
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              fontFamily: monospace ? 'ui-monospace, Consolas, monospace' : undefined,
+            }}
+          >
+            {summary}
+          </Typography>
+        )}
+
+        {counters !== undefined && (
+          <Stack
+            direction="row"
+            spacing={0.5}
+            sx={{ alignItems: 'center', flexShrink: 0 }}
+          >
+            {counters}
+          </Stack>
+        )}
+      </ButtonBase>
+
+      <Collapse in={expanded} unmountOnExit>
+        <Box
+          sx={{
+            p: SECTION_PADDING,
+            borderTop: 1,
+            borderColor: 'divider',
+          }}
+        >
+          {children}
+        </Box>
+      </Collapse>
+    </Box>
+  );
+}

@@ -9,27 +9,26 @@
  * Здесь остались только структурные проверки: без них правило не загрузится
  * в ModSecurity или не имеет однозначного визуального представления —
  * разорванная цепочка, отсутствующий или дублирующийся `id`, `id` на звене
- * цепочки, непарные кавычки, незнакомая директива. Всё, что касается смысла
- * правила, живёт в `checks.ts` и вызывается отдельным проходом.
+ * цепочки, непарные кавычки, незнакомая директива, условие без областей
+ * проверки или с незнакомым оператором.
  *
- * Проход именно отдельный, а не по ходу разбора: смысловые проверки должны
- * видеть весь файл. `skipAfter` ссылается на метку ниже, `TX:score` кто-то
- * должен был выставить выше, а `SecRuleEngine DetectionOnly` в начале файла
- * меняет смысл каждого `deny` после него.
+ * Всё, что касается смысла правила, живёт в `checks.ts` и вызывается отдельным
+ * проходом из `inspect.ts`. Проход именно отдельный, а не по ходу разбора:
+ * смысловые проверки должны видеть весь файл. `skipAfter` ссылается на метку
+ * ниже, `TX:score` кто-то должен был выставить выше, а `SecRuleEngine
+ * DetectionOnly` в начале файла меняет смысл каждого `deny` после него.
+ *
+ * Ошибок смысловой проход не выдаёт вовсе — и это не совпадение, а условие
+ * его отложенности: `ok` должен быть известен сразу, иначе визуальная вкладка
+ * открывалась бы и через мгновение блокировалась.
  */
 
 import { DIRECTIVES } from '../components/syntax/modsecKeywords';
 import { isDisruptive, isHeadOnlyAction } from './semantics';
 import { Diagnostics } from './diagnostics';
-import {
-  checkCondition,
-  checkDocument,
-  checkRule,
-  conditionSignature,
-  emptyDocumentContext,
-} from './checks';
+import { checkConditionStructure } from './checks';
+import { inspectDocument } from './inspect';
 import { emptyActions } from './model';
-import type { DocumentContext } from './checks';
 import type { Diagnostic } from './diagnostics';
 import type {
   VisualActions,
@@ -60,6 +59,13 @@ export interface CompileResult {
   ok: boolean;
   /** Модель конструктора; `null`, если есть блокирующие ошибки. */
   model: VisualModel | null;
+  /**
+   * Блоки, разложенные компилятором, — даже когда модель заблокирована.
+   *
+   * Смысловому проходу они нужны и в этом случае: правило без `id` в
+   * конструктор не пустят, но сказать о нём всё остальное можно и полезно.
+   */
+  blocks: VisualBlock[];
   diagnostics: Diagnostic[];
   errorCount: number;
   warningCount: number;
@@ -238,65 +244,6 @@ function transformsOf(actions: RuleAction[]): string[] {
 /* Компиляция                                                          */
 /* ------------------------------------------------------------------ */
 
-/* ------------------------------------------------------------------ */
-/* Контекст файла                                                      */
-/* ------------------------------------------------------------------ */
-
-/** Значение директивы-переключателя: `On` — да, `Off` — нет. */
-function toggle(args: string[]): boolean | null {
-  const value = args[0]?.toLowerCase();
-  if (value === 'on') return true;
-  if (value === 'off') return false;
-  return null;
-}
-
-/**
- * Собирает то, что о правилах известно только по остальному файлу.
- *
- * Проход дешёвый и делается до основного: проверкам нужны и метки ниже по
- * файлу, и директивы выше, поэтому откладывать сбор до места использования
- * нельзя.
- */
-function readDocumentContext(statements: ParsedStatement[]): DocumentContext {
-  const context = emptyDocumentContext();
-
-  for (const statement of statements) {
-    if (statement.kind === 'SecMarker') {
-      context.markers.add(statement.label);
-      continue;
-    }
-
-    if (statement.kind === 'directive') {
-      const name = statement.name.toLowerCase();
-      if (name === 'secruleengine') {
-        context.engine = statement.args[0] ?? '';
-        context.engineLine = statement.span.startLine;
-      }
-      if (name === 'secrequestbodyaccess') {
-        context.requestBodyAccess = toggle(statement.args);
-      }
-      if (name === 'secresponsebodyaccess') {
-        context.responseBodyAccess = toggle(statement.args);
-      }
-      continue;
-    }
-
-    if (statement.kind !== 'SecRule' && statement.kind !== 'SecAction') continue;
-
-    for (const action of statement.actions) {
-      if (action.name === 'setvar') {
-        const assigned = /^!?tx[.:]([\w-]+)/i.exec(action.value ?? '');
-        if (assigned) context.transactionVars.add(assigned[1].toLowerCase());
-      }
-      if (action.name === 'ctl' && /^requestBodyProcessor=XML$/i.test(action.value ?? '')) {
-        context.xmlProcessor = true;
-      }
-    }
-  }
-
-  return context;
-}
-
 /** Комментарии, стоящие вплотную перед утверждением `index`. */
 function leadingComments(
   statements: ParsedStatement[],
@@ -346,6 +293,7 @@ export function compileDocument(doc: ParsedDocument | null): CompileResult {
     return {
       ok: false,
       model: null,
+      blocks: [],
       diagnostics: diag.items,
       errorCount: 1,
       warningCount: 0,
@@ -426,6 +374,17 @@ export function compileDocument(doc: ParsedDocument | null): CompileResult {
         actions,
       };
       blocks.push({ kind: 'rule', key: rule.key, rule });
+
+      conditions.forEach((condition, position) => {
+        // «Условие 1» у правила без цепочки — лишнее уточнение.
+        const chained = conditions.length > 1 ? { condition: position + 1 } : {};
+        diag.at(statements[condition.statementIndex]?.span.startLine ?? line, {
+          ruleKey: rule.key,
+          ...chained,
+        });
+        checkConditionStructure(condition, diag);
+      });
+
       i = tailIndex + 1;
       continue;
     }
@@ -480,19 +439,14 @@ export function compileDocument(doc: ParsedDocument | null): CompileResult {
     i++;
   }
 
-  inspectBlocks(blocks, statements, diag);
-
-  // Сообщения удобнее читать в порядке файла, а не в порядке проверок:
-  // сначала всё про первое правило, потом про второе.
-  const diagnostics = [...diag.items].sort((a, b) => (a.line ?? 0) - (b.line ?? 0));
-
   const errorCount = diag.count('error');
   const ok = errorCount === 0;
 
   return {
     ok,
     model: ok ? { blocks } : null,
-    diagnostics,
+    blocks,
+    diagnostics: byLine(diag.items),
     errorCount,
     warningCount: diag.count('warning'),
     adviceCount: diag.count('advice'),
@@ -500,57 +454,37 @@ export function compileDocument(doc: ParsedDocument | null): CompileResult {
 }
 
 /**
- * Смысловой проход по собранной модели.
+ * Сообщения в порядке файла, а не в порядке проверок.
  *
- * Отделён от разбора, потому что каждой проверке здесь нужно то, чего в
- * момент чтения очередной строки ещё нет: контекст всего файла, готовые
- * условия правила и то, какие правила уже встречались выше.
+ * Читать удобнее так: сначала всё про первое правило, потом про второе.
+ * Сортировка устойчива, поэтому у сообщений об одной строке сохраняется
+ * порядок проверок — от структуры к смыслу.
  */
-function inspectBlocks(
-  blocks: VisualBlock[],
-  statements: ParsedStatement[],
-  diag: Diagnostics,
-): void {
-  const context = readDocumentContext(statements);
-  const lineOf = (index: number) => statements[index]?.span.startLine;
+export function byLine(diagnostics: readonly Diagnostic[]): Diagnostic[] {
+  return [...diagnostics].sort((a, b) => (a.line ?? 0) - (b.line ?? 0));
+}
 
-  /** Правила, считая `SecAction`: по ним отсчитывает `skip:N`. */
-  const executable = blocks.filter((b) => b.kind === 'rule' || b.kind === 'action');
-  /** Первое правило с такой же проверкой — чтобы поймать копию. */
-  const seenSignatures = new Map<string, string>();
+/**
+ * Компиляция вместе со смысловым проходом, разом и до конца.
+ *
+ * Приложение так не делает: смысловой проход оно ведёт отдельно и по частям.
+ * Но там, где нужен полный ответ о документе — в тестах и в разборе примеров, —
+ * дробить его не на что, а собирать два вызова руками каждый раз незачем.
+ */
+export function analyzeDocument(doc: ParsedDocument | null): CompileResult {
+  const compiled = compileDocument(doc);
+  if (doc === null) return compiled;
 
-  executable.forEach((block, index) => {
-    const rulesAfter = executable.length - index - 1;
-    const actions = block.kind === 'rule' ? block.rule.actions : block.actions;
-    const conditions = block.kind === 'rule' ? block.rule.conditions : [];
-    const headLine =
-      block.kind === 'rule' ? lineOf(block.rule.headIndex) : lineOf(block.statementIndex);
+  const semantic = inspectDocument(compiled.blocks, doc.statements);
+  const diagnostics = byLine([...compiled.diagnostics, ...semantic]);
+  const count = (severity: Diagnostic['severity']) =>
+    diagnostics.filter((d) => d.severity === severity).length;
 
-    if (isDisruptive(actions.disruptive) && actions.disruptive !== 'pass') {
-      context.hasBlockingRule = true;
-    }
-
-    const conditionContext = { document: context, capture: actions.capture };
-    conditions.forEach((condition, position) => {
-      // «Условие 1» у правила без цепочки — лишнее уточнение.
-      const chained = conditions.length > 1 ? { condition: position + 1 } : {};
-      diag.at(lineOf(condition.statementIndex) ?? headLine, {
-        ruleKey: block.key,
-        ...chained,
-      });
-      checkCondition(condition, conditionContext, diag);
-    });
-
-    const signature = conditions.map(conditionSignature).join('&&');
-    const twinId =
-      conditions.length > 0 ? seenSignatures.get(signature) : undefined;
-    if (conditions.length > 0 && twinId === undefined && actions.id !== '') {
-      seenSignatures.set(signature, actions.id);
-    }
-
-    diag.at(headLine, { ruleKey: block.key });
-    checkRule(actions, conditions, { document: context, rulesAfter, twinId }, diag);
-  });
-
-  checkDocument(context, diag);
+  return {
+    ...compiled,
+    diagnostics,
+    errorCount: count('error'),
+    warningCount: count('warning'),
+    adviceCount: count('advice'),
+  };
 }
