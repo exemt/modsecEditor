@@ -9,7 +9,6 @@ import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import CancelIcon from '@mui/icons-material/Cancel';
 import CloseIcon from '@mui/icons-material/Close';
 import { ChipInput } from './ChipInput';
 import { ChoiceField } from './ChoiceField';
@@ -179,11 +178,12 @@ export function ActionsPanel({
       </Stack>
 
       {/* Действия, для которых поля нет: `ctl`, `initcol`, `expirevar`,
-          `exec`. Каждое меняет поведение правила, поэтому спрятать их за
-          «Ещё» нельзя — правку соседнего поля делают, уже зная, что рядом
-          стоит `ctl:requestBodyAccess=Off`. Правятся они текстом, а здесь
-          их можно прочитать и убрать: удаление — единственная правка,
-          которую конструктор понимает однозначно. */}
+          `exec`. Каждое меняет поведение правила, а форма о них молчала —
+          узнать, что рядом стоит `ctl:requestBodyAccess=Off`, можно было
+          только из панели замечаний. Поэтому они стоят здесь, на виду и
+          прежней записью, но правятся текстом: строка `ctl` — это своя
+          грамматика, и поле, понимающее её наполовину, хуже её отсутствия.
+          За «Ещё» их не спрятать: соседнее поле правят, уже зная о них. */}
       {actions.extra.length > 0 && (
         <Stack
           direction="row"
@@ -199,20 +199,6 @@ export function ActionsPanel({
                 size="small"
                 variant="outlined"
                 label={serializeAction(item)}
-                onDelete={() =>
-                  onChange({
-                    ...actions,
-                    extra: actions.extra.filter((_, i) => i !== index),
-                  })
-                }
-                // Крестик чипа — единственная кнопка строки, и без имени
-                // чтение с экрана слышит здесь только само действие.
-                deleteIcon={
-                  <CancelIcon
-                    role="button"
-                    aria-label={t('builder.removeAction', { name: item.name })}
-                  />
-                }
                 sx={{ fontFamily: 'ui-monospace, Consolas, monospace' }}
               />
             </Tooltip>

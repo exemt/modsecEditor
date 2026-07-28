@@ -406,6 +406,36 @@ describe('VisualBuilder — правки уходят в текст правил
     await waitFor(() => expect(source()).toContain("msg:'Новое сообщение'"));
   });
 
+  it('правит версию набора правил в форме, а не текстом', async () => {
+    const user = userEvent.setup();
+    renderBuilder(BAD_BOT);
+
+    await user.click(screen.getByRole('button', { name: 'Ещё' }));
+    await user.type(
+      screen.getByRole('textbox', { name: 'Версия набора' }),
+      'OWASP_CRS/4.0.0',
+    );
+    await user.tab();
+
+    await waitFor(() => expect(source()).toContain("ver:'OWASP_CRS/4.0.0'"));
+  });
+
+  // `ctl` меняет настройки движка на всю транзакцию, а поля для него в форме
+  // нет. Молчать о нём нельзя дважды: соседнее поле правят, уже зная, что он
+  // рядом, — и сама правка не должна стоить правилу этого действия.
+  it('показывает действие без поля строкой и не теряет его при правке', async () => {
+    const user = userEvent.setup();
+    renderBuilder('SecRule ARGS "@rx evil" "id:1001,phase:2,deny,ctl:auditEngine=Off"\n');
+
+    expect(screen.getByText('ctl:auditEngine=Off')).toBeInTheDocument();
+
+    await user.type(screen.getByRole('textbox', { name: 'Сообщение' }), 'Найдено');
+    await user.tab();
+
+    await waitFor(() => expect(source()).toContain("msg:'Найдено'"));
+    expect(source()).toContain('ctl:auditEngine=Off');
+  });
+
   it('дублирует правило со свободным номером', async () => {
     const user = userEvent.setup();
     renderBuilder(BAD_BOT);
