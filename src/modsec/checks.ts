@@ -33,6 +33,7 @@ import {
   variableMeta,
 } from './semantics';
 import { selectorIssue, selectorPattern } from './quoting';
+import { reviewRegex } from './regex';
 import type { Diagnostics } from './diagnostics';
 import type { VisualActions, VisualCondition, VisualOperator, VisualTarget } from './model';
 
@@ -701,9 +702,11 @@ function checkRegexArgument(
 ): void {
   const { name, negated } = condition.operator;
 
-  try {
-    new RegExp(pattern);
-  } catch {
+  const review = reviewRegex(pattern);
+  // Запись PCRE, аналога которой в JavaScript нет: шаблон рабочий, просто
+  // разобрать его здесь нечем. Молчание честнее выдуманной ошибки.
+  if (review.unsupported !== null) return;
+  if (review.regex === null) {
     diag.report('invalidRegex', 'operator', { name });
     return;
   }

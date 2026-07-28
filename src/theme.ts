@@ -1,4 +1,4 @@
-import { createTheme } from '@mui/material/styles';
+import { alpha, createTheme } from '@mui/material/styles';
 
 /**
  * Высота управляющего элемента строки: поля, переключателя, набора чипов.
@@ -19,6 +19,50 @@ export const CONTROL_HEIGHT = 32;
  * встанет в общий ряд со сдвигом в пару пикселей.
  */
 export const FIELD_GUTTER = 10;
+
+/** Подъём свёрнутой подписи над верхней рамкой поля. */
+const LABEL_LIFT = 9;
+
+/**
+ * Верхний отступ содержимого окна, в котором стоит поле ввода.
+ *
+ * Свёрнутая подпись выходит за верхний край поля, а MUI под заголовком окна
+ * снимает верхний отступ содержимого и прокручивает его — подпись первого
+ * поля срезается краем прокрутки. Отступ оставляет место подписи целиком и
+ * ещё немного, чтобы она не лежала на самом краю.
+ */
+export const DIALOG_FIELD_TOP = LABEL_LIFT + 3;
+
+/**
+ * Кнопки внутри поля: значок, поле вокруг него, просвет между соседями и
+ * отступ всего ряда от правого края.
+ *
+ * Ряд справа от значения собирается из разных источников — карандаш ставит
+ * поле, крестик и стрелку добавляет выпадающий список, — и у каждого свои
+ * умолчания: стрелка приходит на четверть крупнее соседей, а просветы между
+ * кнопками у MUI разные вплоть до отрицательных. Ряд из-за этого читается
+ * набором случайных значков, поэтому размеры заданы здесь и навязываются
+ * любой кнопке в поле, чьей бы она ни была.
+ *
+ * Отступ ряда — тот же, что у поля с любым содержимым справа: значок
+ * встаёт от края на то же расстояние, что и текст слева.
+ */
+const FIELD_ACTION_ICON = 18;
+const FIELD_ACTION_PAD = 3;
+const FIELD_ACTION_GAP = 2;
+const FIELD_ACTION_INSET = FIELD_GUTTER - 4;
+
+/**
+ * Поле выпадающего списка сверху и снизу.
+ *
+ * Заголовок раздела прилипает к верхнему краю списка и обязан закрыть это
+ * поле собой — иначе в просвет над ним видно уезжающие вверх строки, —
+ * поэтому число нужно и списку, и заголовку.
+ */
+export const LIST_PADDING = 4;
+
+/** Ширина полосы, которой список отмечает уже выбранный вариант. */
+const LIST_ACCENT = 2;
 
 /**
  * Скругление углов. Правило ModSecurity — техническая конструкция из
@@ -84,7 +128,72 @@ export const theme = createTheme({
             paddingLeft: FIELD_GUTTER - 4,
             '& .MuiAutocomplete-input': { padding: '0 4px' },
           },
+
+          // Место под крестик и стрелку список отводит полем справа, считая
+          // их положение абсолютным, и тем шире, чем их больше. Ряд теперь
+          // стоит в потоке и место занимает своё, поэтому запас снимается —
+          // иначе справа от стрелки остаётся полоса шире её самой. Оба
+          // признака перечислены вместе не для красоты: селектор обязан
+          // весить не меньше исходного, иначе он его не перебьёт.
+          '&.MuiAutocomplete-hasPopupIcon, &.MuiAutocomplete-hasClearIcon, &.MuiAutocomplete-hasPopupIcon.MuiAutocomplete-hasClearIcon':
+            {
+              '& .MuiOutlinedInput-root': { paddingRight: FIELD_ACTION_INSET },
+            },
         },
+
+        // Служебные кнопки списка вынуты из абсолютного угла в общий ряд:
+        // рядом с ними встают кнопки самого поля — карандаш «править в
+        // окне», — и порядок в ряду должен быть один, а не «эти поверх тех».
+        endAdornment: {
+          // Сдвиг на половину высоты поднимал ряд к середине поля, пока он
+          // стоял вне потока; в потоке его выравнивает сама строка.
+          position: 'static',
+          transform: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          flexShrink: 0,
+          gap: `${FIELD_ACTION_GAP}px`,
+          // Высоту поля ряд не задаёт — по той же причине, по которой её не
+          // задаёт карандаш: кнопка выше строки текста, и поле со списком
+          // стало бы выше соседей.
+          marginTop: -PAD_Y,
+          marginBottom: -PAD_Y,
+          '& .MuiSvgIcon-root': { fontSize: FIELD_ACTION_ICON },
+        },
+        clearIndicator: { padding: FIELD_ACTION_PAD, margin: 0 },
+        popupIndicator: { padding: FIELD_ACTION_PAD, margin: 0 },
+
+        // Панель списка всплывает над блоком условия, а фон у них почти
+        // одинаковый: без рамки и тени не видно, где кончается страница и
+        // начинается список. Обрезка по краю нужна подвалу — кнопка «все
+        // варианты» растянута во всю ширину и без неё торчит из скруглений.
+        paper: ({ theme }) => ({
+          border: `1px solid ${theme.palette.divider}`,
+          boxShadow: theme.shadows[8],
+          overflow: 'hidden',
+        }),
+
+        // Строка списка здесь двухэтажная — название и пояснение под ним, —
+        // и отступы MUI, рассчитанные на одну строку текста, растягивают
+        // список так, что за раз видно вариантов пять. Левый край строки
+        // совпадает с левым краем текста в поле: список читается как
+        // продолжение поля, а не как отдельная таблица.
+        listbox: ({ theme }) => ({
+          padding: `${LIST_PADDING}px 0`,
+          // Светлая полоса прокрутки на тёмной панели выглядит прорехой.
+          scrollbarWidth: 'thin',
+          scrollbarColor: `${alpha('#ffffff', 0.18)} transparent`,
+          '& .MuiAutocomplete-option': {
+            paddingLeft: FIELD_GUTTER - LIST_ACCENT,
+            paddingRight: FIELD_GUTTER,
+            // Уже выбранный вариант в тёмной теме отличается от соседей
+            // только слабой заливкой, и в длинном списке его приходится
+            // искать. Полоса слева видна с любого места; место под неё
+            // отведено у всех строк, иначе выбор сдвигал бы текст.
+            borderLeft: `${LIST_ACCENT}px solid transparent`,
+            '&[aria-selected="true"]': { borderLeftColor: theme.palette.primary.main },
+          },
+        }),
       },
     },
 
@@ -113,7 +222,7 @@ export const theme = createTheme({
         }),
         root: {
           '&.MuiInputBase-adornedStart': { paddingLeft: FIELD_GUTTER },
-          '&.MuiInputBase-adornedEnd': { paddingRight: FIELD_GUTTER - 4 },
+          '&.MuiInputBase-adornedEnd': { paddingRight: FIELD_ACTION_INSET },
         },
       },
     },
@@ -125,7 +234,7 @@ export const theme = createTheme({
         sizeSmall: {
           transform: `translate(${FIELD_GUTTER}px, ${PAD_Y}px) scale(1)`,
           '&.MuiInputLabel-shrink': {
-            transform: `translate(${FIELD_GUTTER}px, -9px) scale(0.75)`,
+            transform: `translate(${FIELD_GUTTER}px, -${LABEL_LIFT}px) scale(0.75)`,
           },
         },
       },
@@ -152,10 +261,24 @@ export const theme = createTheme({
     // пикселей выше соседей — строка условия переставала читаться таблицей.
     // Кнопка забирает вертикальные поля поля ввода себе: в габарит она
     // укладывается и без них, а высоту теперь задаёт только строка текста.
+    //
+    // Держит их сама обойма, а не кнопка внутри: у обоймы своя высота в
+    // сотую долю строки, и кнопка, вычитавшая поля из себя, вставала на
+    // полпикселя выше служебных соседок. Ряд собран из чужих кнопок, и
+    // сходиться они обязаны точно.
     MuiInputAdornment: {
       styleOverrides: {
         root: {
-          '& .MuiIconButton-root': { marginTop: -PAD_Y, marginBottom: -PAD_Y },
+          // Своя кнопка поля стоит последней в ряду служебных, и просвет до
+          // соседки у неё тот же, что у них между собой.
+          '&.MuiInputAdornment-positionEnd': {
+            marginLeft: FIELD_ACTION_GAP,
+            height: 'auto',
+            marginTop: -PAD_Y,
+            marginBottom: -PAD_Y,
+          },
+          '& .MuiSvgIcon-root': { fontSize: FIELD_ACTION_ICON },
+          '& .MuiIconButton-root': { padding: FIELD_ACTION_PAD },
         },
       },
     },
@@ -177,7 +300,7 @@ export const theme = createTheme({
     MuiChip: {
       defaultProps: { size: 'small' },
       styleOverrides: {
-        sizeSmall: { height: 22, borderRadius: RADIUS - 1 },
+        sizeSmall: { height: 20, borderRadius: RADIUS - 1 },
         label: ({ ownerState }) =>
           ownerState.size === 'small' ? { paddingLeft: 6, paddingRight: 6 } : {},
         deleteIcon: ({ ownerState }) =>

@@ -1,15 +1,5 @@
-import { useState } from 'react';
-import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
-import IconButton from '@mui/material/IconButton';
-import InputAdornment from '@mui/material/InputAdornment';
-import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { ChipInput } from './ChipInput';
 import { useI18n } from '../../i18n/useI18n';
 import type { Suggestion } from '../../modsec/suggestions';
@@ -38,14 +28,6 @@ interface ParamListProps {
   canExclude?: boolean;
   /** Положительной части у цели нет — список только вычитает. */
   baseless?: boolean;
-}
-
-/** Разбор введённого списка: перенос строки и запятая разделяют значения. */
-function splitValues(raw: string): string[] {
-  return raw
-    .split(/[\n,]/)
-    .map((part) => part.trim())
-    .filter((part) => part !== '');
 }
 
 /**
@@ -81,7 +63,6 @@ export function ParamList({
   baseless = false,
 }: ParamListProps) {
   const { t } = useI18n();
-  const [draft, setDraft] = useState<string | null>(null);
 
   const excluding = mode === 'except';
   // Режим выбран, а перечислять нечего: правило проверяет всю коллекцию,
@@ -97,18 +78,6 @@ export function ParamList({
   const setValues = (next: string[]) => {
     const settled = next.length === 0 ? 'all' : mode === 'all' ? 'only' : mode;
     onChange({ mode: settled, values: next });
-  };
-
-  const save = () => {
-    if (draft !== null) {
-      const parsed = splitValues(draft);
-      // Повторы схлопываются: перечислять одно и то же имя дважды бессмысленно.
-      const unique = parsed.filter((value, i) => parsed.indexOf(value) === i);
-      const same =
-        unique.length === values.length && unique.every((v, i) => v === values[i]);
-      if (!same) setValues(unique);
-    }
-    setDraft(null);
   };
 
   const modeLabel = baseless
@@ -166,60 +135,21 @@ export function ParamList({
   );
 
   return (
-    <>
-      <ChipInput
-        fullWidth
-        monospace
-        prefix={modeChip}
-        chipColor={excluding ? 'error' : 'warning'}
-        label={t('builder.parameters')}
-        placeholder={excluding ? t('builder.addExcept') : t('builder.addParam')}
-        separators={[',']}
-        suggestions={suggestions}
-        values={values}
-        error={incomplete}
-        helperText={incomplete ? t('builder.paramsRequired') : undefined}
-        renderLabel={(value) => (value === '' ? t('builder.anyParameter') : value)}
-        onChange={setValues}
-        action={
-          <InputAdornment position="end">
-            <Tooltip title={t('builder.editInWindow')}>
-              <IconButton edge="end" onClick={() => setDraft(values.join('\n'))}>
-                <EditOutlinedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </InputAdornment>
-        }
-      />
-
-      <Dialog open={draft !== null} onClose={() => setDraft(null)} fullWidth maxWidth="sm">
-        <DialogTitle>
-          {excluding ? t('builder.exclusions') : t('builder.parameters')}
-        </DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            multiline
-            minRows={4}
-            maxRows={16}
-            margin="dense"
-            label={excluding ? t('builder.exclusions') : t('builder.parameters')}
-            value={draft ?? ''}
-            helperText={t('builder.paramsHint')}
-            onChange={(event) => setDraft(event.target.value)}
-            slotProps={{
-              input: { sx: { fontFamily: 'ui-monospace, Consolas, monospace' } },
-            }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDraft(null)}>{t('app.cancel')}</Button>
-          <Button variant="contained" onClick={save}>
-            {t('app.apply')}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </>
+    <ChipInput
+      fullWidth
+      monospace
+      prefix={modeChip}
+      chipColor={excluding ? 'error' : 'warning'}
+      label={t('builder.parameters')}
+      placeholder={excluding ? t('builder.addExcept') : t('builder.addParam')}
+      dialogTitle={excluding ? t('builder.exclusions') : t('builder.parameters')}
+      separators={[',']}
+      suggestions={suggestions}
+      values={values}
+      error={incomplete}
+      helperText={incomplete ? t('builder.paramsRequired') : undefined}
+      renderLabel={(value) => (value === '' ? t('builder.anyParameter') : value)}
+      onChange={setValues}
+    />
   );
 }

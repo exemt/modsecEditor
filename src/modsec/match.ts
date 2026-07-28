@@ -13,6 +13,7 @@
  * проверять вообще.
  */
 
+import { translateRegex } from './regex';
 import { operatorMeta, splitOperatorArgument } from './semantics';
 import { toBytes, toLatin1 } from './transform';
 import type { VisualOperator } from './model';
@@ -65,14 +66,14 @@ const COMPARISONS: Record<string, (left: number, right: number) => boolean> = {
  *
  * Сравнение идёт по байтам, поэтому и шаблон переводится в байты: PCRE в
  * ModSecurity работает так же, и `\w` там тоже про байты, а не про буквы
- * Unicode. Встроенный флаг `(?i)` в JavaScript не поддерживается — он
- * снимается и переносится в флаги.
+ * Unicode. Разницу между PCRE и `RegExp` — встроенные флаги, сверхжадные
+ * кванторы и прочее — снимает `translateRegex`.
  */
 function toRegExp(pattern: string): RegExp | null {
-  const insensitive = pattern.startsWith('(?i)');
-  const body = toLatin1(toBytes(insensitive ? pattern.slice(4) : pattern));
+  const translated = translateRegex(pattern);
+  if (translated.unsupported !== null) return null;
   try {
-    return new RegExp(body, insensitive ? 'i' : '');
+    return new RegExp(toLatin1(toBytes(translated.source)), translated.flags);
   } catch {
     return null;
   }

@@ -174,6 +174,7 @@ export function ConditionRow({
           <PipelinePreview
             transforms={condition.transforms}
             operator={condition.operator}
+            targets={condition.targets}
             open={previewOpen}
             onOpenChange={setPreviewOpen}
           />

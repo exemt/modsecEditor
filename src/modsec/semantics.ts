@@ -1055,21 +1055,131 @@ export const HEAD_ONLY_ACTIONS = [
   'skipAfter',
 ] as const;
 
-/** Разрушающие действия — взаимоисключающие и допустимые только в голове цепочки. */
+/**
+ * Разрушающие действия — взаимоисключающие и допустимые только в голове
+ * цепочки.
+ *
+ * Порядок здесь же и порядок в списке выбора: реакции идут разделами от
+ * самой жёсткой к пропуску, и внутри раздела рядом стоит то, что человек
+ * обычно и сравнивает между собой — `deny` с `drop`, `redirect` с `proxy`.
+ */
 export const DISRUPTIVE_ACTIONS = [
-  'pass',
   'deny',
-  'drop',
   'block',
-  'allow',
+  'drop',
   'redirect',
   'proxy',
+  'pass',
+  'allow',
 ] as const;
 
 export type DisruptiveAction = (typeof DISRUPTIVE_ACTIONS)[number];
 
 export function isDisruptive(name: string): name is DisruptiveAction {
   return (DISRUPTIVE_ACTIONS as readonly string[]).includes(name);
+}
+
+/**
+ * Справка о действии правила для списка выбора.
+ *
+ * Одна и та же на реакцию, фазу, критичность и запись в журнал: у всех
+ * четырёх список закрытый, а выбирают в них по одним и тем же вопросам —
+ * в каком это разделе, как называется по-человечески и чем отличается от
+ * соседей.
+ */
+export interface ActionMeta {
+  /** Раздел, которым действие стоит в списке. */
+  group: Label;
+  label: Label;
+  /** Чем действие отличается от соседей по разделу. */
+  note: Label;
+}
+
+/** Раздел списка действий: название группы задаётся один раз на всех. */
+function actionGroup(
+  en: string,
+  ru: string,
+  items: Record<string, Omit<ActionMeta, 'group'>>,
+): Record<string, ActionMeta> {
+  const group: Label = { en, ru };
+  return Object.fromEntries(
+    Object.entries(items).map(([name, entry]) => [name, { ...entry, group }]),
+  );
+}
+
+/**
+ * Что каждая реакция делает, когда все условия совпали.
+ *
+ * Названия реакций в интерфейсе ничего не объясняют: «Запретить»,
+ * «Блокировать» и «Разорвать соединение» звучат как три слова об одном и
+ * том же, а различия между ними — код ответа, чужая настройка
+ * `SecDefaultAction` и молчащий обрыв — решают, что увидит клиент и что
+ * останется в журнале. Поэтому у каждой реакции есть пояснение, и список
+ * разбит на разделы: сначала блокирующие, затем уводящие запрос в другое
+ * место, в конце пропускающие.
+ */
+export const DISRUPTIVE_META: Record<string, ActionMeta> = {
+  ...actionGroup('Blocking', 'Блокировка', {
+    deny: {
+      label: { en: 'Deny', ru: 'Запретить' },
+      note: {
+        en: 'Stops the transaction and returns an error to the client — the code comes from HTTP status, 403 by default',
+        ru: 'Останавливает обработку и возвращает клиенту ошибку — код берётся из HTTP-статуса, по умолчанию 403',
+      },
+    },
+    block: {
+      label: { en: 'Block', ru: 'Блокировать' },
+      note: {
+        en: 'Blocks the way SecDefaultAction prescribes — the rule itself does not choose how, so the whole set can be retuned at once',
+        ru: 'Блокирует так, как предписано в SecDefaultAction: правило не выбирает способ само, поэтому весь набор перенастраивается разом',
+      },
+    },
+    drop: {
+      label: { en: 'Drop connection', ru: 'Разорвать соединение' },
+      note: {
+        en: 'Closes the connection with no response at all — the client sees a break, not an error page; used against brute force and floods',
+        ru: 'Закрывает соединение вообще без ответа — клиент видит обрыв, а не страницу ошибки; применяется против перебора и флуда',
+      },
+    },
+  }),
+
+  ...actionGroup('Sending elsewhere', 'В другое место', {
+    redirect: {
+      label: { en: 'Redirect', ru: 'Перенаправить' },
+      note: {
+        en: 'Sends the client to another address: a captcha, a warning page, a login form. Needs the address',
+        ru: 'Уводит клиента на другой адрес: капчу, страницу предупреждения, форму входа. Нужен адрес',
+      },
+    },
+    proxy: {
+      label: { en: 'Proxy', ru: 'Проксировать' },
+      note: {
+        en: 'Passes the request to another server unnoticed by the client — a honeypot or a sandbox. ModSecurity v2 with mod_proxy only',
+        ru: 'Передаёт запрос на другой сервер незаметно для клиента — на ханипот или в песочницу. Только ModSecurity v2 с mod_proxy',
+      },
+    },
+  }),
+
+  ...actionGroup('Letting through', 'Пропуск', {
+    pass: {
+      label: { en: 'Pass', ru: 'Пропустить' },
+      note: {
+        en: 'Moves on to the next rule, having visited the remaining values — this is what counters and scoring rely on',
+        ru: 'Идёт к следующему правилу, дообойдя остальные значения — на этом держатся правила-счётчики и скоринг',
+      },
+    },
+    allow: {
+      label: { en: 'Allow', ru: 'Разрешить' },
+      note: {
+        en: 'Stops the checks and lets the request through past the remaining rules — a hole in the rule set if the condition is loose',
+        ru: 'Прекращает проверки и пропускает запрос мимо остальных правил — при нестрогом условии это дыра в наборе',
+      },
+    },
+  }),
+};
+
+export function disruptiveMeta(name: string): ActionMeta | null {
+  return DISRUPTIVE_META[name] ?? null;
 }
 
 /**
@@ -1087,23 +1197,203 @@ export function isHeadOnlyAction(name: string): boolean {
   return (HEAD_ONLY_ACTIONS as readonly string[]).includes(name) || isDisruptive(name);
 }
 
-export const PHASES: Phase[] = [1, 2, 3, 4, 5];
+/**
+ * Фазы обработки — по сути список того, что к этому моменту уже прочитано.
+ *
+ * Номер фазы сам за себя не говорит, а выбран он неверно — правило просто
+ * не срабатывает: в первой фазе тела запроса ещё нет, в пятой блокировать
+ * уже нечего. Пояснение называет именно это, потому что «фаза 2» и «фаза 4»
+ * различаются не порядком, а тем, что в них есть в руках.
+ */
+export const PHASE_META: Record<string, ActionMeta> = {
+  ...actionGroup('Request', 'Запрос', {
+    // Номер входит в само название: о фазах говорят номерами, и в закрытом
+    // поле должно стоять «2 — Тело запроса», иначе выбранное не сверить с
+    // текстовой вкладкой.
+    1: {
+      label: { en: '1 — Request headers', ru: '1 — Заголовки запроса' },
+      note: {
+        en: 'Headers are read, the body is not: ARGS_POST, REQUEST_BODY and FILES are empty, so a body check placed here never fires',
+        ru: 'Заголовки прочитаны, тела ещё нет: ARGS_POST, REQUEST_BODY и FILES пусты, и проверка тела здесь не сработает никогда',
+      },
+    },
+    2: {
+      label: { en: '2 — Request body', ru: '2 — Тело запроса' },
+      note: {
+        en: 'The body is parsed, ARGS and FILES are filled — almost every check goes here, and this is the phase a typical SecDefaultAction implies',
+        ru: 'Тело разобрано, ARGS и FILES заполнены — сюда ставят почти все проверки, и эту же фазу подразумевает типовой SecDefaultAction',
+      },
+    },
+  }),
 
-export const PHASE_LABELS: Record<Phase, Label> = {
-  1: { en: 'Request headers', ru: 'Заголовки запроса' },
-  2: { en: 'Request body', ru: 'Тело запроса' },
-  3: { en: 'Response headers', ru: 'Заголовки ответа' },
-  4: { en: 'Response body', ru: 'Тело ответа' },
-  5: { en: 'Logging', ru: 'Логирование' },
+  ...actionGroup('Response', 'Ответ', {
+    3: {
+      label: { en: '3 — Response headers', ru: '3 — Заголовки ответа' },
+      note: {
+        en: 'The response is formed but not sent yet: its status and headers are visible, the body is not',
+        ru: 'Ответ сформирован, но ещё не отправлен: видны его код и заголовки, тела пока нет',
+      },
+    },
+    4: {
+      label: { en: '4 — Response body', ru: '4 — Тело ответа' },
+      note: {
+        en: 'The response body is available in full — this is where data leaks and error traces are caught',
+        ru: 'Тело ответа доступно целиком — здесь ловят утечки данных и трассировки ошибок',
+      },
+    },
+  }),
+
+  ...actionGroup('After the response', 'После ответа', {
+    5: {
+      label: { en: '5 — Logging', ru: '5 — Логирование' },
+      note: {
+        en: 'The response has already left the server: there is nothing left to block, only to write down',
+        ru: 'Ответ уже ушёл клиенту: блокировать нечего, остаётся только записать',
+      },
+    },
+  }),
 };
 
-export const SEVERITIES = [
-  'EMERGENCY',
-  'ALERT',
-  'CRITICAL',
-  'ERROR',
-  'WARNING',
-  'NOTICE',
-  'INFO',
-  'DEBUG',
-] as const;
+/** Номера фаз в порядке обработки. */
+export const PHASE_NAMES = Object.keys(PHASE_META);
+
+export function phaseMeta(name: string): ActionMeta | null {
+  return PHASE_META[name] ?? null;
+}
+
+/**
+ * Критичность — шкала syslog, обратная интуиции: меньше значит хуже.
+ *
+ * Восемь слов от `EMERGENCY` до `DEBUG` ничего не говорят о том, куда
+ * ставить своё правило, поэтому пояснение называет номер уровня и то, чем
+ * этот уровень помечают на практике: `CRITICAL` — атаку, `NOTICE` —
+ * нарушение политики, `DEBUG` — отладку набора.
+ */
+export const SEVERITY_META: Record<string, ActionMeta> = {
+  ...actionGroup('System failure', 'Сбой системы', {
+    EMERGENCY: {
+      label: { en: 'Emergency', ru: 'Авария' },
+      note: {
+        en: 'Level 0, the worst on the scale: the site is unusable. Practically never written in rules',
+        ru: 'Уровень 0, худший по шкале: сайт неработоспособен. В правилах почти не встречается',
+      },
+    },
+    ALERT: {
+      label: { en: 'Alert', ru: 'Тревога' },
+      note: {
+        en: 'Level 1: someone has to step in right now',
+        ru: 'Уровень 1: вмешаться нужно немедленно',
+      },
+    },
+  }),
+
+  ...actionGroup('Attacks and errors', 'Атаки и ошибки', {
+    CRITICAL: {
+      label: { en: 'Critical', ru: 'Критично' },
+      note: {
+        en: 'Level 2: an attack. This is what blocking rules are marked with in CRS-style sets',
+        ru: 'Уровень 2: атака. Так помечают блокирующие правила в наборах в стиле CRS',
+      },
+    },
+    ERROR: {
+      label: { en: 'Error', ru: 'Ошибка' },
+      note: {
+        en: 'Level 3: the application misbehaved — a data leak or a stack trace in the response',
+        ru: 'Уровень 3: приложение повело себя не так — утечка данных или трассировка в ответе',
+      },
+    },
+  }),
+
+  ...actionGroup('Under watch', 'Под наблюдением', {
+    WARNING: {
+      label: { en: 'Warning', ru: 'Предупреждение' },
+      note: {
+        en: 'Level 4: suspicious, but on its own not enough to block',
+        ru: 'Уровень 4: подозрительно, но само по себе на блокировку не тянет',
+      },
+    },
+    NOTICE: {
+      label: { en: 'Notice', ru: 'Замечание' },
+      note: {
+        en: 'Level 5: a policy violation worth noting — a wrong method, an unexpected header',
+        ru: 'Уровень 5: нарушение политики, которое стоит отметить — не тот метод, неожиданный заголовок',
+      },
+    },
+  }),
+
+  ...actionGroup('For the record', 'Для сведения', {
+    INFO: {
+      label: { en: 'Info', ru: 'Сведения' },
+      note: {
+        en: 'Level 6: a line for the log without any verdict',
+        ru: 'Уровень 6: запись в журнал без всякого вердикта',
+      },
+    },
+    DEBUG: {
+      label: { en: 'Debug', ru: 'Отладка' },
+      note: {
+        en: 'Level 7, the mildest one: only while the rule set is being debugged',
+        ru: 'Уровень 7, самый мягкий: только пока отлаживают набор правил',
+      },
+    },
+  }),
+};
+
+/** Названия уровней критичности от худшего к мягкому. */
+export const SEVERITY_NAMES = Object.keys(SEVERITY_META);
+
+export function severityMeta(name: string): ActionMeta | null {
+  return SEVERITY_META[name] ?? null;
+}
+
+/**
+ * Запись о срабатывании: `log`/`nolog` и `auditlog`/`noauditlog`.
+ *
+ * Пары выглядят как простые «да/нет», но стоят за ними разные журналы:
+ * строка в error-логе говорит, что правило сработало, а запись аудита
+ * хранит запрос целиком, по которому инцидент потом и разбирают. Отдельно
+ * названо и то, чем `nolog` опасен на блокирующем правиле.
+ */
+export const LOG_FLAG_META: Record<string, ActionMeta> = {
+  ...actionGroup('Error log', 'Журнал ошибок', {
+    log: {
+      label: { en: 'Write', ru: 'Писать' },
+      note: {
+        en: 'Writes the match to the error log and the audit log — a block nobody can see is indistinguishable from an application bug',
+        ru: 'Записывает срабатывание в error-лог и в аудит: блокировку, которой не видно, не отличить от бага приложения',
+      },
+    },
+    nolog: {
+      label: { en: 'Do not write', ru: 'Не писать' },
+      note: {
+        en: 'Silences the match together with its audit entry — meant for frequent bookkeeping rules; on a blocking rule it is almost always a mistake',
+        ru: 'Гасит запись о срабатывании, а с ней и запись аудита — для частых служебных правил; на блокирующем правиле это почти всегда ошибка',
+      },
+    },
+  }),
+
+  ...actionGroup('Audit log', 'Журнал аудита', {
+    auditlog: {
+      label: { en: 'Write', ru: 'Писать' },
+      note: {
+        en: 'Puts the whole transaction into the audit log even when it would not qualify — the full request is what makes an incident reconstructable',
+        ru: 'Помещает транзакцию в журнал аудита, даже если та иначе туда не попала бы: по полному запросу инцидент можно восстановить',
+      },
+    },
+    noauditlog: {
+      label: { en: 'Do not write', ru: 'Не писать' },
+      note: {
+        en: 'Keeps the transaction out of the audit log but leaves the error-log line — for noisy rules on busy endpoints',
+        ru: 'Не пускает транзакцию в аудит, но оставляет строку в error-логе — для шумных правил на нагруженных эндпоинтах',
+      },
+    },
+  }),
+};
+
+/** Имена пары «писать / не писать» — по одной на каждый журнал. */
+export const LOG_FLAGS = ['log', 'nolog'] as const;
+export const AUDIT_FLAGS = ['auditlog', 'noauditlog'] as const;
+
+export function logFlagMeta(name: string): ActionMeta | null {
+  return LOG_FLAG_META[name] ?? null;
+}

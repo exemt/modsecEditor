@@ -2,16 +2,27 @@ import { useId, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import FormControl from '@mui/material/FormControl';
 import FormHelperText from '@mui/material/FormHelperText';
+import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
 import InputLabel from '@mui/material/InputLabel';
 import OutlinedInput from '@mui/material/OutlinedInput';
+import TextField from '@mui/material/TextField';
+import Tooltip from '@mui/material/Tooltip';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import type { AutocompleteRenderInputParams } from '@mui/material/Autocomplete';
 import type { ChipProps } from '@mui/material/Chip';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { filterSuggestions, useSuggestionList } from './useSuggestionList';
-import { CONTROL_HEIGHT, FIELD_GUTTER } from '../../theme';
+import { useI18n } from '../../i18n/useI18n';
+import { CONTROL_HEIGHT, DIALOG_FIELD_TOP, FIELD_GUTTER } from '../../theme';
 import type { Suggestion } from '../../modsec/suggestions';
 
 interface ChipInputProps {
@@ -27,8 +38,11 @@ interface ChipInputProps {
   helperText?: string;
   /** Поле заполнено не до конца: рамка и подпись под ней краснеют. */
   error?: boolean;
-  /** Кнопка внутри поля справа — например, «править в окне». */
-  action?: ReactNode;
+  /**
+   * Заголовок окна правки. С ним у поля появляется карандаш, открывающий
+   * весь список построчным текстом; без него окна нет.
+   */
+  dialogTitle?: string;
   disabled?: boolean;
   chipColor?: ChipProps['color'];
   /** Подпись чипа, если она отличается от самого значения. */
@@ -73,6 +87,11 @@ function splitValues(raw: string, separators: string[]): string[] {
  * Со списком подсказок поле работает так же, только очередное значение
  * можно не набирать, а выбрать из готовых — выбранное сразу становится
  * чипом.
+ *
+ * Чипы хороши, пока список правят по одному значению. Переписать его
+ * целиком, вставить готовый перечень из чужого конфига или просто прочитать
+ * длинный список, не помещающийся в строку, проще текстом — это и делает
+ * окно правки за карандашом: те же значения, по одному в строке.
  */
 export function ChipInput({
   values,
@@ -83,7 +102,7 @@ export function ChipInput({
   placeholder,
   helperText,
   error = false,
-  action,
+  dialogTitle,
   disabled = false,
   chipColor = 'default',
   renderLabel,
@@ -93,14 +112,30 @@ export function ChipInput({
   fullWidth = false,
   sx,
 }: ChipInputProps) {
+  const { t } = useI18n();
   const id = useId();
   const [draft, setDraft] = useState('');
   const [open, setOpen] = useState(false);
-  const { slotProps, groupBy, renderOption } = useSuggestionList(suggestions);
+  // Текст окна правки; `null` — окно закрыто.
+  const [text, setText] = useState<string | null>(null);
+  const { slotProps, groupBy, renderGroup, renderOption } = useSuggestionList(suggestions);
 
   const commit = (raw: string) => {
     const added = splitValues(raw, separators).filter((v) => !values.includes(v));
     if (added.length > 0) onChange([...values, ...added]);
+  };
+
+  /** Список из окна заменяет прежний целиком — в этом и смысл окна. */
+  const applyText = () => {
+    if (text !== null) {
+      const parsed = splitValues(text, separators);
+      // Повторы схлопываются: одно и то же значение дважды бессмысленно.
+      const unique = parsed.filter((value, i) => parsed.indexOf(value) === i);
+      const same =
+        unique.length === values.length && unique.every((v, i) => v === values[i]);
+      if (!same) onChange(unique);
+    }
+    setText(null);
   };
 
   const handleInput = (raw: string) => {
@@ -138,6 +173,18 @@ export function ChipInput({
       onChange(values.slice(0, -1));
     }
   };
+
+  const editButton = dialogTitle === undefined ? undefined : (
+    <InputAdornment position="end">
+      <Tooltip title={t('builder.editInWindow')}>
+        <span>
+          <IconButton disabled={disabled} onClick={() => setText(values.join('\n'))}>
+            <EditOutlinedIcon />
+          </IconButton>
+        </span>
+      </Tooltip>
+    </InputAdornment>
+  );
 
   /**
    * Само поле. Со списком подсказок оно живёт внутри `Autocomplete`, и
@@ -183,6 +230,10 @@ export function ChipInput({
                 flexWrap: 'wrap',
                 gap: 0.5,
                 mr: 0.5,
+                // Список чипов сжимается до ширины поля вместо того, чтобы
+                // распирать его: без этого одно длинное значение вылезало за
+                // правую границу поля и лезло на соседнюю полосу условия.
+                minWidth: 0,
               }}
             >
               {prefix}
@@ -195,17 +246,24 @@ export function ChipInput({
                   label={renderLabel === undefined ? value : renderLabel(value)}
                   disabled={disabled}
                   onDelete={() => onChange(values.filter((_, i) => i !== index))}
-                  sx={monospace ? { fontFamily: 'ui-monospace, Consolas, monospace' } : undefined}
+                  // Длинное значение обрезается многоточием по краю поля.
+                  // Прочитать его целиком есть где: окно за карандашом
+                  // показывает весь список построчным текстом.
+                  title={value}
+                  sx={{
+                    maxWidth: '100%',
+                    ...(monospace ? { fontFamily: 'ui-monospace, Consolas, monospace' } : {}),
+                  }}
                 />
               ))}
             </Box>
           )
         }
         endAdornment={
-          action === undefined && params === undefined ? undefined : (
+          editButton === undefined && params === undefined ? undefined : (
             <>
-              {action}
               {params?.slotProps.input.endAdornment}
+              {editButton}
             </>
           )
         }
@@ -233,37 +291,84 @@ export function ChipInput({
     </FormControl>
   );
 
-  if (suggestions.length === 0) return renderField();
+  const dialog = dialogTitle === undefined ? null : (
+    <Dialog open={text !== null} onClose={() => setText(null)} fullWidth maxWidth="sm">
+      <DialogTitle>{dialogTitle}</DialogTitle>
+      {/* Отступ повторяет собственный селектор MUI: правило «под заголовком
+          отступа нет» весит два класса и обычному `sx` не уступает. */}
+      <DialogContent sx={{ '&.MuiDialogContent-root': { pt: `${DIALOG_FIELD_TOP}px` } }}>
+        <TextField
+          autoFocus
+          fullWidth
+          multiline
+          minRows={4}
+          maxRows={16}
+          margin="dense"
+          label={label ?? dialogTitle}
+          value={text ?? ''}
+          helperText={
+            separators.includes(',')
+              ? `${t('builder.listHint')} ${t('builder.listHintComma')}`
+              : t('builder.listHint')
+          }
+          onChange={(event) => setText(event.target.value)}
+          slotProps={{
+            input: monospace
+              ? { sx: { fontFamily: 'ui-monospace, Consolas, monospace' } }
+              : undefined,
+          }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setText(null)}>{t('app.cancel')}</Button>
+        <Button variant="contained" onClick={applyText}>
+          {t('app.apply')}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
+  if (suggestions.length === 0)
+    return (
+      <>
+        {renderField()}
+        {dialog}
+      </>
+    );
 
   return (
-    <Autocomplete<Suggestion, false, false, true>
-      freeSolo
-      forcePopupIcon
-      openOnFocus
-      handleHomeEndKeys
-      size="small"
-      disabled={disabled}
-      // Явное `false` MUI понимает как «поле по ширине содержимого»;
-      // отсутствие значения оставляет его во всю ширину места в раскладке.
-      fullWidth={fullWidth || undefined}
-      options={suggestions}
-      filterOptions={filterSuggestions}
-      groupBy={groupBy}
-      getOptionLabel={(option) => (typeof option === 'string' ? option : option.value)}
-      // Значение поля — набор чипов, и живёт оно снаружи. Списку остаётся
-      // только очередной ввод, своего выбранного значения у него нет.
-      value={null}
-      inputValue={draft}
-      onChange={(_, next) => {
-        commit(next === null ? '' : typeof next === 'string' ? next : next.value);
-        setDraft('');
-      }}
-      onOpen={() => setOpen(true)}
-      onClose={() => setOpen(false)}
-      slotProps={slotProps}
-      renderOption={renderOption}
-      renderInput={renderField}
-      sx={sx}
-    />
+    <>
+      <Autocomplete<Suggestion, false, false, true>
+        freeSolo
+        forcePopupIcon
+        openOnFocus
+        handleHomeEndKeys
+        size="small"
+        disabled={disabled}
+        // Явное `false` MUI понимает как «поле по ширине содержимого»;
+        // отсутствие значения оставляет его во всю ширину места в раскладке.
+        fullWidth={fullWidth || undefined}
+        options={suggestions}
+        filterOptions={filterSuggestions}
+        groupBy={groupBy}
+        renderGroup={renderGroup}
+        getOptionLabel={(option) => (typeof option === 'string' ? option : option.value)}
+        // Значение поля — набор чипов, и живёт оно снаружи. Списку остаётся
+        // только очередной ввод, своего выбранного значения у него нет.
+        value={null}
+        inputValue={draft}
+        onChange={(_, next) => {
+          commit(next === null ? '' : typeof next === 'string' ? next : next.value);
+          setDraft('');
+        }}
+        onOpen={() => setOpen(true)}
+        onClose={() => setOpen(false)}
+        slotProps={slotProps}
+        renderOption={renderOption}
+        renderInput={renderField}
+        sx={sx}
+      />
+      {dialog}
+    </>
   );
 }

@@ -6,6 +6,7 @@ import {
   TAG_SUGGESTIONS,
   VARIABLE_SUGGESTIONS,
   operatorValueSuggestions,
+  sampleValueHint,
   selectorSuggestions,
 } from './suggestions';
 import type { Suggestion } from './suggestions';
@@ -139,12 +140,17 @@ describe('варианты значения оператора', () => {
     expect(operatorValueSuggestions('detectSQLi', [target('ARGS')], 'string')).toEqual([]);
   });
 
-  it('подсчёт переводит подсказки в количества', () => {
-    const counts = values(
-      operatorValueSuggestions('gt', [target('ARGS', { count: true })], 'number'),
+  it('подсчёту подсказывать нечего — любое число тут своё', () => {
+    expect(operatorValueSuggestions('gt', [target('ARGS', { count: true })], 'number')).toEqual(
+      [],
     );
-    expect(counts).toContain('32');
-    expect(counts).not.toContain('403');
+  });
+
+  // Размеры из таблицы — про содержимое файлов, а считаются здесь сами файлы.
+  it('подсчёт молчит и там, где у области есть числовые варианты', () => {
+    expect(
+      operatorValueSuggestions('gt', [target('FILES_SIZES', { count: true })], 'number'),
+    ).toEqual([]);
   });
 
   it('числу без известного смысла подсказывать нечего', () => {
@@ -172,6 +178,45 @@ describe('варианты значения оператора', () => {
       'string',
     );
     expect(values(suggestions)).toContain('GET');
+  });
+});
+
+describe('подсказка примера значения', () => {
+  it('берёт аргумент сравнения с текстом — его и проверяют', () => {
+    expect(sampleValueHint({ name: 'streq', argument: 'POST' }, [target('REQUEST_METHOD')])).toBe(
+      'POST',
+    );
+  });
+
+  it('регулярку самой собой не проверяют — подсказывает область проверки', () => {
+    expect(
+      sampleValueHint({ name: 'rx', argument: '(?i)(?:sqlmap|nikto)' }, [
+        target('REQUEST_HEADERS', { params: ['User-Agent'] }),
+      ]),
+    ).toBe('sqlmap');
+  });
+
+  it('не подставляет ни файл, ни список сетей, ни диапазон байтов', () => {
+    const targets = [target('ARGS')];
+    expect(sampleValueHint({ name: 'pmFromFile', argument: 'unix-shell.data' }, targets)).toBe('');
+    expect(sampleValueHint({ name: 'ipMatch', argument: '10.0.0.0/8' }, targets)).toBe('');
+    expect(sampleValueHint({ name: 'validateByteRange', argument: '32-126' }, targets)).toBe('');
+  });
+
+  it('макрос значением не считает — что в нём, знает только движок', () => {
+    expect(
+      sampleValueHint({ name: 'streq', argument: '%{tx.expected}' }, [target('REQUEST_METHOD')]),
+    ).toBe('GET');
+  });
+
+  it('числовой области подсказывает число, а не текст', () => {
+    expect(sampleValueHint({ name: 'rx', argument: '^4' }, [target('RESPONSE_STATUS')])).toBe(
+      '200',
+    );
+  });
+
+  it('молчит там, где о значении ничего не известно', () => {
+    expect(sampleValueHint({ name: 'rx', argument: 'anything' }, [target('ARGS')])).toBe('');
   });
 });
 

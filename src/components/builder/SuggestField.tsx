@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import type { FocusEvent, KeyboardEvent, ReactNode } from 'react';
+import type { FocusEvent, KeyboardEvent, ReactElement, ReactNode } from 'react';
 import Autocomplete from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
+import Tooltip from '@mui/material/Tooltip';
 import { CommitField } from './CommitField';
 import { filterSuggestions, useSuggestionList } from './useSuggestionList';
 import type { Suggestion } from '../../modsec/suggestions';
@@ -23,7 +24,9 @@ interface SuggestFieldProps {
   fullWidth?: boolean;
   /** Значение обязательно — крестик «очистить» не показывается. */
   required?: boolean;
-  /** Кнопка, встающая внутрь поля перед служебными иконками списка. */
+  /** Чем плохо стоящее в поле значение: рамка краснеет, текст уходит в подсказку. */
+  error?: string;
+  /** Кнопка, встающая внутрь поля последней в ряду служебных иконок. */
   endAdornment?: ReactNode;
   /** Оформление самого значения — цвет и начертание. */
   inputSx?: Record<string, unknown>;
@@ -54,11 +57,12 @@ export function SuggestField({
   monospace = false,
   fullWidth,
   required = false,
+  error,
   endAdornment,
   inputSx,
   sx,
 }: SuggestFieldProps) {
-  const { slotProps, groupBy, renderOption } = useSuggestionList(suggestions);
+  const { slotProps, groupBy, renderGroup, renderOption } = useSuggestionList(suggestions);
   const [draft, setDraft] = useState(value);
   const [open, setOpen] = useState(false);
   // Ввода ещё не было: список показывается целиком, а не сужается до
@@ -84,19 +88,38 @@ export function SuggestField({
     },
   } as SxProps<Theme>;
 
+  // Причина ошибки уезжает в подсказку: под полем ей места нет — в строке
+  // условия каждое поле стоит в своей колонке, и подпись под одним из них
+  // развела бы соседей по высоте. Подсказка по наведению, но не по фокусу:
+  // во время правки всплывающее окно закрывало бы то, что набирают.
+  //
+  // Подсказка вешается на само поле, а не на обёртку вокруг него. Обёртка
+  // здесь стоила бы отступа: раскладка строки держится на `Stack`, который
+  // разводит соседей полем `margin` у прямых детей, — и лишний узел забрал
+  // бы этот отступ себе.
+  const withReason = (field: ReactElement) =>
+    error === undefined ? (
+      field
+    ) : (
+      <Tooltip title={error} disableFocusListener>
+        {field}
+      </Tooltip>
+    );
+
   if (suggestions.length === 0) {
-    return (
+    return withReason(
       <CommitField
         size="small"
         label={label}
         placeholder={placeholder}
         disabled={disabled}
         fullWidth={fullWidth}
+        error={error !== undefined}
         value={value}
         onCommit={onCommit}
         sx={fieldSx}
-        slotProps={endAdornment === undefined ? undefined : { input: { endAdornment, sx: { pr: 0.5 } } }}
-      />
+        slotProps={endAdornment === undefined ? undefined : { input: { endAdornment } }}
+      />,
     );
   }
 
@@ -113,7 +136,7 @@ export function SuggestField({
     event.currentTarget.blur();
   };
 
-  return (
+  return withReason(
     <Autocomplete<Suggestion, false, boolean, true>
       freeSolo
       forcePopupIcon
@@ -132,6 +155,7 @@ export function SuggestField({
         pristine ? options : filterSuggestions(options, state)
       }
       groupBy={groupBy}
+      renderGroup={renderGroup}
       getOptionLabel={(option) => (typeof option === 'string' ? option : option.value)}
       // Выбор варианта не запоминается: единственное состояние поля — его
       // текст. Иначе тот же вариант нельзя было бы выбрать второй раз,
@@ -165,18 +189,23 @@ export function SuggestField({
           {...params}
           label={label}
           placeholder={placeholder}
+          error={error !== undefined}
           sx={fieldSx}
           slotProps={{
             ...params.slotProps,
             input: {
               ...params.slotProps.input,
+              // Крестик и стрелка принадлежат списку и стоят вплотную к
+              // значению — они о том, что в поле уже написано. Карандаш
+              // уводит правку в отдельное окно и потому замыкает ряд:
+              // край поля — место для выхода из него, а не для его начинки.
               endAdornment:
                 endAdornment === undefined ? (
                   params.slotProps.input.endAdornment
                 ) : (
                   <>
-                    {endAdornment}
                     {params.slotProps.input.endAdornment}
+                    {endAdornment}
                   </>
                 ),
             },
@@ -201,6 +230,6 @@ export function SuggestField({
           }}
         />
       )}
-    />
+    />,
   );
 }

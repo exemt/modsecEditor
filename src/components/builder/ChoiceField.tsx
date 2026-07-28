@@ -9,11 +9,15 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import StarRateRoundedIcon from '@mui/icons-material/StarRateRounded';
 import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import { useLabel } from './useLabel';
+import { ListSection } from './ListSection';
 import { setFullList, useFullList } from './fullList';
 import { useI18n } from '../../i18n/useI18n';
+import { FIELD_GUTTER } from '../../theme';
+import type { SectionTone } from './ListSection';
 import type { Choice } from '../../modsec/choices';
 import type { SxProps, Theme } from '@mui/material/styles';
 
@@ -121,16 +125,46 @@ export function ChoiceField({
   );
   const hidden = choices.length - short.length;
 
+  // Краткий вид имеет смысл только там, где он что-то прячет. У закрытого
+  // списка — скажем, семи реакций правила — частое и есть весь список:
+  // подвал предлагал бы «показать все, ещё 0», а звёздочка «часто» стояла бы
+  // у каждой строки и ни одной не выделяла.
+  const shortens = hidden > 0;
+
+  /**
+   * Цвет каждого раздела — по тому, чем в нём варианты.
+   *
+   * Разделы приходят готовыми строками, и по названию отличить «подходит»
+   * от «не подходит» можно было бы только сравнением с переводом. Сами
+   * варианты знают о себе больше: `shelve` уже разложила их так, что
+   * раздел однороден, поэтому достаточно первого встречного.
+   */
+  const tones = useMemo(() => {
+    const map = new Map<string, SectionTone>();
+    for (const choice of choices) {
+      const name = localize(choice.group, '');
+      if (map.has(name)) continue;
+      map.set(name, choice.unfit !== null ? 'unfit' : choice.recommended ? 'fit' : 'plain');
+    }
+    return map;
+  }, [choices, localize]);
+
+  // Заголовок раздела нужен, чтобы отделить один раздел от другого. Когда
+  // раздел на весь список один — как у пары «писать / не писать», — отделять
+  // его не от чего, и полоса лишь повторяла бы подпись поля.
+  const sectioned = tones.size > 1;
+
   // Подвал списка перерисовывается вместе с полем, а его компонент обязан
   // сохранять тождество: пересоздание размонтировало бы открытый список.
   // Поэтому меняющиеся данные подвал читает из ссылки, а не из замыкания.
-  const footer = useRef({ full, hidden, t });
-  footer.current = { full, hidden, t };
+  const footer = useRef({ full, hidden, shortens, t });
+  footer.current = { full, hidden, shortens, t };
 
   const ChoicePaper = useMemo(
     () =>
       function ChoicePaper(props: HTMLAttributes<HTMLElement>) {
         const state = footer.current;
+        if (!state.shortens) return <Paper {...props} />;
         return (
           <Paper {...props}>
             {props.children}
@@ -142,7 +176,21 @@ export function ChoiceField({
               // закроется раньше, чем сработает переключение.
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => setFullList(!state.full)}
-              sx={{ justifyContent: 'flex-start', px: 1.25, py: 0.75, borderRadius: 0 }}
+              // Подвал — служебная полоса под списком, а не главное в нём:
+              // набранная во всю ширину цветом кнопки, она перетягивала
+              // внимание с вариантов, ради которых список открыт. Цвет
+              // остался за значком: по нему полосу видно как нажимаемую.
+              sx={{
+                justifyContent: 'flex-start',
+                px: `${FIELD_GUTTER}px`,
+                py: 0.75,
+                borderRadius: 0,
+                fontSize: 11,
+                letterSpacing: '0.06em',
+                color: 'text.secondary',
+                '& .MuiButton-startIcon': { color: 'primary.light' },
+                '&:hover': { color: 'text.primary' },
+              }}
             >
               {state.full
                 ? state.t('builder.choiceCommon')
@@ -172,7 +220,7 @@ export function ChoiceField({
       onClose={() => setOpen(false)}
       getOptionLabel={(choice) => localize(choice.label, choice.value)}
       isOptionEqualToValue={(choice, current) => choice.value === current.value}
-      groupBy={(choice) => localize(choice.group, '')}
+      groupBy={sectioned ? (choice) => localize(choice.group, '') : undefined}
       // Поиск идёт по всему списку, даже когда он свёрнут: спрашивая про
       // `base64`, человек хочет получить ответ, а не «ничего не найдено»
       // из-за режима показа.
@@ -182,6 +230,11 @@ export function ChoiceField({
         return full ? options : short;
       }}
       slots={{ paper: ChoicePaper }}
+      renderGroup={(params) => (
+        <ListSection key={params.key} title={params.group} tone={tones.get(params.group)}>
+          {params.children}
+        </ListSection>
+      )}
       slotProps={{
         popper: {
           placement: 'bottom-start',
@@ -197,7 +250,7 @@ export function ChoiceField({
           key={choice.value}
           choice={choice}
           prefix={prefix}
-          marked={full && choice.common}
+          marked={shortens && full && choice.common}
         />
       )}
       renderInput={(params) => (
@@ -263,22 +316,42 @@ function ChoiceOption({ choice, prefix, marked, ...props }: ChoiceOptionProps) {
   return (
     <Box component="li" {...props} sx={{ alignItems: 'stretch' }}>
       <Stack spacing={0.25} sx={{ minWidth: 0, width: '100%', py: 0.25 }}>
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
           <Typography
             variant="body2"
             noWrap
-            sx={{ flex: 1, minWidth: 0, color: choice.unfit ? 'text.disabled' : 'inherit' }}
+            sx={{ minWidth: 0, color: choice.unfit ? 'text.disabled' : 'inherit' }}
           >
             {localize(choice.label, choice.value)}
           </Typography>
+
+          {/* Частое отмечено звёздочкой сразу за названием: словом «часто»
+              эта пометка занимала в строке столько же места, сколько само
+              название, и читалась как часть смысла варианта. */}
           {marked && (
-            <Typography variant="caption" sx={{ flexShrink: 0, color: 'success.main' }}>
-              {t('builder.choiceOften')}
-            </Typography>
+            <Tooltip title={t('builder.choiceOften')} placement="top" enterDelay={400}>
+              <StarRateRoundedIcon
+                sx={{ flexShrink: 0, fontSize: 15, color: 'success.main' }}
+              />
+            </Tooltip>
           )}
+
+          {/* Распорка прижимает оригинал к правому краю и при этом сжимается
+              последней: не хватает места — многоточие получает название. */}
+          <Box sx={{ flex: 1, minWidth: 8 }} />
+
           <Typography
             variant="caption"
-            sx={{ flexShrink: 0, fontFamily: MONO, color: 'text.disabled' }}
+            sx={{
+              flexShrink: 0,
+              fontFamily: MONO,
+              // Написание из правила — вставка чужого языка, и подложка
+              // отделяет его от подписей интерфейса так же, как код в тексте.
+              px: 0.5,
+              borderRadius: 0.5,
+              bgcolor: 'action.hover',
+              color: choice.unfit ? 'text.disabled' : 'text.secondary',
+            }}
           >
             {prefix}
             {choice.value}

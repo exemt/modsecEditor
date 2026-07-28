@@ -127,6 +127,7 @@ export function OperatorValue({
           monospace
           label={valueLabel}
           placeholder={t('builder.addValue')}
+          dialogTitle={`${t('builder.value')} — ${operatorLabel}`}
           separators={[separator]}
           suggestions={suggestions}
           values={splitOperatorArgument(operator.argument, separator)}

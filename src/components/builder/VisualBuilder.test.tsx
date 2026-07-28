@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
@@ -58,8 +58,8 @@ describe('VisualBuilder — правки уходят в текст правил
     );
     expect(screen.getByRole('button', { name: /ТОЛЬКО/ })).toBeInTheDocument();
     expect(screen.getByText('User-Agent')).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Значение' })).toHaveValue('badbot');
-    expect(screen.getByRole('textbox', { name: 'ID' })).toHaveValue('1001');
+    expect(screen.getByRole('combobox', { name: 'Значение (строка)' })).toHaveValue('badbot');
+    expect(screen.getByRole('textbox', { name: 'ID правила' })).toHaveValue('1001');
   });
 
   it('называет пустой список параметров «ВСЕ»', () => {
@@ -145,7 +145,7 @@ describe('VisualBuilder — правки уходят в текст правил
       'SecRule REQUEST_METHOD "@streq GET" "id:1002,phase:1,deny"\n',
     );
 
-    await user.click(screen.getByRole('combobox', { name: 'Значение' }));
+    await user.click(screen.getByRole('combobox', { name: 'Значение (строка)' }));
 
     expect(await screen.findByRole('option', { name: /^POST/ })).toHaveTextContent(
       'Отправка данных',
@@ -295,6 +295,23 @@ describe('VisualBuilder — правки уходят в текст правил
     expect(screen.getByText('не совпадает')).toBeInTheDocument();
   });
 
+  // Подсказка примера — это ответ на «что сюда писать», и регулярка в ней
+  // отвечала на него неверно: проверять шаблон самим шаблоном бессмысленно.
+  it('подсказывает примеру значение области проверки, а не шаблон @rx', async () => {
+    const user = userEvent.setup();
+    renderBuilder(
+      'SecRule REQUEST_HEADERS:User-Agent "@rx (?i)(?:sqlmap|nikto)" \\\n' +
+        '    "id:1001,phase:1,t:lowercase,deny"\n',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Проверить на примере' }));
+
+    expect(screen.getByRole('textbox', { name: 'Пример значения' })).toHaveAttribute(
+      'placeholder',
+      'sqlmap',
+    );
+  });
+
   it('отмечает шаг конвейера, который ничего не изменил', async () => {
     const user = userEvent.setup();
     renderBuilder(LOWERCASED);
@@ -401,5 +418,48 @@ describe('VisualBuilder — правки уходят в текст правил
 
     await waitFor(() => expect(source()).not.toContain('SecRule'));
     expect(source()).not.toContain('Блокируем');
+  });
+});
+
+describe('VisualBuilder — проверка регулярного выражения', () => {
+  it('не считает поломкой встроенный флаг PCRE', () => {
+    renderBuilder('SecRule ARGS "@rx (?i)select" "id:1001,phase:2,deny"\n');
+
+    expect(screen.getByLabelText('Значение (regex)')).toBeValid();
+    expect(screen.queryByText(/Шаблон не собирается/)).toBeNull();
+  });
+
+  it('красит поле сломанным шаблоном, не открывая окна', () => {
+    renderBuilder('SecRule ARGS "@rx a(b" "id:1001,phase:2,deny"\n');
+
+    expect(screen.getByLabelText('Значение (regex)')).toBeInvalid();
+  });
+
+  it('не заводит вокруг покрасневшего поля лишнего узла', () => {
+    renderBuilder('SecRule ARGS "@rx a(b" "id:1001,phase:2,deny"\n');
+
+    // Строка условия разводит поля отступом между прямыми детьми ряда.
+    // Обёртка вокруг поля забрала бы этот отступ себе, и поле с ошибкой
+    // встало бы вплотную к оператору.
+    const field = screen.getByLabelText('Значение (regex)').closest('.MuiAutocomplete-root');
+    expect(field?.parentElement).toHaveClass('MuiStack-root');
+  });
+
+  it('в окне показывает причину, пряча дословный ответ движка', async () => {
+    const user = userEvent.setup();
+    renderBuilder('SecRule ARGS "@rx a(b" "id:1001,phase:2,deny"\n');
+
+    await user.click(screen.getByRole('button', { name: 'Редактировать в окне' }));
+    const dialog = within(await screen.findByRole('dialog'));
+
+    // Видна одна строка с причиной; шаблон, который движок приписывает к
+    // ней целиком, ждёт за кнопкой.
+    expect(dialog.getByText(/Шаблон не собирается/)).toBeInTheDocument();
+    expect(dialog.queryByText(/Invalid regular expression/)).toBeNull();
+
+    await user.click(dialog.getByRole('button', { name: 'Подробности' }));
+
+    expect(await dialog.findByText(/Invalid regular expression/)).toBeInTheDocument();
+    expect(dialog.getByRole('button', { name: 'Применить' })).toBeDisabled();
   });
 });

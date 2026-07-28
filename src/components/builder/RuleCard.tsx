@@ -4,6 +4,7 @@ import Chip from '@mui/material/Chip';
 import Collapse from '@mui/material/Collapse';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
@@ -106,11 +107,24 @@ export function RuleCard({
           </IconButton>
         </Tooltip>
 
-        <Chip
-          size="small"
-          color="primary"
-          variant="outlined"
-          label={`${t('builder.rule')} ${rule.actions.id || '—'}`}
+        <CommitField
+          value={rule.actions.id}
+          onCommit={(id) => onChange({ ...rule, actions: { ...rule.actions, id } })}
+          // Подпись поля заодно называет и сам блок: отдельная метка «Правило»
+          // рядом с номером повторяла бы то же слово дважды.
+          sx={{
+            width: 168,
+            flexShrink: 0,
+            '& .MuiInputBase-adornedStart .MuiInputBase-input': { pl: 0 },
+          }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">{t('builder.rule')}</InputAdornment>
+              ),
+            },
+            htmlInput: { 'aria-label': t('builder.ruleId'), inputMode: 'numeric' },
+          }}
         />
 
         {collapsed ? (
@@ -124,15 +138,13 @@ export function RuleCard({
           </Typography>
         ) : (
           <CommitField
-            size="small"
-            variant="standard"
-            fullWidth
             placeholder={t('builder.descriptionPlaceholder')}
             value={description}
             onCommit={(value) =>
               onChange({ ...rule, comments: value.trim() === '' ? [] : [value.trim()] })
             }
-            slotProps={{ input: { disableUnderline: true } }}
+            sx={{ flex: 1, minWidth: 0 }}
+            slotProps={{ htmlInput: { 'aria-label': t('builder.description') } }}
           />
         )}
 
@@ -195,6 +207,7 @@ export function RuleCard({
           />
           <Divider />
           <ActionsPanel
+            hideId
             actions={rule.actions}
             onChange={(actions) => onChange({ ...rule, actions })}
           />

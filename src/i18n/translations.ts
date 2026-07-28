@@ -26,6 +26,9 @@ const en = {
   'app.close': 'Close',
   'app.cancel': 'Cancel',
   'app.apply': 'Apply',
+  'app.details': 'Details',
+  'app.hideDetails': 'Hide',
+  'app.showFull': 'Show the whole value',
   'app.language': 'Language',
 
   'tab.text': 'Text',
@@ -132,6 +135,7 @@ const en = {
   'builder.addRule': 'Add rule',
   'builder.deleteRule': 'Delete rule',
   'builder.rule': 'Rule',
+  'builder.ruleId': 'Rule ID',
   'builder.description': 'Description',
   'builder.descriptionPlaceholder': 'What this rule does',
 
@@ -158,7 +162,8 @@ const en = {
   'builder.addParam': 'Add parameter',
   'builder.exclusions': 'Exclusions',
   'builder.addExcept': 'Add exclusion',
-  'builder.paramsHint': 'One value per line; a comma also separates values.',
+  'builder.listHint': 'One value per line.',
+  'builder.listHintComma': 'A comma separates values too.',
   'builder.count': 'Count',
   'builder.countHint': 'Compare the number of elements instead of their values',
   'builder.countUnavailable': 'Counting works only for collections',
@@ -195,6 +200,11 @@ const en = {
   'builder.noArgument': 'This operator takes no value',
   'builder.editInWindow': 'Edit in a window',
   'builder.regexHint': 'Regular expression: checked as you type.',
+  'builder.regexInvalid': 'The pattern does not compile: {reason}',
+  'builder.regexPcre':
+    'The pattern uses PCRE syntax that JavaScript has no equivalent for — "(?i)" and the like. The check translates it, so the rule is fine.',
+  'builder.regexUnsupported':
+    'PCRE has no JavaScript equivalent for "{what}". The rule itself is fine, but the editor cannot check this pattern.',
 
   'builder.actions': 'Actions',
   'builder.id': 'ID',
@@ -218,14 +228,6 @@ const en = {
   'builder.marker': 'Marker',
   'builder.directive': 'Directive',
   'builder.readOnly': 'Editable in the text tab only',
-
-  'disruptive.pass': 'Pass',
-  'disruptive.deny': 'Deny',
-  'disruptive.drop': 'Drop connection',
-  'disruptive.block': 'Block',
-  'disruptive.allow': 'Allow',
-  'disruptive.redirect': 'Redirect',
-  'disruptive.proxy': 'Proxy',
 
   'toolbar.undo': 'Undo',
   'toolbar.redo': 'Redo',
@@ -436,6 +438,9 @@ const ru: Record<TranslationKey, string> = {
   'app.close': 'Закрыть',
   'app.cancel': 'Отмена',
   'app.apply': 'Применить',
+  'app.details': 'Подробности',
+  'app.hideDetails': 'Скрыть',
+  'app.showFull': 'Показать значение целиком',
   'app.language': 'Язык',
 
   'tab.text': 'Текстовый',
@@ -540,6 +545,7 @@ const ru: Record<TranslationKey, string> = {
   'builder.addRule': 'Добавить правило',
   'builder.deleteRule': 'Удалить правило',
   'builder.rule': 'Правило',
+  'builder.ruleId': 'ID правила',
   'builder.description': 'Описание',
   'builder.descriptionPlaceholder': 'Что делает это правило',
 
@@ -565,7 +571,8 @@ const ru: Record<TranslationKey, string> = {
   'builder.addParam': 'Добавить параметр',
   'builder.exclusions': 'Исключения',
   'builder.addExcept': 'Добавить исключение',
-  'builder.paramsHint': 'По одному значению в строке; запятая тоже разделяет.',
+  'builder.listHint': 'По одному значению в строке.',
+  'builder.listHintComma': 'Запятая тоже разделяет.',
   'builder.count': 'Подсчёт',
   'builder.countHint': 'Сравнивать количество элементов, а не их значения',
   'builder.countUnavailable': 'Подсчёт работает только для коллекций',
@@ -602,6 +609,11 @@ const ru: Record<TranslationKey, string> = {
   'builder.noArgument': 'Оператор не принимает значение',
   'builder.editInWindow': 'Редактировать в окне',
   'builder.regexHint': 'Регулярное выражение: проверяется по ходу ввода.',
+  'builder.regexInvalid': 'Шаблон не собирается: {reason}',
+  'builder.regexPcre':
+    'В шаблоне есть записи PCRE, которых нет в JavaScript, — «(?i)» и подобные. Проверка их переводит, с правилом всё в порядке.',
+  'builder.regexUnsupported':
+    'Записи PCRE «{what}» в JavaScript нет. С правилом всё в порядке, но проверить такой шаблон редактор не может.',
 
   'builder.actions': 'Действия',
   'builder.id': 'ID',
@@ -611,8 +623,8 @@ const ru: Record<TranslationKey, string> = {
   'builder.message': 'Сообщение',
   'builder.logdata': 'Данные в лог',
   'builder.severity': 'Критичность',
-  'builder.tags': 'Метки',
-  'builder.addTag': 'Добавить метку',
+  'builder.tags': 'Теги',
+  'builder.addTag': 'Добавить тег',
   'builder.capture': 'Захватывать совпадения',
   'builder.log': 'Логировать',
   'builder.auditlog': 'Журнал аудита',
@@ -625,14 +637,6 @@ const ru: Record<TranslationKey, string> = {
   'builder.marker': 'Метка',
   'builder.directive': 'Директива',
   'builder.readOnly': 'Редактируется только в текстовой вкладке',
-
-  'disruptive.pass': 'Пропустить',
-  'disruptive.deny': 'Запретить',
-  'disruptive.drop': 'Разорвать соединение',
-  'disruptive.block': 'Блокировать',
-  'disruptive.allow': 'Разрешить',
-  'disruptive.redirect': 'Перенаправить',
-  'disruptive.proxy': 'Проксировать',
 
   'toolbar.undo': 'Отменить',
   'toolbar.redo': 'Повторить',

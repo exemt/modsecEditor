@@ -544,12 +544,6 @@ const SCORE_VALUES = group('CRS thresholds', 'Пороги CRS', [
   s('10', 'Two critical hits', 'Два критических срабатывания'),
 ]);
 
-const COUNT_VALUES = group('Counts', 'Количество', [
-  s('0', 'Nothing at all', 'Совсем ничего'),
-  s('1', 'Exactly one', 'Ровно один'),
-  s('32', 'Common parameter limit', 'Частый предел на число параметров'),
-]);
-
 const DURATION_VALUES = group('Milliseconds', 'Миллисекунды', [
   s('1000', '1 second', '1 секунда'),
   s('5000', '5 seconds', '5 секунд'),
@@ -646,19 +640,53 @@ export function operatorValueSuggestions(
   if (arg === 'byteRange') return BYTE_RANGES;
   if (arg === 'phrases') return [...(bySubject(SUBJECT_VALUES, targets) ?? []), ...ATTACK_PHRASES];
 
-  // Числу подсказывают только там, где известно, что именно считается:
-  // у кода ответа это коды, у размера тела — размеры, у подсчёта `&` —
-  // количества. Просто «числу» подсказать нечего, а список из круглых
-  // значений с пояснением «десять» отвечает на вопрос, которого не было,
-  // и обещает варианты там, где их нет.
+  // Числу подсказывают только там, где известно, что именно считается: у
+  // кода ответа это коды, у размера тела — размеры. Просто «числу»
+  // подсказать нечего, а список из круглых значений с пояснением «десять»
+  // отвечает на вопрос, которого не было, и обещает варианты там, где их
+  // нет. Подсчёт `&` молчит и на знакомой области: у `&FILES_SIZES`
+  // считаются файлы, а размеры из таблицы — про их содержимое.
   if (arg === 'number' || inputKind === 'number') {
     const counting = targets.some((target) => !target.excludeOnly && target.count);
-    if (counting) return COUNT_VALUES;
+    if (counting) return [];
     return bySubject(SUBJECT_NUMBERS, targets) ?? [];
   }
 
   const subject = bySubject(SUBJECT_VALUES, targets) ?? [];
   return arg === 'regex' ? [...subject, ...REGEX_PATTERNS] : subject;
+}
+
+/**
+ * Значение, которое могло бы прийти в такую проверку.
+ *
+ * Подсказка примеру — не то же, что подсказка аргументу оператора. Аргумент
+ * бывает значением только у сравнений с текстом и числом: `@streq POST`
+ * действительно проверяют на `POST`, и такая подсказка отвечает на самый
+ * частый вопрос — доедет ли до оператора то, с чем он сравнивает. Шаблон
+ * `@rx`, имя файла `@pmFromFile` или диапазон байтов на вход проверки не
+ * приходят никогда, и предложить проверить регулярку самой собой значит
+ * предложить бессмыслицу: конвейер прогонит её как текст, а сравнение с
+ * собственным шаблоном не расскажет о правиле ничего.
+ *
+ * Таким операторам пример подсказывает область проверки: у `REQUEST_METHOD`
+ * это методы, у `User-Agent` — сканеры. Не знаем ни того, ни другого — поле
+ * остаётся пустым: пример придумывает человек, и подсказка наугад ему
+ * только мешает.
+ */
+export function sampleValueHint(
+  operator: { name: string; argument: string },
+  targets: TargetLike[],
+): string {
+  const arg = operatorMeta(operator.name)?.arg ?? 'string';
+  const argument = operator.argument.trim();
+  // Макрос — тоже не значение: что в нём окажется, знает только движок.
+  const literal = (arg === 'string' || arg === 'number') && !/%\{/.test(argument);
+  if (literal && argument !== '') return argument;
+
+  // Таблицы значений не пересекаются: числовые области проверки стоят в
+  // одной, текстовые в другой, — поэтому тип входа тут спрашивать не нужно.
+  const subject = bySubject(SUBJECT_VALUES, targets) ?? bySubject(SUBJECT_NUMBERS, targets);
+  return subject?.[0]?.value ?? '';
 }
 
 /* ------------------------------------------------------------------ */

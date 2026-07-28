@@ -9,11 +9,13 @@ import Typography from '@mui/material/Typography';
 import CloseIcon from '@mui/icons-material/Close';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { Excerpt } from '../Excerpt';
 import { useI18n } from '../../i18n/useI18n';
 import { matchValue } from '../../modsec/match';
+import { sampleValueHint } from '../../modsec/suggestions';
 import { runPipeline, showBytes, toBytes } from '../../modsec/transform';
 import type { MatchVerdict } from '../../modsec/match';
-import type { VisualOperator } from '../../modsec/model';
+import type { VisualOperator, VisualTarget } from '../../modsec/model';
 
 const MONO = 'ui-monospace, Consolas, monospace';
 
@@ -21,6 +23,8 @@ interface PipelinePreviewProps {
   transforms: string[];
   /** Оператор условия — им заканчивается проверка примера. */
   operator: VisualOperator;
+  /** Области проверки — по ним подсказывается, каким пример бывает. */
+  targets: VisualTarget[];
   /**
    * Открыта ли проверка.
    *
@@ -47,6 +51,7 @@ interface PipelinePreviewProps {
 export function PipelinePreview({
   transforms,
   operator,
+  targets,
   open,
   onOpenChange,
 }: PipelinePreviewProps) {
@@ -97,11 +102,6 @@ export function PipelinePreview({
         // Справа освобождено место под крестик, чтобы поля не уходили
         // под него на узкой карточке.
         pr: 5,
-        // Карточка не тянется во всю ширину условия: там она упирается в
-        // его правый край, а он при тесном окне уезжает за видимую
-        // область вместе с крестиком. Ширины хватает и полю, и строкам
-        // конвейера — они переносятся.
-     
         borderRadius: 1,
         bgcolor: 'background.default',
         // Рамка есть всегда, но видна только у сломанной проверки: иначе
@@ -142,9 +142,10 @@ export function PipelinePreview({
           // Пояснение нужно только пустому полю: как только пример набран,
           // на вопрос «что сюда писать» отвечают строки ниже.
           helperText={sample === '' ? t('builder.previewHint') : undefined}
-          // Подсказкой стоит то, что ищет оператор: чаще всего проверить
-          // хотят именно его — и сразу увидеть, доживёт ли оно до сравнения.
-          placeholder={operator.argument}
+          // Подсказкой стоит значение, которое в такую проверку могло бы
+          // прийти: аргумент оператора, если он и есть значение, иначе —
+          // типичное значение области проверки.
+          placeholder={sampleValueHint(operator, targets)}
           value={sample}
           onChange={(event) => setSample(event.target.value)}
           slotProps={{
@@ -206,7 +207,8 @@ export function PipelinePreview({
 
             {verdict !== null && (
               <Line
-                label={`${operator.negated ? '!' : ''}@${operator.name} ${operator.argument}`.trim()}
+                label={`${operator.negated ? '!' : ''}@${operator.name}`}
+                argument={operator.argument}
                 note={t(VERDICT_KEY[verdict])}
                 noteColor={VERDICT_COLOR[verdict]}
               />
@@ -234,8 +236,10 @@ const VERDICT_COLOR = {
 } as const;
 
 interface LineProps {
-  /** Имя шага: `t:lowercase`, `@streq POST` или подпись входа. */
+  /** Имя шага: `t:lowercase`, `@streq` или подпись входа. */
   label: string;
+  /** Аргумент оператора — единственная часть подписи, длину которой пишет человек. */
+  argument?: string;
   /** Значение после шага. Не задано — показывать нечего, остаётся пометка. */
   value?: string;
   /** Пояснение на месте значения: «без изменений», «не совпадает». */
@@ -243,8 +247,27 @@ interface LineProps {
   noteColor?: string;
 }
 
+/**
+ * Сколько символов аргумента остаётся в подписи шага.
+ *
+ * Начала регулярки хватает, чтобы узнать её среди прочих: аргумент здесь —
+ * не то, что читают, а то, по чему опознают проверку. Целиком он и так стоит
+ * в поле оператора выше.
+ */
+const ARGUMENT_LIMIT = 32;
+
+/**
+ * Сколько символов значения остаётся в строке конвейера.
+ *
+ * Мера щедрее, чем у подписи: значение после шага читают, а не опознают, и
+ * ради него проверку открывали. Двух-трёх строк хватает, чтобы увидеть, что
+ * шаг сделал со значением; вставленная в пример полезная нагрузка на
+ * килобайт превратила бы конвейер в простыню, в которой не найти вердикт.
+ */
+const VALUE_LIMIT = 200;
+
 /** Строка предпросмотра: слева шаг, справа то, что после него осталось. */
-function Line({ label, value, note, noteColor }: LineProps) {
+function Line({ label, argument, value, note, noteColor }: LineProps) {
   return (
     <>
       <Typography
@@ -252,19 +275,25 @@ function Line({ label, value, note, noteColor }: LineProps) {
         sx={{ fontFamily: MONO, color: 'text.disabled', whiteSpace: 'nowrap' }}
       >
         {label}
+        {argument !== undefined && argument !== '' && (
+          <>
+            {' '}
+            <Excerpt text={argument} limit={ARGUMENT_LIMIT} title={label} />
+          </>
+        )}
       </Typography>
 
       <Typography
         variant="caption"
         sx={{
           fontFamily: MONO,
-          // Значение показывается целиком и с переносами: обрезанный
-          // результат не отвечает на вопрос, ради которого его открыли.
+          // Значение переносится по любому символу: слов в нём нет, а
+          // сравнивают его с шаблоном посимвольно.
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-all',
         }}
       >
-        {value}
+        {value !== undefined && <Excerpt text={value} limit={VALUE_LIMIT} title={label} />}
         {note !== undefined && (
           <Box component="span" sx={{ color: noteColor ?? 'text.disabled' }}>
             {note}

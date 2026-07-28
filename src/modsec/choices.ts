@@ -16,12 +16,19 @@
  */
 
 import {
+  DISRUPTIVE_ACTIONS,
   OPERATOR_NAMES,
+  PHASE_NAMES,
+  SEVERITY_NAMES,
   TRANSFORM_NAMES,
+  disruptiveMeta,
+  logFlagMeta,
   operatorMeta,
+  phaseMeta,
+  severityMeta,
   transformMeta,
 } from './semantics';
-import type { Label, ValueKind } from './semantics';
+import type { ActionMeta, Label, ValueKind } from './semantics';
 
 /** Один вариант списка со всем, что о нём нужно знать при выборе. */
 export interface Choice {
@@ -180,6 +187,63 @@ export function operatorChoices(
   });
 
   return withCurrent(shelve(known), current, operatorMeta(current) !== null);
+}
+
+/**
+ * Список действий правила: реакция, фаза, критичность, запись в журнал.
+ *
+ * От операторов и преобразований они отличаются тем, что относятся к правилу
+ * целиком, а не к значению на текущем шаге. Значит, делить варианты на годные
+ * и негодные здесь не по чему: подходит любой, и полок, отбора по типу входа
+ * и краткого вида нет. Разделы и порядок заданы базой знаний, а список только
+ * доносит пояснения.
+ */
+function actionChoices(
+  names: readonly string[],
+  meta: (name: string) => ActionMeta | null,
+  current: string,
+): Choice[] {
+  const known: Choice[] = names.map((value) => {
+    const info = meta(value);
+    if (info === null) return unknownChoice(value);
+    return {
+      value,
+      label: info.label,
+      note: info.note,
+      group: info.group,
+      common: true,
+      recommended: false,
+      unfit: null,
+    };
+  });
+
+  return withCurrent(known, current, meta(current) !== null);
+}
+
+/** Реакции: что правило делает, когда все условия совпали. */
+export function disruptiveChoices(current: string): Choice[] {
+  return actionChoices(DISRUPTIVE_ACTIONS, disruptiveMeta, current);
+}
+
+/** Фазы: когда правило выполняется и что к этому моменту заполнено. */
+export function phaseChoices(current: string): Choice[] {
+  return actionChoices(PHASE_NAMES, phaseMeta, current);
+}
+
+/** Уровни критичности срабатывания. */
+export function severityChoices(current: string): Choice[] {
+  return actionChoices(SEVERITY_NAMES, severityMeta, current);
+}
+
+/**
+ * Запись в журнал — пара «писать / не писать» для одного из двух журналов.
+ *
+ * Пары разведены по вызовам, а не сведены в один список: поле спрашивает
+ * про свой журнал, и `auditlog` рядом с `nolog` предлагал бы выбрать
+ * что-то одно из четырёх там, где выбор всего из двух.
+ */
+export function logFlagChoices(flags: readonly string[], current: string): Choice[] {
+  return actionChoices(flags, logFlagMeta, current);
 }
 
 /** Дописывает выбранное значение, если базе знаний оно незнакомо. */

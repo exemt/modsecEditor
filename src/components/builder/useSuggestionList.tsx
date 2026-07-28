@@ -2,8 +2,10 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { createFilterOptions } from '@mui/material/Autocomplete';
+import type { AutocompleteRenderGroupParams } from '@mui/material/Autocomplete';
 import type { HTMLAttributes, Key } from 'react';
 import { useLabel } from './useLabel';
+import { ListSection } from './ListSection';
 import type { Suggestion } from '../../modsec/suggestions';
 
 /**
@@ -44,6 +46,14 @@ export function useSuggestionList(suggestions: Suggestion[]) {
       },
     },
     groupBy: grouped ? (option: Suggestion) => localize(option.group, '') : undefined,
+    // Заголовок раздела тот же, что и в списках базы знаний: разделены эти
+    // списки по-разному, но выглядеть по-разному им незачем. Цвета у
+    // подсказок нет — ни один их раздел не «подходит больше» остальных.
+    renderGroup: (params: AutocompleteRenderGroupParams) => (
+      <ListSection key={params.key} title={params.group}>
+        {params.children}
+      </ListSection>
+    ),
     renderOption: (
       props: HTMLAttributes<HTMLLIElement> & { key: Key },
       option: Suggestion,
