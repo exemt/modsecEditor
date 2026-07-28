@@ -9,6 +9,7 @@ import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import CancelIcon from '@mui/icons-material/Cancel';
 import CloseIcon from '@mui/icons-material/Close';
 import { ChipInput } from './ChipInput';
 import { ChoiceField } from './ChoiceField';
@@ -203,6 +204,14 @@ export function ActionsPanel({
                     ...actions,
                     extra: actions.extra.filter((_, i) => i !== index),
                   })
+                }
+                // Крестик чипа — единственная кнопка строки, и без имени
+                // чтение с экрана слышит здесь только само действие.
+                deleteIcon={
+                  <CancelIcon
+                    role="button"
+                    aria-label={t('builder.removeAction', { name: item.name })}
+                  />
                 }
                 sx={{ fontFamily: 'ui-monospace, Consolas, monospace' }}
               />

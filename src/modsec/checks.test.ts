@@ -256,6 +256,26 @@ describe('адрес перенаправления', () => {
   });
 });
 
+describe('действия, которых нет в форме', () => {
+  // «Нет поля в конструкторе» и «такого действия не существует» — разные
+  // новости: первая про редактор, вторая про правило, которое ModSecurity
+  // не загрузит. Одно сообщение на оба случая прятало ошибку среди оговорок.
+  it('отличает действие без поля от опечатки в имени', () => {
+    expect(codes(`SecRule ARGS "@rx \\d+" "${CLEAN},ctl:auditEngine=Off"`)).toContain(
+      'actionNotEditable',
+    );
+    expect(codes(`SecRule ARGS "@rx \\d+" "${CLEAN},msgg:'x'"`)).toContain('unknownAction');
+  });
+
+  it('молчит о метаданных набора правил: для них поля есть', () => {
+    const notes = codes(
+      `SecRule ARGS "@rx \\d+" "${CLEAN},ver:'OWASP_CRS/4.0.0',rev:'2',maturity:'9',accuracy:'9'"`,
+    );
+    expect(notes).not.toContain('actionNotEditable');
+    expect(notes).not.toContain('unknownAction');
+  });
+});
+
 describe('цена исполнения и запись', () => {
   it('ловит вложенные кванторы', () => {
     expect(codes(`SecRule ARGS "@rx (a+)+b" "${CLEAN}"`)).toContain('possibleRedos');

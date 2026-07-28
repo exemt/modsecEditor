@@ -92,6 +92,26 @@ describe('emitRule — round trip', () => {
     expect(emitRule(proxy)[0]).toContain('proxy:http://backend/');
   });
 
+  // Метаданные набора движок не читает вовсе, и в этом соблазн выкинуть их
+  // из модели. Тогда они уезжают в конец списка действий после первой же
+  // правки соседнего поля — а правило в наборе принято писать иначе.
+  it('keeps rule-set metadata in fields of its own', () => {
+    const rule = rulesOf(
+      'SecRule ARGS "@rx evil" ' +
+        "\"id:1001,phase:2,deny,ver:'OWASP_CRS/4.0.0',rev:'2',maturity:'9',accuracy:'8'\"",
+    )[0];
+
+    expect(rule.actions.ver).toBe('OWASP_CRS/4.0.0');
+    expect(rule.actions.rev).toBe('2');
+    expect(rule.actions.maturity).toBe('9');
+    expect(rule.actions.accuracy).toBe('8');
+    expect(rule.actions.extra).toEqual([]);
+
+    expect(emitRule(rule)[0]).toContain(
+      "ver:'OWASP_CRS/4.0.0',rev:'2',maturity:'9',accuracy:'8'",
+    );
+  });
+
   it('writes reactions that take no address as a bare name', () => {
     const rule = rulesOf('SecRule ARGS "@rx evil" "id:1001,phase:2,deny,msg:\'x\'"')[0];
     expect(rule.actions.disruptiveValue).toBe('');
