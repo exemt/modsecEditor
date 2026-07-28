@@ -49,6 +49,14 @@ const LOWERCASED = [
   '',
 ].join('\n');
 
+// Подсчёт вместе с преобразованиями: сочетание запрещённое, но написать
+// его в правиле никто не мешает — и конструктор обязан его показать.
+const COUNTED = [
+  'SecRule &ARGS "@lt 2" \\',
+  '    "id:1001,phase:2,t:lowercase,deny"',
+  '',
+].join('\n');
+
 describe('VisualBuilder — правки уходят в текст правила', () => {
   it('показывает область проверки, её параметр и значение оператора', () => {
     renderBuilder(BAD_BOT);
@@ -186,6 +194,22 @@ describe('VisualBuilder — правки уходят в текст правил
 
     await waitFor(() => expect(source()).toContain('&REQUEST_HEADERS:User-Agent'));
     expect(screen.getByRole('combobox', { name: 'Преобразование' })).toBeDisabled();
+  });
+
+  it('гасит уже набранный конвейер, но не прячет его', () => {
+    renderBuilder(COUNTED);
+
+    // Шаг остался в правиле — значит, остаётся и на экране. Подменив его
+    // пустым «Нет», конструктор соврал бы о том, что написано в правиле, и
+    // замечание о подсчёте указывало бы на пустое с виду поле.
+    const field = screen.getByRole('combobox', { name: 'Преобразование' });
+    expect(field).toBeDisabled();
+    expect(field).toHaveValue('Привести к нижнему регистру');
+    expect(source()).toContain('t:lowercase');
+
+    // Погашенного мало: шаг не ждёт своей очереди, а не сработает — и
+    // помечен как негодный, наравне с любым другим негодным полем.
+    expect(field).toBeInvalid();
   });
 
   it('показывает у преобразования и оригинал, и пояснение', async () => {

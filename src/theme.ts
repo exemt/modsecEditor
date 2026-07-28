@@ -204,22 +204,33 @@ export const theme = createTheme({
         // вариантами. У многострочного поля отступы держит корпус, а не
         // сам `textarea`, — ему padding задавать нельзя, он сложится с
         // корпусом и текст уедет от рамки вдвое дальше.
-        input: ({ ownerState }) => ({
-          ...(ownerState.size === 'small' && !ownerState.multiline
-            ? { padding: `${PAD_Y}px ${FIELD_GUTTER}px` }
-            : {}),
-          // Браузер красит автозаполненное поле своим жёлтым или синим
-          // фоном раньше, чем применяются любые из наших цветов, и поле
-          // выпадает из тёмной темы. Настоящей заливки у автозаполнения
-          // нет — есть только цвет перехода, — поэтому здесь он растянут
-          // на часы: фон остаётся тем же, что и у пустого поля, сколько бы
-          // поле ни было заполнено.
-          '&:-webkit-autofill': {
+        input: ({ ownerState, theme }) => {
+          // Растянутый переход одного `background-color` держит на месте
+          // только исходный синий или жёлтый фон автозаполнения — менеджеры
+          // паролей заливают поле собственным цветом уже поверх него, и тот
+          // же приём его не берёт. Заливка через `box-shadow` рисуется над
+          // любым таким фоном всегда, поэтому здесь оставлен едва заметный
+          // оттенок акцента, а не попытка притвориться, что поле пустое:
+          // заметно, что оно найдено автозаполнением, но не ярче обычного
+          // поля в фокусе.
+          const autofillTint = {
             WebkitTextFillColor: '#e6e8ec',
             caretColor: '#e6e8ec',
+            WebkitBoxShadow: `0 0 0 1000px ${alpha(theme.palette.primary.main, 0.07)} inset`,
             transition: 'background-color 600000s ease-in-out 0s',
-          },
-        }),
+          };
+          return {
+            ...(ownerState.size === 'small' && !ownerState.multiline
+              ? { padding: `${PAD_Y}px ${FIELD_GUTTER}px` }
+              : {}),
+            // Хром переопределяет заливку по отдельности для каждого из
+            // этих состояний — своего правила без них хватает только на
+            // поле, которое ни разу не тронули.
+            '&:-webkit-autofill': autofillTint,
+            '&:-webkit-autofill:hover': autofillTint,
+            '&:-webkit-autofill:focus': autofillTint,
+          };
+        },
         root: {
           '&.MuiInputBase-adornedStart': { paddingLeft: FIELD_GUTTER },
           '&.MuiInputBase-adornedEnd': { paddingRight: FIELD_ACTION_INSET },

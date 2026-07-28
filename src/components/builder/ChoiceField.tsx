@@ -57,8 +57,9 @@ interface ChoiceFieldProps {
   /** Текст на месте пустого значения; задан — значение можно не выбирать. */
   emptyLabel?: string;
   /**
-   * Чего полю не хватает. Задан — поле подсвечено как незаполненное, а текст
-   * стоит на месте значения и повторяется в подсказке.
+   * Что с полем не так. Задан — поле подсвечено красным, а текст стоит на
+   * месте незаполненного значения и повторяется в подсказке. Годится и
+   * недоступному полю: погашенное значение может быть не пустым, а негодным.
    */
   error?: string;
   /** Забрать фокус сразу: поле только что появилось по действию человека. */
@@ -202,6 +203,34 @@ export function ChoiceField({
     [],
   );
 
+  /**
+   * Оформление поля поверх готового: серое недоступное и красное негодное
+   * в MUI сходятся в одном поле не сами.
+   *
+   * Красный приходится возвращать вручную: в стилях MUI правило
+   * `.Mui-disabled` стоит после `.Mui-error` и перебивает его, так что
+   * негодное значение выглядело бы просто недоступным.
+   *
+   * А подсказка иначе не всплывает над самим значением: событий мыши
+   * недоступное поле не получает, и наведение доходило бы только до рамки
+   * вокруг него. Пропущенное сквозь поле, оно достаётся обёртке, на которой
+   * подсказка и висит.
+   */
+  const fieldSx = {
+    ...sx,
+    '& .MuiInputBase-input': { ...inputSx, ...(disabled && { pointerEvents: 'none' }) },
+    ...(disabled &&
+      error !== undefined && {
+        '& .Mui-disabled': {
+          color: 'error.main',
+          WebkitTextFillColor: (theme: Theme) => theme.palette.error.main,
+        },
+        '& .MuiOutlinedInput-root.Mui-disabled .MuiOutlinedInput-notchedOutline': {
+          borderColor: 'error.main',
+        },
+      }),
+  };
+
   const field = (
     <Autocomplete<Choice, false, boolean, false>
       openOnFocus
@@ -260,7 +289,7 @@ export function ChoiceField({
           autoFocus={autoFocus}
           error={error !== undefined}
           placeholder={error ?? emptyLabel}
-          sx={{ ...sx, '& .MuiInputBase-input': inputSx } as SxProps<Theme>}
+          sx={fieldSx as SxProps<Theme>}
           slotProps={{
             ...params.slotProps,
             inputLabel: { ...params.slotProps.inputLabel, shrink: true },

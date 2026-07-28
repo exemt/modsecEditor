@@ -86,6 +86,37 @@ export function TransformPipeline({
   };
 
   if (disabled) {
+    // Недоступный конвейер гаснет, но не исчезает: набранные шаги остаются
+    // в правиле, и подменять их пустым «Нет» — значит показывать не то, что
+    // в нём написано. Человек тогда не понимает, о каком конвейере говорит
+    // замечание «подсчёт игнорирует преобразования» и что ему очищать.
+    if (transforms.length > 0) {
+      return (
+        <Stack spacing={1.75} sx={{ width: '100%' }}>
+          {transforms.map((transform, index) => (
+            <Box key={`${transform}-${index}`} sx={rowSx}>
+              <Box sx={{ gridColumn: 2 }}>
+                <ChoiceField
+                  disabled
+                  prefix="t:"
+                  label={t('builder.transform')}
+                  // Шаг не просто недоступен — он написан в правиле и не
+                  // сработает. Серым это неотличимо от «здесь пока пусто»,
+                  // поэтому шаг красный: то же, что и у остальных полей,
+                  // которые в таком виде отдавать наружу нельзя.
+                  error={disabledReason}
+                  disabledReason={disabledReason}
+                  choices={transformChoices(kinds[index], recommended, transform)}
+                  value={transform}
+                  onChange={() => {}}
+                />
+              </Box>
+            </Box>
+          ))}
+        </Stack>
+      );
+    }
+
     return (
       <Box sx={{ ...rowSx, width: '100%' }}>
         <Box sx={{ gridColumn: 2 }}>
