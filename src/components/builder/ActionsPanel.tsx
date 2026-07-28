@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import Collapse from '@mui/material/Collapse';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
@@ -13,6 +12,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { ChipInput } from './ChipInput';
 import { ChoiceField } from './ChoiceField';
 import { CommitField } from './CommitField';
+import { Counter } from './Counter';
 import { LongTextField } from './LongTextField';
 import { Section, SECTION_PADDING } from './Section';
 import { SuggestField } from './SuggestField';
@@ -309,7 +309,12 @@ export function ActionsPanel({
       title={t('builder.actions')}
       summary={ruleActionSummary(actions)}
       monospace
-      counters={<Chip size="small" variant="outlined" label={ruleActionCount(actions)} />}
+      counters={
+        <Counter
+          hint={t('builder.countActions', { count: String(ruleActionCount(actions)) })}
+          count={ruleActionCount(actions)}
+        />
+      }
     >
       {body}
     </Section>

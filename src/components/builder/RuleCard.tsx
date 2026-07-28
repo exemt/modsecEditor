@@ -173,8 +173,14 @@ export function RuleCard({
           />
         )}
 
+        {/* Счёт здесь общий — и об условиях, и о правиле: свёрнутая карточка
+            не делит замечания по блокам, которых на ней не видно. Подсказка
+            говорит об этом прямо, иначе число у края полосы остаётся
+            загадкой. */}
         {!expanded && diagnostics.length > 0 && (
-          <Chip size="small" color={worst} label={diagnostics.length} />
+          <Tooltip title={t('builder.countAllNotes', { count: String(diagnostics.length) })}>
+            <Chip size="small" color={worst} label={diagnostics.length} />
+          </Tooltip>
         )}
 
         <Tooltip title={t('builder.moveUp')}>

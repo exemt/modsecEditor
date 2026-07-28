@@ -463,6 +463,18 @@ describe('VisualBuilder — правки уходят в текст правил
     expect(screen.getByRole('button', { name: 'Развернуть правило' })).toBeInTheDocument();
   });
 
+  // Счётчик у правого края полосы — число без единицы измерения, а у «Условий»
+  // их два подряд. Различить «1» и «1» можно только по подсказке, и она же
+  // служит счётчику именем: без неё чтение с экрана слышит одну цифру.
+  it('называет счётчики блоков словами', () => {
+    renderBuilder('SecRule ARGS "@streq POST" "id:1001,phase:2,deny,nolog,t:lowercase"\n');
+
+    expect(screen.getByLabelText(/Условий в цепочке: 1/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Замечаний об этих условиях: [1-9]/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Действий у правила: [1-9]/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Замечаний о правиле целиком: [1-9]/)).toBeInTheDocument();
+  });
+
   it('удаляет правило вместе с его описанием', async () => {
     const user = userEvent.setup();
     renderBuilder(BAD_BOT);

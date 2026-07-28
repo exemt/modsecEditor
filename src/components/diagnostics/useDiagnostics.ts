@@ -38,3 +38,16 @@ export function ruleLevelDiagnostics(all: Diagnostic[]): Diagnostic[] {
     return slot === undefined || slot === 'actions';
   });
 }
+
+/**
+ * Худший уровень среди сообщений.
+ *
+ * По нему свёрнутый блок красит свой счётчик и выбирает значок: набор из
+ * ошибки и двух советов — это ошибка, и полоса обязана сказать об этом, не
+ * дожидаясь, пока её раскроют. Пустой набор — совет: счётчик нуля не рисуют.
+ */
+export function worstSeverity(all: Diagnostic[]): Diagnostic['severity'] {
+  if (all.some((d) => d.severity === 'error')) return 'error';
+  if (all.some((d) => d.severity === 'warning')) return 'warning';
+  return 'advice';
+}

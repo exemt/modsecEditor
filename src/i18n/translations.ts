@@ -141,6 +141,16 @@ const en = {
   'builder.description': 'Description',
   'builder.descriptionPlaceholder': 'What this rule does',
 
+  // Счётчики блоков: голое число у правого края полосы ничего не обещает,
+  // и подсказка обязана сказать, что именно посчитано, а не сколько.
+  'builder.countConditions': 'Conditions in the chain: {count} — they fire only together',
+  'builder.countConditionNotes': 'Notes about these conditions: {count}',
+  'builder.countActions':
+    'Actions of the rule: {count} — the ID is not among them, it stands in the card header',
+  'builder.countRuleNotes':
+    'Notes about the rule as a whole: {count} — what is said about a condition stands by it',
+  'builder.countAllNotes': 'Notes about this rule: {count}, conditions included',
+
   'builder.conditions': 'Conditions',
   'builder.and': 'AND',
   'builder.or': 'OR',
@@ -563,6 +573,14 @@ const ru: Record<TranslationKey, string> = {
   'builder.ruleId': 'ID правила',
   'builder.description': 'Описание',
   'builder.descriptionPlaceholder': 'Что делает это правило',
+
+  'builder.countConditions': 'Условий в цепочке: {count} — сработают только вместе',
+  'builder.countConditionNotes': 'Замечаний об этих условиях: {count}',
+  'builder.countActions':
+    'Действий у правила: {count} — номер сюда не входит, он в шапке карточки',
+  'builder.countRuleNotes':
+    'Замечаний о правиле целиком: {count} — сказанное об условии стоит рядом с ним',
+  'builder.countAllNotes': 'Замечаний об этом правиле: {count}, включая условия',
 
   'builder.conditions': 'Условия',
   'builder.and': 'И',

@@ -1,13 +1,13 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import AddIcon from '@mui/icons-material/Add';
 import { Bracket, BracketLine } from './Bracket';
 import { ConditionRow } from './ConditionRow';
+import { Counter } from './Counter';
 import { Section } from './Section';
 import { conditionSummary } from './summary';
-import { conditionDiagnostics } from '../diagnostics/useDiagnostics';
+import { conditionDiagnostics, worstSeverity } from '../diagnostics/useDiagnostics';
 import { useI18n } from '../../i18n/useI18n';
 import { makeCondition } from '../../modsec/model';
 import type { Diagnostic } from '../../modsec/diagnostics';
@@ -39,11 +39,6 @@ export function ConditionsPanel({
   // Свёрнутый блок не должен прятать проблему: счётчик в заголовке говорит,
   // что внутри есть о чём поговорить, и красит себя по худшему из замечаний.
   const inside = conditions.flatMap((_, index) => conditionDiagnostics(diagnostics, index));
-  const worst = inside.some((d) => d.severity === 'error')
-    ? 'error'
-    : inside.some((d) => d.severity === 'warning')
-      ? 'warning'
-      : 'default';
 
   // Свёрнутая цепочка рассказывает о себе строкой: сколько в ней звеньев и
   // что каждое проверяет. Связка И между выжимками — та же, что на скобке
@@ -57,9 +52,16 @@ export function ConditionsPanel({
       monospace
       counters={
         <>
-          <Chip size="small" variant="outlined" label={conditions.length} />
+          <Counter
+            hint={t('builder.countConditions', { count: String(conditions.length) })}
+            count={conditions.length}
+          />
           {inside.length > 0 && (
-            <Chip size="small" color={worst} variant="outlined" label={inside.length} />
+            <Counter
+              hint={t('builder.countConditionNotes', { count: String(inside.length) })}
+              count={inside.length}
+              severity={worstSeverity(inside)}
+            />
           )}
         </>
       }

@@ -1,6 +1,7 @@
-import Chip from '@mui/material/Chip';
+import { Counter } from './Counter';
 import { Section } from './Section';
 import { DiagnosticNotes } from '../diagnostics/DiagnosticNotes';
+import { worstSeverity } from '../diagnostics/useDiagnostics';
 import { useI18n } from '../../i18n/useI18n';
 import { diagnosticKey } from '../../i18n/translations';
 import type { Diagnostic } from '../../modsec/diagnostics';
@@ -30,17 +31,17 @@ export function NotesPanel({ notes }: NotesPanelProps) {
   const [first] = notes;
   if (first === undefined) return null;
 
-  const worst = notes.some((d) => d.severity === 'error')
-    ? 'error'
-    : notes.some((d) => d.severity === 'warning')
-      ? 'warning'
-      : 'default';
-
   return (
     <Section
       title={t('builder.notes')}
       summary={t(diagnosticKey(first.code), first.params)}
-      counters={<Chip size="small" color={worst} variant="outlined" label={notes.length} />}
+      counters={
+        <Counter
+          hint={t('builder.countRuleNotes', { count: String(notes.length) })}
+          count={notes.length}
+          severity={worstSeverity(notes)}
+        />
+      }
     >
       <DiagnosticNotes items={notes} />
     </Section>
