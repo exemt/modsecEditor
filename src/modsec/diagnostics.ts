@@ -56,6 +56,11 @@ export const DIAGNOSTIC_CATALOG = {
   missingId: ['error', 'structure'],
   duplicateId: ['error', 'structure'],
   chainLinkHeadAction: ['error', 'structure'],
+  exclusionNoTarget: ['error', 'structure'],
+  exclusionBadId: ['error', 'structure'],
+  directiveArgCount: ['error', 'structure'],
+  directiveValueMissing: ['error', 'structure'],
+  directiveNotNumber: ['error', 'structure'],
 
   /* --- Форма: загрузится, но что-то написано не по правилам --------- */
   unknownVariable: ['warning', 'structure'],
@@ -71,6 +76,14 @@ export const DIAGNOSTIC_CATALOG = {
   noDisruptive: ['warning', 'structure'],
   destinationMissing: ['warning', 'structure'],
   destinationUnexpected: ['warning', 'structure'],
+  exclusionUpdateActionMetadata: ['warning', 'structure'],
+  exclusionCtlNoTarget: ['warning', 'structure'],
+  // Предупреждение, а не ошибка, — по той же причине, что у неизвестного
+  // действия: набор допустимых значений редактор знает из своей таблицы, а
+  // она может отстать от движка. Ошибка заблокировала бы конструктор на
+  // весь файл из-за одного значения, которого редактор просто не выучил.
+  directiveBadValue: ['warning', 'structure'],
+  directiveUnknownFlag: ['warning', 'structure'],
 
   /* --- Логика: проверка значит не то, что кажется ------------------- */
   countWithTransforms: ['warning', 'logic'],
@@ -85,6 +98,13 @@ export const DIAGNOSTIC_CATALOG = {
   transformNoneNotFirst: ['warning', 'logic'],
   duplicateTransform: ['warning', 'logic'],
   statusWithoutBlock: ['warning', 'logic'],
+  exclusionUpdateTargetNotExclusion: ['warning', 'logic'],
+  exclusionRemovedThenUpdated: ['warning', 'logic'],
+  exclusionEmptyRange: ['warning', 'logic'],
+  exclusionCtlBadId: ['warning', 'logic'],
+  exclusionCtlTargetList: ['warning', 'logic'],
+  exclusionCtlDeadTarget: ['warning', 'logic'],
+  exclusionCtlCarrierStops: ['warning', 'logic'],
 
   /* --- Логика: проверка не сработает никогда ------------------------ */
   caseNeverMatches: ['warning', 'logic'],
@@ -106,6 +126,7 @@ export const DIAGNOSTIC_CATALOG = {
   noNormalisation: ['advice', 'coverage'],
   unescapedDot: ['advice', 'coverage'],
   overlappingTargets: ['advice', 'coverage'],
+  exclusionTooBroad: ['advice', 'coverage'],
 
   /* --- Окружение: остального файла не хватает ----------------------- */
   requestBodyAccessOff: ['warning', 'environment'],
@@ -113,7 +134,10 @@ export const DIAGNOSTIC_CATALOG = {
   disruptiveInLoggingPhase: ['warning', 'environment'],
   missingMarker: ['warning', 'environment'],
   skipBeyondEnd: ['warning', 'environment'],
+  exclusionBeforeRule: ['warning', 'environment'],
+  exclusionCtlAfterRule: ['warning', 'environment'],
   engineNotEnforcing: ['advice', 'environment'],
+  exclusionNoMatch: ['advice', 'environment'],
   xmlWithoutProcessor: ['advice', 'environment'],
   txNeverSet: ['advice', 'environment'],
 
@@ -141,6 +165,9 @@ export const DIAGNOSTIC_CATALOG = {
   transformsWithoutCheck: ['advice', 'style'],
   singlePhraseList: ['advice', 'style'],
   idInReservedRange: ['advice', 'style'],
+  exclusionDuplicate: ['advice', 'style'],
+  exclusionByMsgFragile: ['advice', 'style'],
+  exclusionCtlAlreadyRemoved: ['advice', 'style'],
 } as const satisfies Record<string, Kind>;
 
 /** Код диагностики — он же ключ перевода (`diag.<code>`). */

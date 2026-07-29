@@ -38,6 +38,21 @@ interface LogicalLine {
 }
 
 /**
+ * Снимает переносы `\`: физические строки утверждения — в одну.
+ *
+ * Нужна не только разбору. Директива в файле разложена переносами так, как
+ * захотел автор, а править её в конструкторе приходится строкой — той самой,
+ * которую читает ModSecurity. Правило склейки при этом обязано быть одно:
+ * покажи мы строку иначе, чем разобрали, правка меняла бы не то, что видно.
+ */
+export function unfold(raw: string): string {
+  return raw
+    .split('\n')
+    .map((line) => (hasTrailingBackslash(line) ? line.replace(/\\$/, ' ') : line))
+    .join('');
+}
+
+/**
  * Склеивает физические строки в логические.
  * Строка, оканчивающаяся на нечётное число `\`, продолжается следующей.
  */
@@ -45,37 +60,25 @@ function toLogicalLines(source: string): LogicalLine[] {
   const physical = source.split('\n');
   const result: LogicalLine[] = [];
 
-  let buffer: string[] = [];
   let rawBuffer: string[] = [];
   let startLine = 1;
 
+  const flush = (endLine: number) => {
+    const raw = rawBuffer.join('\n');
+    result.push({ text: unfold(raw), raw, span: { startLine, endLine } });
+    rawBuffer = [];
+  };
+
   physical.forEach((line, index) => {
     const lineNo = index + 1;
-    if (buffer.length === 0) startLine = lineNo;
+    if (rawBuffer.length === 0) startLine = lineNo;
     rawBuffer.push(line);
 
-    const continued = hasTrailingBackslash(line);
-    buffer.push(continued ? line.replace(/\\$/, ' ') : line);
-
-    if (!continued) {
-      result.push({
-        text: buffer.join(''),
-        raw: rawBuffer.join('\n'),
-        span: { startLine, endLine: lineNo },
-      });
-      buffer = [];
-      rawBuffer = [];
-    }
+    if (!hasTrailingBackslash(line)) flush(lineNo);
   });
 
   // Хвост без закрывающей строки (файл закончился на `\`).
-  if (buffer.length > 0) {
-    result.push({
-      text: buffer.join(''),
-      raw: rawBuffer.join('\n'),
-      span: { startLine, endLine: physical.length },
-    });
-  }
+  if (rawBuffer.length > 0) flush(physical.length);
 
   return result;
 }

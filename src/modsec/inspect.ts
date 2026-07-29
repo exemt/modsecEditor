@@ -20,12 +20,15 @@ import { Diagnostics } from './diagnostics';
 import {
   checkCondition,
   checkDocument,
+  checkExclusions,
   checkRule,
   conditionSignature,
   emptyDocumentContext,
 } from './checks';
+import { collectExclusions } from './exclusions';
 import type { DocumentContext } from './checks';
 import type { Diagnostic } from './diagnostics';
+import type { ExclusionIndex } from './exclusions';
 import type { VisualBlock } from './model';
 import type { ParsedStatement } from './types';
 
@@ -99,6 +102,7 @@ export function readDocumentContext(statements: ParsedStatement[]): DocumentCont
 export function* inspectSlices(
   blocks: VisualBlock[],
   statements: ParsedStatement[],
+  exclusions?: ExclusionIndex,
 ): Generator<Diagnostic[], void, void> {
   const diag = new Diagnostics();
   const context = readDocumentContext(statements);
@@ -153,6 +157,10 @@ export function* inspectSlices(
   }
 
   checkDocument(context, diag);
+  // Индекс исключений собирает компиляция: там он нужен и без замечаний —
+  // по нему карточка правила показывает, что его сняли. Считать его заново
+  // здесь пришлось бы только ради того, чтобы вызвать проверку.
+  checkExclusions(exclusions ?? collectExclusions(blocks, statements), diag);
   yield fresh();
 }
 
@@ -160,8 +168,9 @@ export function* inspectSlices(
 export function inspectDocument(
   blocks: VisualBlock[],
   statements: ParsedStatement[],
+  exclusions?: ExclusionIndex,
 ): Diagnostic[] {
   const all: Diagnostic[] = [];
-  for (const slice of inspectSlices(blocks, statements)) all.push(...slice);
+  for (const slice of inspectSlices(blocks, statements, exclusions)) all.push(...slice);
   return all;
 }

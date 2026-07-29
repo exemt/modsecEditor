@@ -24,8 +24,34 @@ interface ParamListProps {
   onChange: (next: { mode: ParamMode; values: string[] }) => void;
   /** Готовые имена параметров этой переменной. */
   suggestions?: Suggestion[];
-  /** Можно ли вычитать: у переменной с обязательным параметром — нечего. */
-  canExclude?: boolean;
+  /**
+   * Положения, которые переключатель перебирает.
+   *
+   * Их не всегда три: у переменной с обязательным параметром вычитать не из
+   * чего, а у цели исключения `!` не сравнится ни с чем. Недоступное
+   * положение поэтому не показывается вовсе, а причину, по которой его нет,
+   * говорит {@link ParamListProps.note} — молча укороченный перебор читался
+   * бы поломкой переключателя.
+   */
+  modes?: ParamMode[];
+  /** Чего у переключателя нет и почему — строкой в его подсказке. */
+  note?: string;
+  /**
+   * Что значит пустой список, если он не про проверку коллекции.
+   *
+   * Пустое «ВСЕ» у условия значит «проверяется вся коллекция», а у списка,
+   * которым цель вычитают, — «снимается вся коллекция». Слово тут одно, а дела
+   * разные, и знает о разнице то место, где список стоит.
+   */
+  allNote?: string;
+  /**
+   * Чем плоха пустота выбранного положения, если дело не в проверке коллекции.
+   *
+   * В условии правила пустое «ТОЛЬКО» значит, что проверяется вся коллекция.
+   * У списка, который не проверяет, а вычитает, то же положение значит другое —
+   * и сказать об этом должно то место, которое знает, что тут собирают.
+   */
+  requiredNote?: string;
   /** Положительной части у цели нет — список только вычитает. */
   baseless?: boolean;
 }
@@ -45,10 +71,11 @@ interface ParamListProps {
  * Пустой список читается «ВСЕ», то есть вся коллекция, и это видно до
  * первого ввода, а не выясняется опытным путём.
  *
- * Положений у него три, и переключаются они и на пустом списке: режим
- * выбирают до того, как набрали значения, а не после. Пустые «ТОЛЬКО» и
- * «КРОМЕ» — состояние незаконченное, поэтому поле в нём подсвечено: правило
- * пока проверяет всю коллекцию, что бы ни было написано на переключателе.
+ * Положений у него три там, где все три что-то значат, и переключаются они и
+ * на пустом списке: режим выбирают до того, как набрали значения, а не после.
+ * Пустые «ТОЛЬКО» и «КРОМЕ» — состояние незаконченное, поэтому поле в нём
+ * подсвечено: правило пока проверяет всю коллекцию, что бы ни было написано
+ * на переключателе.
  *
  * Имена параметров бывают длиной в строку — такой чип обрезается по ширине
  * поля, а целиком значение показывают подсказка и окно правки. Окно заодно
@@ -59,7 +86,10 @@ export function ParamList({
   values,
   onChange,
   suggestions,
-  canExclude = true,
+  modes = ['all', 'only', 'except'],
+  note,
+  allNote,
+  requiredNote,
   baseless = false,
 }: ParamListProps) {
   const { t } = useI18n();
@@ -68,6 +98,7 @@ export function ParamList({
   // Режим выбран, а перечислять нечего: правило проверяет всю коллекцию,
   // а не то, что написано на переключателе.
   const incomplete = !baseless && mode !== 'all' && values.length === 0;
+  const requiredText = requiredNote ?? t('builder.paramsRequired');
 
   /**
    * Список сам возвращает переключатель в «ВСЕ», когда снят последний чип,
@@ -88,15 +119,16 @@ export function ParamList({
         ? t('builder.paramsExcept')
         : t('builder.paramsOnly');
 
-  // Вычитать без положительной части не из чего, поэтому такую цель не
-  // переключают: её и собрал не конструктор, а чужой текст правила.
-  const switchable = canExclude && !baseless;
-
-  // Пустой список перебирает все три положения; с непустым «ВСЕ»
+  // Пустой список перебирает все доступные положения; с непустым «ВСЕ»
   // пропускается — одно нажатие не должно стирать набранный перечень.
-  const order: ParamMode[] =
-    values.length === 0 ? ['all', 'only', 'except'] : ['only', 'except'];
+  const order = values.length === 0 ? modes : modes.filter((m) => m !== 'all');
   const nextMode = order[(order.indexOf(mode) + 1) % order.length];
+
+  // Вычитать без положительной части не из чего, поэтому такую цель не
+  // переключают: её и собрал не конструктор, а чужой текст правила. Единственное
+  // доступное положение — тоже не переключатель, а подпись, и нажиматься она не
+  // должна: нажатие, ничего не меняющее, читается поломкой.
+  const switchable = !baseless && order.length > 1;
 
   const modeChip = (
     // Подсказка именно поясняет чип, а не называет его: имя у чипа своё,
@@ -106,10 +138,21 @@ export function ParamList({
       describeChild
       title={
         <>
-          {mode === 'all' && <div>{t('builder.paramsAllHint')}</div>}
-          {incomplete && <div>{t('builder.paramsRequired')}</div>}
-          {switchable && <div>{t('builder.paramsModeHint')}</div>}
-          {switchable && values.length > 0 && <div>{t('builder.paramsAllBlocked')}</div>}
+          {mode === 'all' && <div>{allNote ?? t('builder.paramsAllHint')}</div>}
+          {incomplete && <div>{requiredText}</div>}
+          {switchable && (
+            <div>
+              {t(
+                modes.includes('except') ? 'builder.paramsModeHint' : 'builder.paramsModeTwoHint',
+              )}
+            </div>
+          )}
+          {/* «ВСЕ» выпало из перебора именно потому, что список непуст, —
+              и вернуть его можно, очистив список, а не переключателем. */}
+          {!baseless && values.length > 0 && modes.includes('all') && (
+            <div>{t('builder.paramsAllBlocked')}</div>
+          )}
+          {note !== undefined && <div>{note}</div>}
         </>
       }
     >
@@ -147,7 +190,7 @@ export function ParamList({
       suggestions={suggestions}
       values={values}
       error={incomplete}
-      helperText={incomplete ? t('builder.paramsRequired') : undefined}
+      helperText={incomplete ? requiredText : undefined}
       renderLabel={(value) => (value === '' ? t('builder.anyParameter') : value)}
       onChange={setValues}
     />

@@ -14,12 +14,14 @@ import { ChipInput } from './ChipInput';
 import { ChoiceField } from './ChoiceField';
 import { CommitField } from './CommitField';
 import { Counter } from './Counter';
+import { CtlExclusionList } from './CtlExclusionList';
 import { LongTextField } from './LongTextField';
 import { Section, SECTION_PADDING } from './Section';
 import { SuggestField } from './SuggestField';
 import { ruleActionCount, ruleActionSummary } from './summary';
 import { useI18n } from '../../i18n/useI18n';
 import { serializeAction } from '../../modsec/serialize';
+import { isExclusionCtl } from '../../modsec/exclusions';
 import { AUDIT_FLAGS, LOG_FLAGS, takesDestination } from '../../modsec/semantics';
 import {
   disruptiveChoices,
@@ -34,6 +36,7 @@ import {
   TAG_SUGGESTIONS,
 } from '../../modsec/suggestions';
 import type { DisruptiveAction } from '../../modsec/semantics';
+import type { ExclusionEntry } from '../../modsec/exclusions';
 import type { VisualActions } from '../../modsec/model';
 
 interface ActionsPanelProps {
@@ -50,6 +53,15 @@ interface ActionsPanelProps {
    * значения только заставляло бы гадать, какое из них главное.
    */
   hideId?: boolean;
+  /**
+   * Что проверки узнали об исключениях `ctl` среди этих действий.
+   *
+   * Передаёт их тот, кому больше некуда: у `SecAction` панель и есть вся
+   * карточка. У правила исключения показывает своя секция — в ней рядом стоит
+   * и обратная сторона, «чем снять это правило», и место записи в цепочке,
+   * которого панель действий не знает.
+   */
+  exclusions?: ExclusionEntry[];
 }
 
 /**
@@ -81,6 +93,7 @@ export function ActionsPanel({
   onChange,
   alwaysExpanded,
   hideId,
+  exclusions = [],
 }: ActionsPanelProps) {
   const { t } = useI18n();
   // Показаны ли редкие поля — журналы, теги, `setvar`. Это не сворачивание
@@ -96,6 +109,14 @@ export function ActionsPanel({
   // значение обязаны говорить об одном и том же.
   const log = flagName(actions.log, LOG_FLAGS);
   const auditlog = flagName(actions.auditlog, AUDIT_FLAGS);
+
+  // Исключения уходят из общего списка в свою группу: там о них сказано то,
+  // чего в самой записи нет, — до каких правил они дотянулись. Показывает их
+  // панель только тогда, когда ей передали, что о них известно: у правила это
+  // делает секция исключений, и вторая такая группа читалась бы как ещё одна
+  // запись, у которой ищут отличия от первой.
+  const settings = actions.extra.filter((item) => !isExclusionCtl(item));
+  const hasCtl = exclusions.length > 0 && actions.extra.some(isExclusionCtl);
 
   const body = (
     <Stack spacing={1.5}>
@@ -177,14 +198,14 @@ export function ActionsPanel({
         />
       </Stack>
 
-      {/* Действия, для которых поля нет: `ctl`, `initcol`, `expirevar`,
-          `exec`. Каждое меняет поведение правила, а форма о них молчала —
-          узнать, что рядом стоит `ctl:requestBodyAccess=Off`, можно было
-          только из панели замечаний. Поэтому они стоят здесь, на виду и
-          прежней записью, но правятся текстом: строка `ctl` — это своя
+      {/* Действия, для которых поля нет: `initcol`, `expirevar`, `exec`,
+          настройки движка вроде `ctl:requestBodyAccess=Off`. Каждое меняет
+          поведение правила, а форма о них молчала — узнать о таком соседе
+          можно было только из панели замечаний. Поэтому они стоят здесь, на
+          виду и прежней записью, но правятся текстом: строка `ctl` — это своя
           грамматика, и поле, понимающее её наполовину, хуже её отсутствия.
           За «Ещё» их не спрятать: соседнее поле правят, уже зная о них. */}
-      {actions.extra.length > 0 && (
+      {settings.length > 0 && (
         <Stack
           direction="row"
           spacing={1}
@@ -193,7 +214,7 @@ export function ActionsPanel({
           <Typography variant="body2" color="text.secondary">
             {t('builder.otherActions')}
           </Typography>
-          {actions.extra.map((item, index) => (
+          {settings.map((item, index) => (
             <Tooltip key={index} title={t('builder.readOnly')}>
               <Chip
                 size="small"
@@ -203,6 +224,26 @@ export function ActionsPanel({
               />
             </Tooltip>
           ))}
+        </Stack>
+      )}
+
+      {/* Исключения, которые ставит сам блок. Запись `ctl:ruleRemoveById=942100`
+          среди прочих действий выглядела настройкой движка, а на деле это
+          исключение — и работает оно так же, как `SecRuleRemoveById`: до кого-то
+          дотягивается, до кого-то нет. Поэтому она вынута из общего списка,
+          разобрана на поля и стоит со своими отметками. */}
+      {hasCtl && (
+        <Stack spacing={0.75}>
+          <Typography variant="body2" color="text.secondary">
+            {t('builder.setsExclusions')}
+          </Typography>
+          <CtlExclusionList
+            actions={actions.extra}
+            entries={exclusions}
+            onChange={(extra) => onChange({ ...actions, extra })}
+            link={0}
+            links={1}
+          />
         </Stack>
       )}
 

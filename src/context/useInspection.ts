@@ -111,13 +111,14 @@ interface Progress {
 
 export function useInspection(compiled: CompileResult, parsed: ParsedDocument | null): Analysis {
   const blocks = compiled.blocks;
+  const exclusions = compiled.exclusions;
   const statements = parsed?.statements ?? NO_STATEMENTS;
 
   const deferred = useMemo(() => blocks.filter(isExecutable).length > SYNC_LIMIT, [blocks]);
 
   const immediate = useMemo(
-    () => (deferred ? null : inspectDocument(blocks, statements)),
-    [deferred, blocks, statements],
+    () => (deferred ? null : inspectDocument(blocks, statements, exclusions)),
+    [deferred, blocks, statements, exclusions],
   );
 
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -129,7 +130,7 @@ export function useInspection(compiled: CompileResult, parsed: ParsedDocument | 
     let cancelSlice: (() => void) | null = null;
 
     const start = window.setTimeout(() => {
-      const slices = inspectSlices(blocks, statements);
+      const slices = inspectSlices(blocks, statements, exclusions);
       const found: Diagnostic[] = [];
 
       const step = () => {
@@ -161,7 +162,7 @@ export function useInspection(compiled: CompileResult, parsed: ParsedDocument | 
       window.clearTimeout(start);
       cancelSlice?.();
     };
-  }, [deferred, blocks, statements]);
+  }, [deferred, blocks, statements, exclusions]);
 
   // Ход прохода годится только для тех блоков, по которым он шёл: правка
   // текста делает прежние замечания рассказом о другом документе.

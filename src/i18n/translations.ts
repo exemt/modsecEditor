@@ -48,6 +48,7 @@ const en = {
   'examples.section.logic': 'Logic',
   'examples.section.state': 'State between requests',
   'examples.section.flow': 'Flow and settings',
+  'examples.section.exclusions': 'Exclusions',
   'examples.section.mistakes': 'Learning mistakes',
 
   'examples.first-rule': 'First rule',
@@ -104,6 +105,17 @@ const en = {
   'examples.ctl': 'Per-request settings (ctl)',
   'examples.ctl.note': 'Lifting a single check off a single path without touching the rest.',
 
+  'examples.exclusions': 'Exclusions for a rule set',
+  'examples.exclusions.note':
+    'Excluding one field instead of removing the rule, and why the order of lines matters.',
+
+  'examples.exclusion-order': 'An exclusion that does nothing',
+  'examples.exclusion-order.note':
+    'The exclusion stands above its rule, so the configuration reader has not met the rule yet.',
+
+  'examples.ctl-late': 'A ctl exclusion that comes too late',
+  'examples.ctl-late.note':
+    'The same mistake as with a directive, only mirrored: this one has to fire earlier, and the phase decides that before the line does.',
   'examples.never-matches': 'Never matches',
   'examples.never-matches.note':
     'Three rules that are impeccable in form and useless in meaning.',
@@ -134,7 +146,17 @@ const en = {
   'debug.blocked': 'Visual editor is blocked until the errors are fixed.',
 
   'builder.empty': 'No rules yet.',
+  'builder.add': 'Add',
   'builder.addRule': 'Add rule',
+  'builder.addAction': 'Add unconditional action',
+  'builder.addMarker': 'Add marker',
+  'builder.addDirective': 'Add directive',
+  'builder.addDirectiveHint':
+    'The name is chosen once: a standing line no longer changes it, since every name has an argument of its own kind. The value is filled in here as well — ModSecurity would not load a directive without it, and one such error blocks the whole builder.',
+  'builder.addDirectivePick': 'Pick a directive',
+  'builder.addDirectiveIncomplete': 'Not filled in yet: such a line would not load.',
+  'builder.addDirectiveLine': 'Goes into the file:',
+  'builder.addDirectiveAction': 'Add',
   'builder.deleteRule': 'Delete rule',
   'builder.rule': 'Rule',
   'builder.ruleId': 'Rule ID',
@@ -169,6 +191,7 @@ const en = {
   'builder.except': 'EXCEPT',
   'builder.paramsAllHint': 'No parameters listed — the whole collection is checked',
   'builder.paramsModeHint': 'Switch: the whole collection, only the listed parameters, or the collection without them',
+  'builder.paramsModeTwoHint': 'Switch: the whole collection or only the listed parameters',
   'builder.paramsAllBlocked': 'Clear the list to check the whole collection',
   'builder.paramsRequired': 'Add at least one value — the whole collection is checked so far',
   'builder.addParam': 'Add parameter',
@@ -248,6 +271,147 @@ const en = {
   'builder.marker': 'Marker',
   'builder.directive': 'Directive',
   'builder.readOnly': 'Editable in the text tab only',
+  'builder.deleteBlock': 'Delete the block',
+  'builder.duplicateLine': 'Duplicate the line',
+  'builder.deleteLine': 'Delete the line',
+
+  'builder.exclusionOpRemove': 'removes the rule',
+  'builder.exclusionOpRemoveTarget': 'removes one target',
+  'builder.exclusionOpUpdateTarget': 'changes the targets',
+  'builder.exclusionOpUpdateAction': 'changes the actions',
+  'builder.exclusionInactive': 'does not apply',
+  'builder.exclusionInactiveHint':
+    'It stands above the rules it names, and ModSecurity has not read them yet at that point',
+  'builder.exclusionLateHint':
+    'It runs after the rules it names — a ctl exclusion has to fire earlier, and the phase decides that before the line does',
+  'builder.exclusionNoMatch': 'no rule found',
+  'builder.exclusionNoMatchHint': 'No rule of this file matches — it may come from another one',
+  'builder.exclusionReveal': 'Show rule {id}',
+  'builder.exclusionRule': 'rule:',
+  'builder.exclusionRules': 'rules:',
+  'builder.effectRemoved': 'off',
+  'builder.effectRemovedHint': 'Removed by "{name}" on line {line}',
+  'builder.effectRemovedRuntime': 'off per request',
+  'builder.effectRemovedRuntimeHint':
+    '"{name}" on line {line} removes it for one transaction — those requests where the rule carrying that action fired',
+  'builder.effectChanged': 'changed',
+  'builder.effectChangedHint': 'Changed by "{name}" on line {line}',
+  'builder.effectChangedRuntime': 'changed per request',
+  'builder.effectChangedRuntimeHint':
+    '"{name}" on line {line} changes it for one transaction — those requests where the rule carrying that action fired',
+
+  'builder.setsExclusions': 'Sets exclusions',
+  'builder.exclusionsNone': 'the rule neither excludes nor is excluded',
+  'builder.countExclusionsInbound': 'Exclusions that remove or change this rule: {count}',
+  'builder.countExclusionsOutbound': 'Exclusions this rule sets itself: {count}',
+  'builder.exclusionAtLine': 'line {line}',
+  'builder.exclusionRevealLine': 'Show line {line}',
+  'builder.exclusionRevealBlock': 'Show the exclusion in the builder',
+  'builder.excludeTargetTitle': 'A target exclusion for rule {id}',
+  'builder.excludeRule': 'Turn the rule off',
+  'builder.excludeRuleHint':
+    'Append "SecRuleRemoveById {id}" below the rule — it stops working, on every request',
+  'builder.excludeRuleDone': 'Already removed by the directive on line {line}',
+  'builder.exclusionTargetScope': 'Target',
+  'builder.excludeTargetAllHint':
+    'No parameters listed — the rule stops looking into the whole collection',
+  'builder.excludeTargetParamRequired':
+    'Name a parameter — an empty list takes the whole collection away from the rule',
+  'builder.excludeTargetNoExcept':
+    'There is no "ALL EXCEPT" here: the exclusion appends its target to the rule, and a term without "!" does not narrow the rule down — it gives it one more place to look',
+  'builder.excludeTarget': 'Exclude the target',
+  'builder.excludeTargetHint':
+    'Append "SecRuleUpdateTargetById {id}" below the rule — the rule keeps working and only stops looking into the target you name',
+  'builder.excludeNeedsId': 'An exclusion names the rule by number — give the rule an id first',
+
+  'builder.exclusionsInbound': 'The rule is excluded by',
+  'builder.exclusionsOutbound': 'The rule excludes',
+  'builder.exclusionsOutboundHint':
+    'Only on those requests where the rule itself fires — unlike a directive, which removes the rule from the whole configuration',
+  'builder.ctlRemoveById': 'remove rule {pick}',
+  'builder.ctlRemoveByMsg': 'remove rules whose message matches "{pick}"',
+  'builder.ctlRemoveByTag': 'remove rules tagged "{pick}"',
+  'builder.ctlRemoveTargetById': 'stop checking {target} in rule {pick}',
+  'builder.ctlRemoveTargetByMsg': 'stop checking {target} in rules whose message matches "{pick}"',
+  'builder.ctlRemoveTargetByTag': 'stop checking {target} in rules tagged "{pick}"',
+  'builder.ctlIncomplete': 'the exclusion is unfinished — name the rules it removes',
+  'builder.ctlIncompleteTarget': 'the exclusion is unfinished — name the target it removes',
+  'builder.ctlOption': 'What to remove',
+  'builder.ctlPickId': 'Rule number',
+  'builder.ctlPickMsg': 'Message pattern',
+  'builder.ctlPickTag': 'Tag',
+  'builder.ctlPickRequired': 'Without a selection the exclusion reaches nobody',
+  'builder.ctlTargetRequired': 'Name the target to remove',
+  'builder.ctlTargetNoCount':
+    'A removed target is never counted: ModSecurity matches it against the rule targets by name and parameter, and "&ARGS" matches none of them',
+  'builder.ctlTargetNoExcept':
+    'There is no "ALL EXCEPT" here: a subtracting term in a ctl target matches nothing and stays silent. Targets are subtracted for good — by the SecRuleUpdateTargetById directive',
+  'builder.addCtlTarget': 'Add',
+  'builder.addCtlTargetHint':
+    'Remove one more target. A ctl record holds exactly one target, so every next one goes into the file as a record of its own',
+  'builder.directiveValue': 'Value',
+  'builder.directiveNoArgument': 'takes no argument',
+  'builder.directiveValueMissing': 'The value is not set',
+  'builder.directiveBadValue': 'This directive has no such value',
+  'builder.directiveNotNumber': 'A whole number is expected here',
+  'builder.directiveUnknownFlag': 'An audit log entry has no part "{value}"',
+  'builder.directiveUnknownFlagHint': 'Not one of the parts an audit log entry is made of',
+  'builder.directiveParts': 'Entry parts',
+  'builder.directivePhaseRequired': 'Defaults without a phase reach no rule',
+  'builder.exclusionPickId': 'Rule numbers',
+  'builder.exclusionPickMsg': 'Message pattern',
+  'builder.exclusionPickTag': 'Tag pattern',
+  'builder.exclusionPickRequired': 'Without a selection the exclusion reaches nobody',
+  'builder.exclusionBadIdHint': 'Expected a number or a range like 942100-942200',
+  'builder.exclusionActions': 'Actions to append',
+  'builder.exclusionReplaced': 'Target being replaced',
+  'builder.exclusionReplacedHint':
+    'Filled in only when the new target replaces an old one rather than being added to it',
+  'builder.exclusionReplacedBlocked':
+    'Nothing to replace: every target here is being removed, and a removal takes no one place. The third argument names the target the new one stands in place of',
+
+  'builder.exclusionWhoId': 'rules {pick}',
+  'builder.exclusionWhoMsg': 'rules whose message matches "{pick}"',
+  'builder.exclusionWhoTag': 'rules whose tag matches "{pick}"',
+  'builder.exclusionSaysRemove': 'remove {who}',
+  'builder.exclusionSaysTarget': '{who} — {what}',
+  'builder.exclusionSaysActions': '{who} — append the actions {actions}',
+  'builder.exclusionClauseDrop': 'stop checking {targets}',
+  'builder.exclusionClauseAdd': 'check {targets} on top of what they check now',
+  'builder.exclusionClauseReplace': 'check {targets} in place of {replaced}',
+  'builder.exclusionIncompletePick':
+    'the exclusion is unfinished — name the rules it reaches',
+  'builder.exclusionIncompleteTarget': 'the exclusion is unfinished — name the target it changes',
+  'builder.exclusionIncompleteActions':
+    'the exclusion is unfinished — name the actions it appends',
+
+  'builder.exclusionSign': 'Remove the target',
+  'builder.exclusionSignOnHint':
+    'Removing: "!" goes into the file, and the rule stops looking into this target. Press to add the target instead',
+  'builder.exclusionSignOffHint':
+    'Adding: without "!" the rule gets one more place to look and loses nothing. Press to remove the target instead',
+  'builder.exclusionTargetRequired': 'Name the target',
+  'builder.exclusionTargetNoCount':
+    'A removed target is never counted: ModSecurity matches it against the rule targets by name and parameter, and "&ARGS" matches none of them',
+  'builder.exclusionTargetNoExcept':
+    'There is no "ALL EXCEPT" here: subtraction is the "!" of the target itself, so the collection and the parameters taken out of it are two targets, not one',
+  'builder.exclusionDropAllHint':
+    'No parameters listed — the rule stops looking into the whole collection',
+  'builder.exclusionAddAllHint': 'No parameters listed — the rule gets the whole collection',
+  'builder.exclusionParamRequired':
+    'Name a parameter — an empty list means the whole collection',
+  'builder.addExclusionTarget': 'Add',
+  'builder.addExclusionTargetHint':
+    'Change one more target of the selected rules. Targets go into the file as one argument, separated by "|"',
+
+  'builder.ctlLink': 'link {n}',
+  'builder.ctlLinkHint':
+    'Written in link {n}: it applies as soon as that link matches, even if the rest of the chain does not',
+  'builder.ctlLinkLastHint': 'Written in the last link, {n}: it applies once the whole chain has matched',
+  'builder.addCtlExclusion': 'Add exclusion',
+  'builder.addCtlExclusionHint':
+    'Add a ctl exclusion to the rule: it removes the named rules only on those requests where this rule fires',
+  'builder.deleteExclusion': 'Remove the exclusion',
 
   'toolbar.undo': 'Undo',
   'toolbar.redo': 'Redo',
@@ -258,6 +422,11 @@ const en = {
   'diag.notParsed': 'The rule text has not been parsed yet.',
   'diag.unbalancedQuotes': 'Unbalanced double quotes.',
   'diag.unknownDirective': 'Unknown directive "{name}".',
+  'diag.directiveArgCount': '"{name}" does not take {count} arguments.',
+  'diag.directiveValueMissing': '"{name}" is missing its value.',
+  'diag.directiveBadValue': '"{name}" has no value "{value}".',
+  'diag.directiveNotNumber': '"{name}" expects a whole number, and "{value}" is not one.',
+  'diag.directiveUnknownFlag': 'An audit log entry has no part "{value}".',
   'diag.emptyTargets': 'The rule has no check areas.',
   'diag.unknownOperator': 'Unknown operator "@{name}".',
   'diag.operatorArgumentRequired': 'Operator "@{name}" requires a value.',
@@ -338,6 +507,39 @@ const en = {
   'diag.transformsWithoutCheck': 'Operator "@{name}" never looks at the value — the transformations have no effect.',
   'diag.singlePhraseList': 'A list of a single phrase — "@contains {value}" says the same more plainly.',
   'diag.idInReservedRange': 'Id {id} falls into the 900000–999999 range reserved by CRS.',
+
+  'diag.exclusionNoTarget': '"{name}" is missing its required argument and changes nothing.',
+  'diag.exclusionBadId': '"{value}" is neither a rule id nor a range like 942190-942200.',
+  'diag.exclusionUpdateActionMetadata':
+    '"{name}" cannot change "{action}": id and phase stay as the rule set defined them.',
+  'diag.exclusionUpdateTargetNotExclusion':
+    '"{name}" has no "!": "{targets}" replaces the targets of the rule instead of excluding one of them.',
+  'diag.exclusionRemovedThenUpdated':
+    'The rule is already removed on line {line} — there is nothing left to change in it.',
+  'diag.exclusionEmptyRange': 'Range "{target}" is inverted: no rule falls into it.',
+  'diag.exclusionBeforeRule':
+    '"{name}" stands above rule {id}: exclusions apply as the configuration is read, so this one does nothing.',
+  'diag.exclusionNoMatch':
+    'No rule in this file matches "{target}" — check that it comes from a file included earlier.',
+  'diag.exclusionTooBroad':
+    '"{name}" removes {count} rules of this file — a targeted exclusion keeps the protection everywhere else.',
+  'diag.exclusionDuplicate': 'The same exclusion is already on line {line}.',
+  'diag.exclusionByMsgFragile':
+    '"{name}" selects by message text, and that is not a stable interface — a tag or an id survives an update of the rule set.',
+  'diag.exclusionCtlAfterRule':
+    '"{name}" runs in phase {phase}, later than rule {id}: a ctl exclusion applies from the moment it runs, and by then the rule has already been checked. Move it to an earlier phase, or above the rule inside the same one.',
+  'diag.exclusionCtlBadId':
+    '"{name}" takes a single rule id or a range like 942190-942200; "{value}" is read whole and matches nothing. Repeat the ctl action for every id.',
+  'diag.exclusionCtlNoTarget':
+    '"{name}" removes one target of a rule, but no target follows the ";" — so nothing is removed.',
+  'diag.exclusionCtlTargetList':
+    'Only one target follows the ";" of "{name}", but several are written — "{targets}". Everything after the semicolon is read as one name with a parameter, so none of them is removed: every target needs a ctl record of its own.',
+  'diag.exclusionCtlDeadTarget':
+    'Target "{target}" matches none of the rule targets: "{name}" compares it by name and parameter, and neither "!" nor "&" takes part in that comparison. Targets are subtracted by the SecRuleUpdateTargetById directive.',
+  'diag.exclusionCtlCarrierStops':
+    'The rule carrying this exclusion answers with "{action}", so the rules it lifts are never reached anyway.',
+  'diag.exclusionCtlAlreadyRemoved':
+    'The rule is already removed for good on line {line} — a per-request exclusion adds nothing to that.',
 
   'toolbar.open': 'Open',
   'toolbar.openHint': 'Load a .conf file from disk',
@@ -490,6 +692,7 @@ const ru: Record<TranslationKey, string> = {
   'examples.section.logic': 'Логика',
   'examples.section.state': 'Состояние между запросами',
   'examples.section.flow': 'Поток и настройки',
+  'examples.section.exclusions': 'Исключения',
   'examples.section.mistakes': 'Учебные ошибки',
 
   'examples.first-rule': 'Первое правило',
@@ -544,6 +747,17 @@ const ru: Record<TranslationKey, string> = {
   'examples.ctl': 'Настройка на один запрос (ctl)',
   'examples.ctl.note': 'Как снять одну проверку с одного адреса, не тронув остальное.',
 
+  'examples.exclusions': 'Исключения для набора правил',
+  'examples.exclusions.note':
+    'Как вычесть одно поле вместо удаления правила и почему порядок строк здесь важен.',
+
+  'examples.exclusion-order': 'Исключение, которого нет',
+  'examples.exclusion-order.note':
+    'Исключение стоит выше своего правила, и при чтении конфигурации правила ещё нет.',
+
+  'examples.ctl-late': 'Исключение через ctl, которое не успело',
+  'examples.ctl-late.note':
+    'Тот же промах, что у директивы, только наоборот: этому надо сработать раньше, и решает это сначала фаза.',
   'examples.never-matches': 'Не сработает никогда',
   'examples.never-matches.note': 'Три правила, безупречных по форме и бесполезных по смыслу.',
   'examples.mistakes': 'Пять ошибок подряд',
@@ -573,7 +787,17 @@ const ru: Record<TranslationKey, string> = {
   'debug.blocked': 'Визуальный редактор заблокирован, пока есть ошибки.',
 
   'builder.empty': 'Правил пока нет.',
+  'builder.add': 'Добавить',
   'builder.addRule': 'Добавить правило',
+  'builder.addAction': 'Добавить безусловное действие',
+  'builder.addMarker': 'Добавить метку',
+  'builder.addDirective': 'Добавить директиву',
+  'builder.addDirectiveHint':
+    'Имя выбирают один раз: у стоящей строки оно уже не меняется — вид аргумента у каждого имени свой. Значение заполняется здесь же: без него ModSecurity директиву не загрузит, а одна такая ошибка блокирует конструктор целиком.',
+  'builder.addDirectivePick': 'Выберите директиву',
+  'builder.addDirectiveIncomplete': 'Ещё не заполнена: такая строка не загрузится.',
+  'builder.addDirectiveLine': 'В файл уйдёт:',
+  'builder.addDirectiveAction': 'Добавить',
   'builder.deleteRule': 'Удалить правило',
   'builder.rule': 'Правило',
   'builder.ruleId': 'ID правила',
@@ -605,6 +829,7 @@ const ru: Record<TranslationKey, string> = {
   'builder.except': 'КРОМЕ',
   'builder.paramsAllHint': 'Параметры не указаны — проверяется вся коллекция',
   'builder.paramsModeHint': 'Переключить: вся коллекция, только перечисленные параметры или коллекция без них',
+  'builder.paramsModeTwoHint': 'Переключить: вся коллекция или только перечисленные параметры',
   'builder.paramsAllBlocked': 'Чтобы вернуть «ВСЕ», очистите список',
   'builder.paramsRequired': 'Добавьте хотя бы одно значение — пока проверяется вся коллекция',
   'builder.addParam': 'Добавить параметр',
@@ -684,6 +909,150 @@ const ru: Record<TranslationKey, string> = {
   'builder.marker': 'Метка',
   'builder.directive': 'Директива',
   'builder.readOnly': 'Редактируется только в текстовой вкладке',
+  'builder.deleteBlock': 'Удалить блок',
+  'builder.duplicateLine': 'Дублировать строку',
+  'builder.deleteLine': 'Удалить строку',
+
+  'builder.exclusionOpRemove': 'снимает правило',
+  'builder.exclusionOpRemoveTarget': 'снимает одну цель',
+  'builder.exclusionOpUpdateTarget': 'меняет цели',
+  'builder.exclusionOpUpdateAction': 'меняет действия',
+  'builder.exclusionInactive': 'не применяется',
+  'builder.exclusionInactiveHint':
+    'Стоит выше правил, которые называет, — в этом месте ModSecurity их ещё не прочитал',
+  'builder.exclusionLateHint':
+    'Выполняется позже правил, которые называет: исключение через ctl обязано сработать раньше, а это решает сначала фаза и только потом строка',
+  'builder.exclusionNoMatch': 'правил не найдено',
+  'builder.exclusionNoMatchHint':
+    'Ни одно правило этого файла не подходит — возможно, оно приходит из другого',
+  'builder.exclusionReveal': 'Показать правило {id}',
+  'builder.exclusionRule': 'правило:',
+  'builder.exclusionRules': 'правила:',
+  'builder.effectRemoved': 'выключено',
+  'builder.effectRemovedHint': 'Снято директивой «{name}» в строке {line}',
+  'builder.effectRemovedRuntime': 'снято на запрос',
+  'builder.effectRemovedRuntimeHint':
+    '«{name}» в строке {line} снимает его на одну транзакцию — на тех запросах, где сработало правило с этим действием',
+  'builder.effectChanged': 'изменено',
+  'builder.effectChangedHint': 'Изменено директивой «{name}» в строке {line}',
+  'builder.effectChangedRuntime': 'изменено на запрос',
+  'builder.effectChangedRuntimeHint':
+    '«{name}» в строке {line} меняет его на одну транзакцию — на тех запросах, где сработало правило с этим действием',
+
+  'builder.setsExclusions': 'Ставит исключения',
+  'builder.exclusionsNone': 'правило никого не исключает, и его не исключают',
+  'builder.countExclusionsInbound': 'Исключений, снимающих или правящих это правило: {count}',
+  'builder.countExclusionsOutbound': 'Исключений, которые ставит само правило: {count}',
+  'builder.exclusionAtLine': 'строка {line}',
+  'builder.exclusionRevealLine': 'Показать строку {line}',
+  'builder.exclusionRevealBlock': 'Показать исключение в конструкторе',
+  'builder.excludeTargetTitle': 'Исключение цели у правила {id}',
+  'builder.excludeRule': 'Выключить правило',
+  'builder.excludeRuleHint':
+    'Дописать ниже правила «SecRuleRemoveById {id}» — правило перестанет работать, на всех запросах',
+  'builder.excludeRuleDone': 'Уже снято директивой в строке {line}',
+  'builder.exclusionTargetScope': 'Цель',
+  'builder.excludeTargetAllHint':
+    'Параметры не перечислены — правило перестанет смотреть в коллекцию целиком',
+  'builder.excludeTargetParamRequired':
+    'Назовите параметр — пустой перечень снимет у правила всю коллекцию',
+  'builder.excludeTargetNoExcept':
+    'Положения «ВСЕ, КРОМЕ» здесь нет: исключение дописывает свою цель к целям правила, и терм без «!» не сужает правило, а даёт ему ещё одно место для проверки',
+  'builder.excludeTarget': 'Исключить цель',
+  'builder.excludeTargetHint':
+    'Дописать ниже правила «SecRuleUpdateTargetById {id}» — правило останется в работе и лишь перестанет смотреть в эту цель',
+  'builder.excludeNeedsId': 'Исключение ссылается на правило по номеру — сначала задайте id',
+
+  'builder.exclusionsInbound': 'Правило исключают',
+  'builder.exclusionsOutbound': 'Правило исключает',
+  'builder.exclusionsOutboundHint':
+    'Только на тех запросах, где сработает само правило, — в отличие от директивы, которая снимает правило во всей конфигурации',
+  'builder.ctlRemoveById': 'снять правило {pick}',
+  'builder.ctlRemoveByMsg': 'снять правила, у которых сообщение подходит под «{pick}»',
+  'builder.ctlRemoveByTag': 'снять правила с меткой «{pick}»',
+  'builder.ctlRemoveTargetById': 'не проверять {target} в правиле {pick}',
+  'builder.ctlRemoveTargetByMsg':
+    'не проверять {target} в правилах, у которых сообщение подходит под «{pick}»',
+  'builder.ctlRemoveTargetByTag': 'не проверять {target} в правилах с меткой «{pick}»',
+  'builder.ctlIncomplete': 'исключение недописано — назовите правила, которые оно снимает',
+  'builder.ctlIncompleteTarget': 'исключение недописано — назовите цель, которую оно снимает',
+  'builder.ctlOption': 'Что снять',
+  'builder.ctlPickId': 'Номер правила',
+  'builder.ctlPickMsg': 'Шаблон сообщения',
+  'builder.ctlPickTag': 'Метка',
+  'builder.ctlPickRequired': 'Без выборки исключение ни до кого не дотянется',
+  'builder.ctlTargetRequired': 'Назовите цель, которую снимаем',
+  'builder.ctlTargetNoCount':
+    'Подсчёта у снимаемой цели не бывает: ModSecurity сравнивает её с целью правила по имени и параметру, и «&ARGS» не совпадёт ни с одной',
+  'builder.ctlTargetNoExcept':
+    'Положения «ВСЕ, КРОМЕ» здесь нет: вычитающий терм в цели ctl не совпадёт ни с чем и промолчит. Вычитают цель навсегда — директивой SecRuleUpdateTargetById',
+  'builder.addCtlTarget': 'Добавить',
+  'builder.addCtlTargetHint':
+    'Снять ещё одну цель. Цель в записи ctl ровно одна, поэтому каждая следующая уходит в файл своей записью',
+  'builder.directiveValue': 'Значение',
+  'builder.directiveNoArgument': 'аргумента не принимает',
+  'builder.directiveValueMissing': 'Значение не задано',
+  'builder.directiveBadValue': 'Такого значения у этой директивы нет',
+  'builder.directiveNotNumber': 'Здесь ожидается целое число',
+  'builder.directiveUnknownFlag': 'Части «{value}» у записи журнала нет',
+  'builder.directiveUnknownFlagHint': 'Не из тех частей, из которых состоит запись журнала',
+  'builder.directiveParts': 'Части записи',
+  'builder.directivePhaseRequired': 'Умолчания без фазы не достанутся ни одному правилу',
+  'builder.exclusionPickId': 'Номера правил',
+  'builder.exclusionPickMsg': 'Шаблон сообщения',
+  'builder.exclusionPickTag': 'Шаблон метки',
+  'builder.exclusionPickRequired': 'Без выборки исключение ни до кого не дотянется',
+  'builder.exclusionBadIdHint': 'Ожидается номер или диапазон вида 942100-942200',
+  'builder.exclusionActions': 'Дописываемые действия',
+  'builder.exclusionReplaced': 'Заменяемая цель',
+  'builder.exclusionReplacedHint':
+    'Заполняется только тогда, когда новая цель встаёт вместо старой, а не добавляется к ней',
+  'builder.exclusionReplacedBlocked':
+    'Заменять нечего: все цели здесь вычитаются, а вычитание ни на чьё место не встаёт. Третий аргумент называет ту цель, вместо которой встаёт новая',
+
+  'builder.exclusionWhoId': 'правила {pick}',
+  'builder.exclusionWhoMsg': 'правила, у которых сообщение подходит под «{pick}»',
+  'builder.exclusionWhoTag': 'правила с меткой, подходящей под «{pick}»',
+  'builder.exclusionSaysRemove': 'снять {who}',
+  'builder.exclusionSaysTarget': '{who} — {what}',
+  'builder.exclusionSaysActions': '{who} — дописать действия {actions}',
+  'builder.exclusionClauseDrop': 'не проверять {targets}',
+  'builder.exclusionClauseAdd': 'проверять ещё и {targets}',
+  'builder.exclusionClauseReplace': 'проверять {targets} вместо {replaced}',
+  'builder.exclusionIncompletePick':
+    'исключение недописано — назовите правила, до которых оно дотянется',
+  'builder.exclusionIncompleteTarget': 'исключение недописано — назовите цель, которую оно правит',
+  'builder.exclusionIncompleteActions':
+    'исключение недописано — назовите дописываемые действия',
+
+  'builder.exclusionSign': 'Снять цель',
+  'builder.exclusionSignOnHint':
+    'Снимаем: в файл уйдёт «!», и правило перестанет смотреть в эту цель. Нажмите, чтобы цель, наоборот, добавилась',
+  'builder.exclusionSignOffHint':
+    'Добавляем: без «!» правило получит ещё одно место для проверки и ничего не потеряет. Нажмите, чтобы цель снималась',
+  'builder.exclusionTargetRequired': 'Назовите цель',
+  'builder.exclusionTargetNoCount':
+    'Подсчёта у снимаемой цели не бывает: ModSecurity сравнивает её с целью правила по имени и параметру, и «&ARGS» не совпадёт ни с одной',
+  'builder.exclusionTargetNoExcept':
+    'Положения «ВСЕ, КРОМЕ» здесь нет: вычитает сам знак «!» у цели, поэтому коллекция и вынутые из неё параметры — это две цели, а не одна',
+  'builder.exclusionDropAllHint':
+    'Параметры не перечислены — правило перестанет смотреть в коллекцию целиком',
+  'builder.exclusionAddAllHint': 'Параметры не перечислены — правило получит всю коллекцию',
+  'builder.exclusionParamRequired':
+    'Назовите параметр — пустой перечень означает всю коллекцию',
+  'builder.addExclusionTarget': 'Добавить',
+  'builder.addExclusionTargetHint':
+    'Поправить ещё одну цель выбранных правил. В файл цели уходят одним аргументом, через «|»',
+
+  'builder.ctlLink': 'звено {n}',
+  'builder.ctlLinkHint':
+    'Написано в звене {n}: применится, едва совпадёт это звено, даже если остальная цепочка не совпадёт',
+  'builder.ctlLinkLastHint':
+    'Написано в последнем звене, {n}: применится, когда совпадёт вся цепочка',
+  'builder.addCtlExclusion': 'Добавить исключение',
+  'builder.addCtlExclusionHint':
+    'Добавить правилу исключение через ctl: оно снимет названные правила только на тех запросах, где сработает это правило',
+  'builder.deleteExclusion': 'Убрать исключение',
 
   'toolbar.undo': 'Отменить',
   'toolbar.redo': 'Повторить',
@@ -694,6 +1063,11 @@ const ru: Record<TranslationKey, string> = {
   'diag.notParsed': 'Текст правила ещё не разобран.',
   'diag.unbalancedQuotes': 'Непарные двойные кавычки.',
   'diag.unknownDirective': 'Неизвестная директива «{name}».',
+  'diag.directiveArgCount': '«{name}» не принимает {count} аргументов.',
+  'diag.directiveValueMissing': 'У «{name}» не задано значение.',
+  'diag.directiveBadValue': 'У «{name}» нет значения «{value}».',
+  'diag.directiveNotNumber': '«{name}» ожидает целое число, а «{value}» им не является.',
+  'diag.directiveUnknownFlag': 'Части «{value}» у записи журнала аудита нет.',
   'diag.emptyTargets': 'У правила нет областей проверки.',
   'diag.unknownOperator': 'Неизвестный оператор «@{name}».',
   'diag.operatorArgumentRequired': 'Оператору «@{name}» нужно значение.',
@@ -774,6 +1148,39 @@ const ru: Record<TranslationKey, string> = {
   'diag.transformsWithoutCheck': 'Оператор «@{name}» не смотрит на значение — преобразования ни на что не влияют.',
   'diag.singlePhraseList': 'В списке одна фраза — «@contains {value}» скажет то же самое понятнее.',
   'diag.idInReservedRange': 'Номер {id} попадает в диапазон 900000–999999, занятый CRS.',
+
+  'diag.exclusionNoTarget': 'У «{name}» нет обязательного аргумента, и она ничего не меняет.',
+  'diag.exclusionBadId': '«{value}» — не номер правила и не диапазон вида 942190-942200.',
+  'diag.exclusionUpdateActionMetadata':
+    '«{name}» не меняет «{action}»: id и phase остаются такими, какими их задал набор правил.',
+  'diag.exclusionUpdateTargetNotExclusion':
+    'В «{name}» нет «!»: «{targets}» заменяет цели правила, а не исключает одну из них.',
+  'diag.exclusionRemovedThenUpdated':
+    'Правило уже снято строкой {line} — править в нём нечего.',
+  'diag.exclusionEmptyRange': 'Диапазон «{target}» перевёрнут: в него не попадает ни одно правило.',
+  'diag.exclusionBeforeRule':
+    '«{name}» стоит выше правила {id}: исключения применяются при чтении конфигурации, поэтому это ничего не даст.',
+  'diag.exclusionNoMatch':
+    'Под «{target}» в этом файле не подходит ни одно правило — проверьте, что оно приходит из файла, подключённого раньше.',
+  'diag.exclusionTooBroad':
+    '«{name}» снимает {count} правил этого файла — точечное исключение сохранит защиту в остальных местах.',
+  'diag.exclusionDuplicate': 'То же исключение уже есть в строке {line}.',
+  'diag.exclusionByMsgFragile':
+    '«{name}» выбирает по тексту сообщения, а это не стабильный интерфейс — тег или номер переживут обновление набора.',
+  'diag.exclusionCtlAfterRule':
+    '«{name}» работает в фазе {phase} — позже правила {id}: исключение через ctl действует с момента срабатывания, а к этому времени правило уже проверено. Перенесите его в более раннюю фазу или выше правила внутри этой же.',
+  'diag.exclusionCtlBadId':
+    '«{name}» принимает один номер правила или диапазон вида 942190-942200; «{value}» он прочитает целиком и не найдёт по нему ничего. Для каждого номера пишут отдельное ctl.',
+  'diag.exclusionCtlNoTarget':
+    '«{name}» снимает у правила одну цель, но после «;» цели нет — значит, не снимает ничего.',
+  'diag.exclusionCtlTargetList':
+    'После «;» у «{name}» стоит одна цель, а написано несколько — «{targets}». Всё после точки с запятой ModSecurity читает одним именем с параметром, поэтому не снимется ни одна: каждой цели нужна своя запись ctl.',
+  'diag.exclusionCtlDeadTarget':
+    'Цель «{target}» не совпадёт ни с одной целью правила: «{name}» сравнивает её по имени и параметру, а «!» и «&» в это сравнение не входят. Вычитают цель директивой SecRuleUpdateTargetById.',
+  'diag.exclusionCtlCarrierStops':
+    'Правило, в котором написано это исключение, отвечает «{action}», так что до снятых им правил дело всё равно не дойдёт.',
+  'diag.exclusionCtlAlreadyRemoved':
+    'Правило уже снято насовсем в строке {line} — исключение на один запрос к этому ничего не добавляет.',
 
   'toolbar.open': 'Открыть',
   'toolbar.openHint': 'Загрузить файл .conf с диска',

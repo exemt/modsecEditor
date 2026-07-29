@@ -1,7 +1,15 @@
 import { parseModsec } from './parser';
 import { compileDocument } from './compile';
-import { applyRule, duplicateRule, emitRule, removeRange, swapRanges } from './emit';
+import {
+  applyRule,
+  duplicateRule,
+  emitRule,
+  insertAfter,
+  removeRange,
+  swapRanges,
+} from './emit';
 import { makeCondition, makeTarget } from './model';
+import { serializeAction } from './serialize';
 import type { VisualBlock, VisualRule } from './model';
 
 function rulesOf(source: string): VisualRule[] {
@@ -26,6 +34,9 @@ function shape(rule: VisualRule) {
       comments: c.comments,
       targets: c.targets,
       transforms: c.transforms,
+      // Действия звена сравниваются записью: их `raw` приходит из исходного
+      // текста, и после перегенерации он законно другой.
+      extra: c.extra.map(serializeAction),
       operator: c.operator,
     })),
   };
@@ -45,6 +56,28 @@ describe('emitRule — round trip', () => {
     const before = rulesOf(CHAIN)[0];
     const after = rulesOf(emitRule(before).join('\n'))[0];
     expect(shape(after)).toEqual(shape(before));
+  });
+
+  // Правило-исключение из набора CRS: условия говорят, где исключаем, а `ctl`
+  // стоит в последнем звене — он применится, только когда совпала вся цепочка.
+  // Перегенерация обязана вернуть его в то же звено: в голове он применялся бы
+  // раньше остальных условий, а потерянный — не применялся бы вовсе.
+  it('keeps a ctl exclusion in the chain link where it was written', () => {
+    const source = [
+      'SecRule REQUEST_HEADERS:Host "@streq dev.example.test" \\',
+      '    "id:20255302,phase:2,pass,nolog,chain"',
+      'SecRule REQUEST_URI "@beginsWith /favicon.ico" \\',
+      '    "t:none,chain"',
+      'SecRule REQUEST_HEADERS:Referer "@rx .*" \\',
+      '    "t:none,ctl:ruleRemoveTargetByTag=id1515300;REQUEST_HEADERS:Referer"',
+    ].join('\n');
+
+    const before = rulesOf(source)[0];
+    const emitted = emitRule(before).join('\n');
+
+    expect(emitted).toContain('ctl:ruleRemoveTargetByTag=id1515300;REQUEST_HEADERS:Referer');
+    expect(emitted.split('\n')[3]).not.toContain('ctl:');
+    expect(shape(rulesOf(emitted)[0])).toEqual(shape(before));
   });
 
   it('emits one directive per condition and chains all but the last', () => {
@@ -245,6 +278,40 @@ describe('applyRule — document edits', () => {
 
     expect(rulesOf(next)[0].conditions).toHaveLength(1);
     expect(next).not.toContain('REQUEST_METHOD');
+  });
+
+  // Исключение дописывают к правилу, а само правило при этом не трогают:
+  // текст цепочки должен остаться тем же, вплоть до переносов строк.
+  it('inserts a line right after the rule without rewriting it', () => {
+    const source = [
+      '# Описание',
+      'SecRule ARGS "@rx foo" \\',
+      '    "id:1001,phase:2,deny"',
+      'SecMarker END',
+    ].join('\n');
+    const document = parseModsec(source);
+    const rule = rulesOf(source)[0];
+
+    const next = insertAfter(document, rule.tailIndex, ['SecRuleRemoveById 1001']);
+
+    expect(next).toBe(
+      [
+        '# Описание',
+        'SecRule ARGS "@rx foo" \\',
+        '    "id:1001,phase:2,deny"',
+        'SecRuleRemoveById 1001',
+        'SecMarker END',
+      ].join('\n'),
+    );
+  });
+
+  it('appends to the end when there is nothing below', () => {
+    const source = 'SecRule ARGS "@rx foo" "id:1001,phase:2,deny"';
+    const document = parseModsec(source);
+
+    expect(insertAfter(document, 0, ['SecRuleRemoveById 1001'])).toBe(
+      `${source}\nSecRuleRemoveById 1001`,
+    );
   });
 
   it('removes a rule together with its description', () => {

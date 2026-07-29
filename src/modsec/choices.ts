@@ -15,12 +15,15 @@
  * Модуль не зависит от React: подписи двуязычные, переводит их UI.
  */
 
+import { DIRECTIVE_FORM_NAMES, directiveMeta } from './directives';
+import { CTL_EXCLUSION_OPTIONS } from './exclusions';
 import {
   DISRUPTIVE_ACTIONS,
   OPERATOR_NAMES,
   PHASE_NAMES,
   SEVERITY_NAMES,
   TRANSFORM_NAMES,
+  ctlExclusionMeta,
   disruptiveMeta,
   logFlagMeta,
   operatorMeta,
@@ -230,9 +233,75 @@ export function phaseChoices(current: string): Choice[] {
   return actionChoices(PHASE_NAMES, phaseMeta, current);
 }
 
+/**
+ * Значения `ctl`, снимающие правила: что снять и как выбрать — одним списком.
+ *
+ * Двумя полями это разошлось бы с записью: в правиле стоит одно значение
+ * `ruleRemoveTargetByTag`, и выбирать его двумя ответами значило бы предложить
+ * собрать пару, которой у ModSecurity нет. Шесть строк со своими пояснениями
+ * читаются быстрее, чем два поля с общим смыслом.
+ */
+export function ctlExclusionChoices(current: string): Choice[] {
+  return actionChoices(CTL_EXCLUSION_OPTIONS, ctlExclusionMeta, current);
+}
+
 /** Уровни критичности срабатывания. */
 export function severityChoices(current: string): Choice[] {
   return actionChoices(SEVERITY_NAMES, severityMeta, current);
+}
+
+/**
+ * Имена директив конфигурации — полсотни строк, разбитых по темам.
+ *
+ * Список тут не украшение, а единственная защита от опечатки: имя директивы
+ * ModSecurity сверяет с закрытым перечнем и незнакомое не принимает вовсе.
+ * Пока имя правилось как часть строки, опечатка в нём выяснялась
+ * диагностикой; из списка её просто не набрать.
+ */
+export function directiveChoices(current: string): Choice[] {
+  const known: Choice[] = DIRECTIVE_FORM_NAMES.map((value) => {
+    const meta = directiveMeta(value);
+    if (meta === null) return unknownChoice(value);
+    return {
+      value,
+      label: meta.label,
+      note: meta.note,
+      group: meta.group,
+      common: meta.common,
+      recommended: false,
+      unfit: null,
+    };
+  });
+
+  return withCurrent(known, current, directiveMeta(current) !== null);
+}
+
+/**
+ * Допустимые значения директивы: `On`, `Off`, `DetectionOnly`.
+ *
+ * Раздел у всех вариантов один — сама директива, — и заголовок в списке
+ * поэтому не рисуется: отделять `On` от `Off` не по чему. Пояснение при
+ * этом остаётся у каждого, потому что именно оно и отличает их друг от
+ * друга: «включено» и «выключено» сами по себе не говорят, что включается.
+ */
+export function directiveValueChoices(name: string, current: string): Choice[] {
+  const meta = directiveMeta(name);
+  const values = meta?.values;
+  if (meta === null || values === undefined) {
+    return current === '' ? [] : [unknownChoice(current)];
+  }
+
+  const known: Choice[] = Object.entries(values).map(([value, info]) => ({
+    value,
+    label: info.label,
+    note: info.note,
+    group: meta.label,
+    common: true,
+    recommended: false,
+    unfit: null,
+  }));
+
+  return withCurrent(known, current, values[current] !== undefined);
 }
 
 /**

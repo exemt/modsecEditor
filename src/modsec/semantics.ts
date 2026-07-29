@@ -1347,6 +1347,71 @@ export function severityMeta(name: string): ActionMeta | null {
 }
 
 /**
+ * Шесть значений `ctl`, которыми одно правило снимает другие.
+ *
+ * Выбор здесь двойной, и оба раза неочевидный. Первое — что снимать: правило
+ * целиком или одну его цель. Целиком снимают редко и почти всегда зря: правило
+ * ловит десяток видов атаки, а мешает обычно одно поле, и вместе с ложным
+ * срабатыванием уходит вся остальная защита. Второе — как выбрать правила:
+ * номер попадает точно в одно, метка — сразу в семейство (и в те его правила,
+ * которые появятся в наборе позже), сообщение — во всё, что подошло под
+ * шаблон, то есть тоже неизвестно во что.
+ */
+export const CTL_EXCLUSION_META: Record<string, ActionMeta> = {
+  ...actionGroup('Remove one target', 'Снять одну цель', {
+    ruleRemoveTargetById: {
+      label: { en: 'target, rule by id', ru: 'цель, правило по номеру' },
+      note: {
+        en: 'The usual fix for a false positive: the rule keeps working and only stops looking into the named target',
+        ru: 'Обычная починка ложного срабатывания: правило продолжает работать и лишь перестаёт смотреть в названную цель',
+      },
+    },
+    ruleRemoveTargetByTag: {
+      label: { en: 'target, rules by tag', ru: 'цель, правила по метке' },
+      note: {
+        en: 'Takes the target away from a whole family at once — and from its rules added to the set later',
+        ru: 'Снимает цель сразу у семейства правил — и у тех его правил, что появятся в наборе позже',
+      },
+    },
+    ruleRemoveTargetByMsg: {
+      label: { en: 'target, rules by message', ru: 'цель, правила по сообщению' },
+      note: {
+        en: 'Picks by the msg pattern: the wording of a message is not a contract and changes with a set update',
+        ru: 'Выбор по шаблону `msg`: текст сообщения ничем не закреплён и меняется с обновлением набора',
+      },
+    },
+  }),
+
+  ...actionGroup('Remove the rule', 'Снять правило целиком', {
+    ruleRemoveById: {
+      label: { en: 'rule by id', ru: 'правило по номеру' },
+      note: {
+        en: 'The rule does not run for this request at all — together with everything else it was catching',
+        ru: 'Правило не сработает на этом запросе вовсе — вместе со всем остальным, что оно ловило',
+      },
+    },
+    ruleRemoveByTag: {
+      label: { en: 'rules by tag', ru: 'правила по метке' },
+      note: {
+        en: 'Removes the whole family: for tags like attack-sqli that is dozens of rules at once',
+        ru: 'Снимает всё семейство: для метки вида `attack-sqli` это десятки правил разом',
+      },
+    },
+    ruleRemoveByMsg: {
+      label: { en: 'rules by message', ru: 'правила по сообщению' },
+      note: {
+        en: 'Removes everything matching the msg pattern — the least predictable of the six',
+        ru: 'Снимает всё, что подошло под шаблон `msg`, — самый непредсказуемый из шести',
+      },
+    },
+  }),
+};
+
+export function ctlExclusionMeta(name: string): ActionMeta | null {
+  return CTL_EXCLUSION_META[name] ?? null;
+}
+
+/**
  * Запись о срабатывании: `log`/`nolog` и `auditlog`/`noauditlog`.
  *
  * Пары выглядят как простые «да/нет», но стоят за ними разные журналы:

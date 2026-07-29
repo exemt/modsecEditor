@@ -6,8 +6,12 @@ import { loadDraft, saveDraft } from '../store/draft';
 import { compileDocument } from '../modsec/compile';
 import {
   applyRule,
+  appendAction,
+  appendDirective,
+  appendMarker,
   appendRule,
   duplicateRule as duplicateRuleIn,
+  insertAfter,
   removeRange,
   replaceRange,
   swapRanges,
@@ -98,11 +102,21 @@ export function RuleProvider({ initialSource, persist, children }: RuleProviderP
       runDocOp((doc) => replaceRange(doc, from, to, lines)),
     [runDocOp],
   );
+  const insertLines = useCallback(
+    (after: number, lines: string[]) => runDocOp((doc) => insertAfter(doc, after, lines)),
+    [runDocOp],
+  );
   const removeBlock = useCallback(
     (from: number, to: number) => runDocOp((doc) => removeRange(doc, from, to)),
     [runDocOp],
   );
   const addRule = useCallback(() => runDocOp(appendRule), [runDocOp]);
+  const addAction = useCallback(() => runDocOp(appendAction), [runDocOp]);
+  const addMarker = useCallback(() => runDocOp(appendMarker), [runDocOp]);
+  const addDirective = useCallback(
+    (line: string) => runDocOp((doc) => appendDirective(doc, line)),
+    [runDocOp],
+  );
   const duplicateRule = useCallback(
     (rule: VisualRule) => runDocOp((doc) => duplicateRuleIn(doc, rule)),
     [runDocOp],
@@ -135,8 +149,12 @@ export function RuleProvider({ initialSource, persist, children }: RuleProviderP
       setSource,
       updateRule,
       replaceLines,
+      insertLines,
       removeBlock,
       addRule,
+      addAction,
+      addMarker,
+      addDirective,
       duplicateRule,
       swapBlocks,
       formatSource,
@@ -155,8 +173,12 @@ export function RuleProvider({ initialSource, persist, children }: RuleProviderP
       setSource,
       updateRule,
       replaceLines,
+      insertLines,
       removeBlock,
       addRule,
+      addAction,
+      addMarker,
+      addDirective,
       duplicateRule,
       swapBlocks,
       formatSource,

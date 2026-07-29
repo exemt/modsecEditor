@@ -15,7 +15,8 @@
  * параметров, `VAR|!VAR:a` — той же коллекцией с вычитанием.
  */
 
-import type { RuleAction } from './types';
+import type { DirectiveForm } from './directives';
+import type { RuleAction, RuleVariable } from './types';
 import type { DisruptiveAction, TargetLike } from './semantics';
 
 /** Область проверки: переменная и список её параметров. */
@@ -42,6 +43,18 @@ export interface VisualCondition {
   targets: VisualTarget[];
   /** Упорядоченный конвейер `t:` — порядок значим. */
   transforms: string[];
+  /**
+   * Действия самого звена, кроме конвейера и `chain`: `ctl`, `setvar`, `capture`.
+   *
+   * У головы цепочки этот список пуст: её действия принадлежат правилу целиком
+   * и лежат в {@link VisualRule.actions}. У остальных звеньев своих действий не
+   * бывает «немного» — они бывают, и место в цепочке для них значимо:
+   * `ctl:ruleRemoveTargetById`, написанный в голове, применится, едва совпала
+   * голова, а в последнем звене — только когда совпала вся цепочка. Поэтому
+   * они хранятся у звена, а не сводятся к действиям правила: перенести их
+   * значило бы изменить смысл правила, не тронув ни одного поля.
+   */
+  extra: RuleAction[];
   operator: VisualOperator;
 }
 
@@ -124,25 +137,55 @@ export interface VisualActionBlock {
   actions: VisualActions;
 }
 
-/** Метка `SecMarker`. */
-export interface VisualMarkerBlock {
-  kind: 'marker';
+/**
+ * Строка файла, стоящая в списке отдельным блоком: метка или директива.
+ *
+ * Текст хранится здесь как написан и остаётся источником правды до первой
+ * правки: пока строку не тронули, в файл уходит ровно она, со всеми
+ * авторскими кавычками и переносами.
+ */
+interface VisualLineBlock {
   key: string;
   startIndex: number;
   statementIndex: number;
   comments: string[];
+  /** Утверждение одной строкой, без переносов `\` и краевых пробелов. */
+  text: string;
+}
+
+/**
+ * Метка `SecMarker`.
+ *
+ * Единственный блок, который так и правится текстом: содержимого у метки
+ * ровно одно — её имя, и поле с именем ничем не отличалось бы от поля со
+ * строкой целиком.
+ */
+export interface VisualMarkerBlock extends VisualLineBlock {
+  kind: 'marker';
   label: string;
 }
 
-/** Любая другая директива конфигурации — показываем только для чтения. */
-export interface VisualDirectiveBlock {
+/**
+ * Любая другая директива конфигурации.
+ *
+ * Разобранная в форму ({@link VisualDirectiveBlock.form}) она правится
+ * полями: у переключателя список значений, у числа — число, у семи
+ * директив-исключений — та же решётка «что снимаем × как выбираем», по
+ * которой они и различаются. Собрать такую директиву обратно можно потому,
+ * что кавычки — свойство вида аргумента, а не памяти о том, как было
+ * написано: снятые разбором, они расставляются заново.
+ *
+ * Формы нет — остаётся текстовое поле. Это не редкость и не сбой:
+ * незнакомое имя, лишний аргумент, макрос в значении. Во всех трёх случаях
+ * форма показала бы меньше, чем есть в строке, а сохранила бы ровно
+ * столько, сколько показала.
+ */
+export interface VisualDirectiveBlock extends VisualLineBlock {
   kind: 'directive';
-  key: string;
-  startIndex: number;
-  statementIndex: number;
-  comments: string[];
   name: string;
   args: string[];
+  /** Разбор по полям; `null` — правится текстом, как раньше. */
+  form: DirectiveForm | null;
 }
 
 export interface VisualRuleBlock {
@@ -228,6 +271,133 @@ export function makeCondition(): VisualCondition {
     comments: [],
     targets: [makeTarget()],
     transforms: [],
+    extra: [],
     operator: { name: 'rx', negated: false, argument: '' },
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Термы ↔ цели                                                        */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Соответствие между плоским списком термов и целями формы двустороннее, и
+ * обе половины лежат здесь, в модели. Ни та, ни другая не знают о тексте:
+ * терм — это уже разобранная переменная, а не строка, — поэтому место им не
+ * в компиляции и не в сборке текста, которые ими только пользуются. А
+ * пользуются ими трое: цепочка правила, действие `ctl` со снимаемой целью и
+ * выжимка свёрнутой карточки.
+ */
+
+/**
+ * Превращает плоский список переменных в цели конструктора.
+ *
+ * Термы одной переменной собираются в одну область проверки, но только по
+ * одному из двух способов сразу: `VAR:a|VAR:b` даёт перечень параметров, а
+ * `VAR|!VAR:a` — ту же коллекцию с вычитанием. Смешивать нельзя, потому что
+ * в ModSecurity это разные операции над одним набором: перечень задаёт
+ * набор, а `!` вычитает из уже набранного.
+ *
+ * Поэтому голый терм (`VAR`) и терм с параметром (`VAR:a`) в одну цель не
+ * сливаются: `VAR|VAR:a` — это по-прежнему вся коллекция, а не параметр `a`.
+ * По той же причине не сливаются термы с разным подсчётом `&`.
+ */
+export function groupTargets(variables: RuleVariable[]): VisualTarget[] {
+  const targets: VisualTarget[] = [];
+  /** Цель переменной, в перечень которой ложится очередной параметр. */
+  const listing = new Map<string, VisualTarget>();
+  /** Цель переменной, из которой можно вычитать: её база — вся коллекция. */
+  const subtractable = new Map<string, VisualTarget>();
+
+  for (const v of variables) {
+    if (v.exclusion) {
+      const host = subtractable.get(v.name);
+      if (host) {
+        host.mode = 'except';
+        host.params.push(v.selector ?? '');
+        continue;
+      }
+      // Вычитать не из чего: положительной части у переменной нет. Такая
+      // цель показывается отдельной строкой и помечается предупреждением.
+      const orphan: VisualTarget = {
+        name: v.name,
+        count: v.count,
+        mode: 'except',
+        params: [v.selector ?? ''],
+        excludeOnly: true,
+      };
+      targets.push(orphan);
+      subtractable.set(v.name, orphan);
+      continue;
+    }
+
+    if (v.selector === undefined) {
+      const whole: VisualTarget = { name: v.name, count: v.count, mode: 'only', params: [] };
+      targets.push(whole);
+      subtractable.set(v.name, whole);
+      // Дальнейшие параметры этой переменной относятся уже не к ней:
+      // рядом с целой коллекцией перечень значит отдельную цель.
+      listing.delete(v.name);
+      continue;
+    }
+
+    const host = listing.get(v.name);
+    if (host !== undefined && host.count === v.count) {
+      host.params.push(v.selector);
+      continue;
+    }
+
+    const listed: VisualTarget = {
+      name: v.name,
+      count: v.count,
+      mode: 'only',
+      params: [v.selector],
+    };
+    targets.push(listed);
+    listing.set(v.name, listed);
+  }
+
+  return targets;
+}
+
+/**
+ * Разворачивает цели обратно в плоский список термов.
+ *
+ * Формы ровно три: вся коллекция (`VAR`), перечень параметров
+ * (`VAR:a|VAR:b`) и коллекция с вычитанием (`VAR|!VAR:a`). Вычитающие термы
+ * идут после своей положительной части — иначе ModSecurity вычтет из ещё
+ * не набранного, и правило будет значить не то, что показывает конструктор.
+ */
+export function targetsToVariables(targets: VisualTarget[]): RuleVariable[] {
+  const variables: RuleVariable[] = [];
+
+  for (const target of targets) {
+    const listed = target.mode === 'only' ? target.params : [];
+    const subtracted = target.mode === 'except' ? target.params : [];
+
+    if (!target.excludeOnly) {
+      const selectors = listed.length === 0 ? [undefined] : listed;
+      for (const selector of selectors) {
+        variables.push({
+          raw: '',
+          name: target.name,
+          selector,
+          count: target.count,
+          exclusion: false,
+        });
+      }
+    }
+
+    for (const selector of subtracted) {
+      variables.push({
+        raw: '',
+        name: target.name,
+        selector: selector === '' ? undefined : selector,
+        count: false,
+        exclusion: true,
+      });
+    }
+  }
+
+  return variables;
 }

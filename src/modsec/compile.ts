@@ -26,23 +26,25 @@
 import { DIRECTIVES } from '../components/syntax/modsecKeywords';
 import { isDisruptive, isHeadOnlyAction } from './semantics';
 import { Diagnostics } from './diagnostics';
-import { checkConditionStructure } from './checks';
+import { checkConditionStructure, checkDirective } from './checks';
+import { readDirective } from './directives';
+import { collectExclusions, emptyExclusionIndex, exclusionList } from './exclusions';
 import { inspectDocument } from './inspect';
-import { emptyActions } from './model';
+import { emptyActions, groupTargets } from './model';
+import { unfold } from './parser';
 import type { Diagnostic } from './diagnostics';
+import type { ExclusionIndex } from './exclusions';
 import type {
   VisualActions,
   VisualBlock,
   VisualCondition,
   VisualModel,
   VisualRule,
-  VisualTarget,
 } from './model';
 import type {
   ParsedDocument,
   ParsedStatement,
   RuleAction,
-  RuleVariable,
   SecRuleStatement,
 } from './types';
 
@@ -66,6 +68,14 @@ export interface CompileResult {
    * конструктор не пустят, но сказать о нём всё остальное можно и полезно.
    */
   blocks: VisualBlock[];
+  /**
+   * Кто из директив файла правит чужие правила.
+   *
+   * Считается вместе с моделью, а не отложенным проходом: отметка «выключено
+   * исключением» стоит на карточке правила рядом с его номером, и появиться
+   * она должна тогда же, когда сама карточка.
+   */
+  exclusions: ExclusionIndex;
   diagnostics: Diagnostic[];
   errorCount: number;
   warningCount: number;
@@ -91,81 +101,6 @@ function hasUnbalancedQuotes(raw: string): boolean {
 }
 
 const KNOWN_DIRECTIVES = new Set<string>(DIRECTIVES);
-
-/* ------------------------------------------------------------------ */
-/* Цели: сборка термов одной переменной                                */
-/* ------------------------------------------------------------------ */
-
-/**
- * Превращает плоский список переменных в цели конструктора.
- *
- * Термы одной переменной собираются в одну область проверки, но только по
- * одному из двух способов сразу: `VAR:a|VAR:b` даёт перечень параметров, а
- * `VAR|!VAR:a` — ту же коллекцию с вычитанием. Смешивать нельзя, потому что
- * в ModSecurity это разные операции над одним набором: перечень задаёт
- * набор, а `!` вычитает из уже набранного.
- *
- * Поэтому голый терм (`VAR`) и терм с параметром (`VAR:a`) в одну цель не
- * сливаются: `VAR|VAR:a` — это по-прежнему вся коллекция, а не параметр `a`.
- * По той же причине не сливаются термы с разным подсчётом `&`.
- */
-export function groupTargets(variables: RuleVariable[]): VisualTarget[] {
-  const targets: VisualTarget[] = [];
-  /** Цель переменной, в перечень которой ложится очередной параметр. */
-  const listing = new Map<string, VisualTarget>();
-  /** Цель переменной, из которой можно вычитать: её база — вся коллекция. */
-  const subtractable = new Map<string, VisualTarget>();
-
-  for (const v of variables) {
-    if (v.exclusion) {
-      const host = subtractable.get(v.name);
-      if (host) {
-        host.mode = 'except';
-        host.params.push(v.selector ?? '');
-        continue;
-      }
-      // Вычитать не из чего: положительной части у переменной нет. Такая
-      // цель показывается отдельной строкой и помечается предупреждением.
-      const orphan: VisualTarget = {
-        name: v.name,
-        count: v.count,
-        mode: 'except',
-        params: [v.selector ?? ''],
-        excludeOnly: true,
-      };
-      targets.push(orphan);
-      subtractable.set(v.name, orphan);
-      continue;
-    }
-
-    if (v.selector === undefined) {
-      const whole: VisualTarget = { name: v.name, count: v.count, mode: 'only', params: [] };
-      targets.push(whole);
-      subtractable.set(v.name, whole);
-      // Дальнейшие параметры этой переменной относятся уже не к ней:
-      // рядом с целой коллекцией перечень значит отдельную цель.
-      listing.delete(v.name);
-      continue;
-    }
-
-    const host = listing.get(v.name);
-    if (host !== undefined && host.count === v.count) {
-      host.params.push(v.selector);
-      continue;
-    }
-
-    const listed: VisualTarget = {
-      name: v.name,
-      count: v.count,
-      mode: 'only',
-      params: [v.selector],
-    };
-    targets.push(listed);
-    listing.set(v.name, listed);
-  }
-
-  return targets;
-}
 
 /* ------------------------------------------------------------------ */
 /* Действия                                                            */
@@ -270,11 +205,19 @@ function leadingComments(
   return { startIndex: start, comments };
 }
 
-/** Превращает одну директиву `SecRule` в условие конструктора. */
+/**
+ * Превращает одну директиву `SecRule` в условие конструктора.
+ *
+ * Свои действия звено оставляет себе, а голова отдаёт правилу: `own` — это и
+ * есть та развилка. Без неё действие головы попало бы в текст дважды, а
+ * действие звена — ни разу, и `ctl:ruleRemoveTargetById` из последнего звена
+ * исчезал бы при первой правке правила в конструкторе.
+ */
 function toCondition(
   rule: SecRuleStatement,
   statementIndex: number,
   comments: string[] = [],
+  own = false,
 ): VisualCondition {
   return {
     key: `cond-${statementIndex}`,
@@ -282,6 +225,7 @@ function toCondition(
     comments,
     targets: groupTargets(rule.variables),
     transforms: transformsOf(rule.actions),
+    extra: own ? rule.actions.filter((a) => a.name !== 't' && a.name !== 'chain') : [],
     operator: {
       name: rule.operator.name,
       negated: rule.operator.negated,
@@ -306,6 +250,7 @@ export function compileDocument(doc: ParsedDocument | null): CompileResult {
       ok: false,
       model: null,
       blocks: [],
+      exclusions: emptyExclusionIndex(),
       diagnostics: diag.items,
       errorCount: 1,
       warningCount: 0,
@@ -352,7 +297,9 @@ export function compileDocument(doc: ParsedDocument | null): CompileResult {
           diag.at(current.span.startLine).report('danglingChain');
           break;
         }
-        conditions.push(toCondition(link, next, leadingComments(statements, next).comments));
+        conditions.push(
+          toCondition(link, next, leadingComments(statements, next).comments, true),
+        );
 
         // Звено цепочки не должно нести действия «шапки» — они игнорируются
         // ModSecurity и почти всегда означают ошибку автора правила.
@@ -429,6 +376,7 @@ export function compileDocument(doc: ParsedDocument | null): CompileResult {
         startIndex,
         statementIndex: i,
         comments,
+        text: unfold(statement.raw).trim(),
         label: statement.label,
       });
       i++;
@@ -439,16 +387,41 @@ export function compileDocument(doc: ParsedDocument | null): CompileResult {
     if (!KNOWN_DIRECTIVES.has(statement.name)) {
       diag.report('unknownDirective', { name: statement.name });
     }
+    checkDirective(statement, diag);
     blocks.push({
       kind: 'directive',
       key: `directive-${i}`,
       startIndex,
       statementIndex: i,
       comments,
+      // Отступ и переносы автора здесь снимаются: строка стоит в поле, и
+      // сохранённое форматирование в нём читалось бы как часть значения.
+      // Пока строку не правят, в файле она остаётся ровно такой, как была.
+      text: unfold(statement.raw).trim(),
       name: statement.name,
       args: statement.args,
+      // Разбор по полям — не замена тексту, а второй взгляд на ту же
+      // строку. Не сошёлся — блок остаётся текстовым, и правится как
+      // правился.
+      form: readDirective(statement),
     });
     i++;
+  }
+
+  // Сводится это только когда собраны все блоки: директива ссылается и на
+  // правило выше себя, и на правило ниже — разница между ними и есть то,
+  // сработает исключение или нет.
+  const exclusions = collectExclusions(blocks, statements);
+  for (const { directive } of exclusionList(exclusions)) {
+    // Ошибка загрузки бывает только у директивы: `ctl` с тем же промахом
+    // конфигурацию не роняет — он молча ничего не снимает, а о молчаливом
+    // «ничего» говорит смысловой проход, и говорит предупреждением.
+    if (directive.source !== 'directive') continue;
+    diag.at(directive.line);
+    if (directive.incomplete) diag.report('exclusionNoTarget', { name: directive.name });
+    for (const bad of directive.badIds) {
+      diag.report('exclusionBadId', { name: directive.name, value: bad });
+    }
   }
 
   const errorCount = diag.count('error');
@@ -458,6 +431,7 @@ export function compileDocument(doc: ParsedDocument | null): CompileResult {
     ok,
     model: ok ? { blocks } : null,
     blocks,
+    exclusions,
     diagnostics: byLine(diag.items),
     errorCount,
     warningCount: diag.count('warning'),
@@ -487,7 +461,7 @@ export function analyzeDocument(doc: ParsedDocument | null): CompileResult {
   const compiled = compileDocument(doc);
   if (doc === null) return compiled;
 
-  const semantic = inspectDocument(compiled.blocks, doc.statements);
+  const semantic = inspectDocument(compiled.blocks, doc.statements, compiled.exclusions);
   const diagnostics = byLine([...compiled.diagnostics, ...semantic]);
   const count = (severity: Diagnostic['severity']) =>
     diagnostics.filter((d) => d.severity === severity).length;

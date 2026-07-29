@@ -14,18 +14,9 @@
  */
 
 import { dquote, serializeActions, serializeVariableList } from './serialize';
-import { emptyActions, makeCondition, nextKey } from './model';
-import type {
-  VisualActions,
-  VisualCondition,
-  VisualRule,
-  VisualTarget,
-} from './model';
-import type {
-  ParsedDocument,
-  RuleAction,
-  RuleVariable,
-} from './types';
+import { emptyActions, makeCondition, nextKey, targetsToVariables } from './model';
+import type { VisualActions, VisualCondition, VisualRule } from './model';
+import type { ParsedDocument, RuleAction } from './types';
 
 /** Отступ строки продолжения (как в примерах CRS). */
 const CONTINUATION_INDENT = '    ';
@@ -47,48 +38,6 @@ function quotedAction(name: string, value: string): RuleAction {
 /* ------------------------------------------------------------------ */
 /* Цели и оператор                                                     */
 /* ------------------------------------------------------------------ */
-
-/**
- * Разворачивает цели обратно в плоский список термов.
- *
- * Формы ровно три: вся коллекция (`VAR`), перечень параметров
- * (`VAR:a|VAR:b`) и коллекция с вычитанием (`VAR|!VAR:a`). Вычитающие термы
- * идут после своей положительной части — иначе ModSecurity вычтет из ещё
- * не набранного, и правило будет значить не то, что показывает конструктор.
- */
-export function targetsToVariables(targets: VisualTarget[]): RuleVariable[] {
-  const variables: RuleVariable[] = [];
-
-  for (const target of targets) {
-    const listed = target.mode === 'only' ? target.params : [];
-    const subtracted = target.mode === 'except' ? target.params : [];
-
-    if (!target.excludeOnly) {
-      const selectors = listed.length === 0 ? [undefined] : listed;
-      for (const selector of selectors) {
-        variables.push({
-          raw: '',
-          name: target.name,
-          selector,
-          count: target.count,
-          exclusion: false,
-        });
-      }
-    }
-
-    for (const selector of subtracted) {
-      variables.push({
-        raw: '',
-        name: target.name,
-        selector: selector === '' ? undefined : selector,
-        count: false,
-        exclusion: true,
-      });
-    }
-  }
-
-  return variables;
-}
 
 /** Собирает содержимое кавычек оператора: `@rx foo`, `!@eq 0`. */
 export function emitOperator(operator: VisualCondition['operator']): string {
@@ -158,8 +107,12 @@ function emitSecRule(variables: string, operator: string, actions: string): stri
 
 /**
  * Сериализует одно звено цепочки.
- * Действия «шапки» пишутся только в головное звено; остальные несут лишь
- * собственные трансформации и, если это не последнее звено, `chain`.
+ *
+ * Действия «шапки» пишутся только в головное звено; остальные несут свой
+ * конвейер, свои собственные действия и, если это не последнее звено, `chain`.
+ * Действия звена возвращаются именно в него: место в цепочке — часть их
+ * смысла, и `ctl` из последнего звена, переехавший в голову, применялся бы
+ * раньше, чем совпадут остальные условия.
  */
 export function emitCondition(
   condition: VisualCondition,
@@ -173,6 +126,7 @@ export function emitCondition(
     ? actionsToList(headActions, condition.transforms, chain)
     : [
         ...condition.transforms.map((t) => action('t', t)),
+        ...condition.extra,
         ...(chain ? [action('chain')] : []),
       ];
 
@@ -226,6 +180,22 @@ export function replaceRange(
 
   if (from >= doc.statements.length) out.push(...lines);
   return out.join('\n');
+}
+
+/**
+ * Вставляет готовые строки сразу за утверждением `index`.
+ *
+ * Отдельная операция, а не замена диапазона самим собой: правило, к которому
+ * дописывают исключение, не меняется вовсе — и текст его должен остаться тем
+ * же, вплоть до переносов и кавычек, которые расставил автор.
+ *
+ * Пустой строки между ними нет намеренно. `SecRuleRemoveById` относится к
+ * правилу выше и работает только потому, что стоит ниже его: вплотную это
+ * читается как приписка к правилу, а через пробел — как начало нового блока.
+ */
+export function insertAfter(doc: ParsedDocument, index: number, lines: string[]): string {
+  const raw = doc.statements.map((s) => s.raw);
+  return [...raw.slice(0, index + 1), ...lines, ...raw.slice(index + 1)].join('\n');
 }
 
 /** Применяет изменённое правило к документу и возвращает новый текст. */
@@ -317,13 +287,89 @@ export function makeRule(id: string): VisualRule {
   };
 }
 
+/**
+ * Заготовка безусловного действия.
+ *
+ * Реакция у неё `pass` с `nolog`, а не `deny` со `status`, как у правила, и
+ * причина не в осторожности: условий у `SecAction` нет вовсе, поэтому
+ * заготовка с запретом закрыла бы все запросы сразу, а запись в журнал на
+ * каждом из них не сказала бы ни о чём. Пишут такие блоки ради `setvar`, и в
+ * файлах-настройках CRS они выглядят именно так.
+ */
+export function makeAction(id: string): VisualActions {
+  return { ...emptyActions(), id, phase: '1', disruptive: 'pass', log: false };
+}
+
+/**
+ * Дописывает новый блок в конец документа.
+ *
+ * Пустая строка перед ним — не оформление: ею в файле разделены блоки, и без
+ * неё новая строка читалась бы припиской к последнему правилу. У директив это
+ * ещё и вопрос смысла: `SecRuleRemoveById` вплотную под правилом — обычная
+ * запись исключения, а тот же текст в конце файла относится ко всему выше.
+ */
+function appendBlock(doc: ParsedDocument, lines: string[]): string {
+  const raw = doc.statements.map((s) => s.raw);
+  while (raw.length > 0 && raw[raw.length - 1].trim() === '') raw.pop();
+
+  if (raw.length > 0) raw.push('');
+  raw.push(...lines, '');
+  return raw.join('\n');
+}
+
 /** Добавляет новое правило в конец документа. */
 export function appendRule(doc: ParsedDocument): string {
-  const lines = doc.statements.map((s) => s.raw);
-  while (lines.length > 0 && lines[lines.length - 1].trim() === '') lines.pop();
+  return appendBlock(doc, emitRule(makeRule(nextFreeId(doc))));
+}
 
-  const rule = makeRule(nextFreeId(doc));
-  if (lines.length > 0) lines.push('');
-  lines.push(...emitRule(rule), '');
-  return lines.join('\n');
+/** Добавляет безусловное действие в конец документа. */
+export function appendAction(doc: ParsedDocument): string {
+  return appendBlock(doc, emitActionBlock(makeAction(nextFreeId(doc)), []));
+}
+
+/** Основа имени новой метки: осмысленное знает автор файла, а не редактор. */
+const NEW_MARKER_LABEL = 'MARKER';
+
+/**
+ * Незанятое имя для новой метки.
+ *
+ * Незанятое, а не просто придуманное: `skipAfter` ищет метку с этим именем
+ * ниже себя и останавливается на первой, поэтому две одноимённые метки
+ * означают переход, о котором по имени уже ничего не сказать.
+ */
+export function nextFreeLabel(doc: ParsedDocument): string {
+  const used = new Set<string>();
+  for (const statement of doc.statements) {
+    if (statement.kind === 'SecMarker') used.add(statement.label);
+  }
+
+  if (!used.has(NEW_MARKER_LABEL)) return NEW_MARKER_LABEL;
+  let n = 2;
+  while (used.has(`${NEW_MARKER_LABEL}-${n}`)) n += 1;
+  return `${NEW_MARKER_LABEL}-${n}`;
+}
+
+/**
+ * Добавляет метку в конец документа.
+ *
+ * Имя ей подбирает редактор, а правят его на месте — в отличие от директивы,
+ * которую собирают в окне. Спрашивать имя заранее было бы тем же полем, но
+ * раньше: у метки оно единственное содержимое и меняется свободно, а метка
+ * без осмысленного имени всё равно загрузится — на неё просто никто не
+ * прыгает.
+ */
+export function appendMarker(doc: ParsedDocument): string {
+  return appendBlock(doc, [`SecMarker ${nextFreeLabel(doc)}`]);
+}
+
+/**
+ * Дописывает готовую строку директивы в конец документа.
+ *
+ * Строка приходит собранной, а не именем: незаполненную директиву
+ * ModSecurity не загрузит, а одна такая ошибка блокирует конструктор на весь
+ * файл — поэтому имя и значение выбирают до того, как строка появилась.
+ * Собирает её форма, та же, которой директива потом правится.
+ */
+export function appendDirective(doc: ParsedDocument, line: string): string {
+  return appendBlock(doc, [line]);
 }

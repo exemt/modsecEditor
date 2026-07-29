@@ -20,6 +20,23 @@ interface TargetRowProps {
   onChange: (next: VisualTarget) => void;
   onRemove: () => void;
   canRemove: boolean;
+  /** Чем плохо имя переменной: рамка краснеет, причина уходит в подсказку. */
+  error?: string;
+  /**
+   * Почему у цели нет подсчёта `&`, если дело не в самой переменной.
+   *
+   * У снимаемой цели `ctl` его нет никогда: ModSecurity сравнивает такую цель
+   * с целями правила по имени и параметру, и `&ARGS` не совпадёт ни с одной —
+   * исключение промолчит.
+   */
+  countBlocked?: string;
+  /**
+   * Почему у списка параметров нет положения «ВСЕ, КРОМЕ».
+   *
+   * Та же причина и то же место: вычитающий терм в цели `ctl` не сравнится
+   * ни с чем. Вычитают цель навсегда, директивой `SecRuleUpdateTargetById`.
+   */
+  exceptBlocked?: string;
 }
 
 /**
@@ -36,15 +53,36 @@ interface TargetRowProps {
  * Поля гасятся по метаданным переменной: у скаляров вроде `REQUEST_METHOD`
  * параметров нет вовсе, а подсчёт `&` доступен только коллекциям — так
  * конструктор не даёт собрать конструкцию, которая в ModSecurity ничего
- * не значит.
+ * не значит. По той же причине часть их гасит и место: цель, снимаемая
+ * исключением `ctl`, сравнивается по имени и параметру, и ни `&`, ни `!` в
+ * ней не совпадут ни с чем — но знает об этом место, а не переменная,
+ * поэтому причину отказа оно и передаёт.
  */
-export function TargetRow({ target, onChange, onRemove, canRemove }: TargetRowProps) {
+export function TargetRow({
+  target,
+  onChange,
+  onRemove,
+  canRemove,
+  error,
+  countBlocked,
+  exceptBlocked,
+}: TargetRowProps) {
   const { t } = useI18n();
   const label = useLabel();
 
-  const canCount = countSupported(target.name);
+  const canCount = countSupported(target.name) && countBlocked === undefined;
   const support = selectorSupport(target.name);
   const caption = label(variableMeta(target.name)?.label, '');
+
+  // Перечень положений переключателя: вычитание отпадает и там, где параметр
+  // обязателен — вычитать из перечня нечего, — и там, где `!` в цели ничего
+  // не значит.
+  const modes: ParamMode[] =
+    support === 'required'
+      ? ['only']
+      : exceptBlocked === undefined
+        ? ['all', 'only', 'except']
+        : ['all', 'only'];
 
   /**
    * Выбранное положение переключателя, пока список пуст.
@@ -105,6 +143,7 @@ export function TargetRow({ target, onChange, onRemove, canRemove }: TargetRowPr
           <SuggestField
             required
             label={t('builder.scope')}
+            error={error}
             suggestions={VARIABLE_SUGGESTIONS}
             value={target.name}
             onCommit={(name) => {
@@ -125,7 +164,11 @@ export function TargetRow({ target, onChange, onRemove, canRemove }: TargetRowPr
         </Box>
       </Tooltip>
 
-      <Tooltip title={canCount ? t('builder.countHint') : t('builder.countUnavailable')}>
+      <Tooltip
+        title={
+          countBlocked ?? (canCount ? t('builder.countHint') : t('builder.countUnavailable'))
+        }
+      >
         <Box component="span" sx={{ display: 'flex' }}>
           <ToggleButton
             size="small"
@@ -165,7 +208,8 @@ export function TargetRow({ target, onChange, onRemove, canRemove }: TargetRowPr
             mode={mode}
             values={target.params}
             baseless={target.excludeOnly}
-            canExclude={support !== 'required'}
+            modes={modes}
+            note={exceptBlocked}
             suggestions={selectorSuggestions(target.name)}
             onChange={applyParams}
           />

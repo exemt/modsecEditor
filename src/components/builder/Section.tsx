@@ -29,8 +29,21 @@ interface SectionProps {
   summary?: string;
   /** Выжимка — часть правила, а не проза: её сверяют с текстом файла глазами. */
   monospace?: boolean;
-  /** Счётчики справа: сколько внутри и сколько об этом сказано. */
+  /**
+   * Счётчики у самого правого края: сколько внутри и сколько об этом сказано.
+   *
+   * Правее кнопок блока намеренно. Счётчик — это про содержимое, и у всех
+   * блоков он стоит в одной колонке; кнопка есть не у каждого, и поставленная
+   * за счётчиком она сдвигала бы эту колонку от блока к блоку.
+   */
   counters?: ReactNode;
+  /**
+   * Кнопки на полосе — то, что делают с блоком, не открывая его.
+   *
+   * Стоят вне нажимаемого заголовка: кнопка внутри кнопки — ни разметка, ни
+   * поведение, и нажатие на неё сворачивало бы блок заодно.
+   */
+  actions?: ReactNode;
   /** Развёрнут ли блок при появлении карточки. */
   defaultExpanded?: boolean;
   children: ReactNode;
@@ -49,7 +62,9 @@ interface SectionProps {
  * бы вслед за шириной окна, а колонка значков должна быть одна на все уровни.
  *
  * Заголовок нажимается целиком: полоса шириной во всю карточку — цель, в
- * которую не надо попадать.
+ * которую не надо попадать. Кнопки блока и счётчики, если они есть, стоят
+ * правее этой цели: то, что делают с содержимым, не должно требовать его
+ * открыть.
  *
  * Черта сверху есть у каждого блока — она же отделяет первый из них от шапки
  * карточки, — и вторая появляется у раскрытого, между его полосой и полями.
@@ -65,6 +80,7 @@ export function Section({
   summary,
   monospace,
   counters,
+  actions,
   defaultExpanded = true,
   children,
 }: SectionProps) {
@@ -73,71 +89,88 @@ export function Section({
 
   return (
     <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
-      <ButtonBase
-        onClick={() => setExpanded((open) => !open)}
-        aria-expanded={expanded}
-        aria-label={t(expanded ? 'builder.collapseSection' : 'builder.expandSection', {
-          name: title,
-        })}
-        sx={{
-          width: '100%',
-          height: BLOCK_ROW,
-          px: SECTION_PADDING,
-          gap: 1,
-          // Заголовок — кнопка, а кнопка центрирует текст: без этого выжимка
-          // о содержимом висела бы посередине полосы, оторванная от названия.
-          textAlign: 'left',
-          // Скругление здесь лишнее: полоса идёт от края до края карточки,
-          // и её углы — это углы самой карточки.
-          borderRadius: 0,
-        }}
-      >
-        <Box
+      <Stack direction="row" sx={{ alignItems: 'center', height: BLOCK_ROW }}>
+        <ButtonBase
+          onClick={() => setExpanded((open) => !open)}
+          aria-expanded={expanded}
+          aria-label={t(expanded ? 'builder.collapseSection' : 'builder.expandSection', {
+            name: title,
+          })}
           sx={{
-            width: CHEVRON_COLUMN,
-            flexShrink: 0,
-            display: 'flex',
-            justifyContent: 'center',
+            flex: 1,
+            minWidth: 0,
+            height: '100%',
+            pl: SECTION_PADDING,
+            // Справа заголовок упирается либо в край карточки, либо в полосу
+            // кнопок со счётчиками: во втором случае поле блока принадлежит ей.
+            pr: actions === undefined && counters === undefined ? SECTION_PADDING : 1,
+            gap: 1,
+            // Заголовок — кнопка, а кнопка центрирует текст: без этого выжимка
+            // о содержимом висела бы посередине полосы, оторванная от названия.
+            textAlign: 'left',
+            // Скругление здесь лишнее: полоса идёт от края до края карточки,
+            // и её углы — это углы самой карточки.
+            borderRadius: 0,
           }}
         >
-          {expanded ? (
-            <ExpandMoreIcon fontSize="small" />
-          ) : (
-            <ChevronRightIcon fontSize="small" />
-          )}
-        </Box>
-
-        <Typography variant="subtitle2" noWrap sx={{ width: TITLE_COLUMN, flexShrink: 0 }}>
-          {title}
-        </Typography>
-
-        {expanded || summary === undefined ? (
-          <Box sx={{ flex: 1 }} />
-        ) : (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            noWrap
+          <Box
             sx={{
-              flex: 1,
-              minWidth: 0,
-              fontFamily: monospace ? 'ui-monospace, Consolas, monospace' : undefined,
+              width: CHEVRON_COLUMN,
+              flexShrink: 0,
+              display: 'flex',
+              justifyContent: 'center',
             }}
           >
-            {summary}
-          </Typography>
-        )}
+            {expanded ? (
+              <ExpandMoreIcon fontSize="small" />
+            ) : (
+              <ChevronRightIcon fontSize="small" />
+            )}
+          </Box>
 
-        {counters !== undefined && (
+          <Typography variant="subtitle2" noWrap sx={{ width: TITLE_COLUMN, flexShrink: 0 }}>
+            {title}
+          </Typography>
+
+          {expanded || summary === undefined ? (
+            <Box sx={{ flex: 1 }} />
+          ) : (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              noWrap
+              sx={{
+                flex: 1,
+                minWidth: 0,
+                fontFamily: monospace ? 'ui-monospace, Consolas, monospace' : undefined,
+              }}
+            >
+              {summary}
+            </Typography>
+          )}
+
+        </ButtonBase>
+
+        {(actions !== undefined || counters !== undefined) && (
           <Stack
             direction="row"
-            spacing={0.5}
-            sx={{ alignItems: 'center', flexShrink: 0 }}
+            spacing={1}
+            sx={{ alignItems: 'center', flexShrink: 0, pr: SECTION_PADDING }}
           >
-            {counters}
+            {actions !== undefined && (
+              <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                {actions}
+              </Stack>
+            )}
+
+            {counters !== undefined && (
+              <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                {counters}
+              </Stack>
+            )}
           </Stack>
         )}
-      </ButtonBase>
+      </Stack>
 
       <Collapse in={expanded} unmountOnExit>
         <Box

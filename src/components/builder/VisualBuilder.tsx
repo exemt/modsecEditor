@@ -10,51 +10,25 @@ import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { ActionsPanel } from './ActionsPanel';
+import { BlockActions } from './BlockActions';
 import { BlockList } from './BlockList';
+import { DirectiveRow } from './DirectiveRow';
+import { ExclusionMarks } from './ExclusionMarks';
+import { exclusionIcon, exclusionOpKey } from './exclusionLabels';
 import { RuleCard } from './RuleCard';
+import { StatementRow } from './StatementRow';
 import { actionSummary } from './summary';
+import { useRuleExclusions } from '../diagnostics/useDiagnostics';
 import { useRule } from '../../context/ruleContext';
 import { blockExpansionKey, useBuilderView } from '../../context/builderViewContext';
 import { useI18n } from '../../i18n/useI18n';
+import { emitDirective } from '../../modsec/directives';
 import { emitActionBlock } from '../../modsec/emit';
 import { blockRange } from '../../modsec/model';
 import { BLOCK_ROW } from '../../theme';
 import type { VisualActions, VisualBlock, VisualModel } from '../../modsec/model';
-
-/** Карточка блока, который конструктор показывает, но не редактирует. */
-function ReadOnlyBlock({
-  title,
-  body,
-  onDelete,
-}: {
-  title: string;
-  body: string;
-  onDelete: () => void;
-}) {
-  const { t } = useI18n();
-  return (
-    <Paper variant="outlined" sx={{ px: 1.5 }}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', height: BLOCK_ROW }}>
-        <Tooltip title={t('builder.readOnly')}>
-          <Chip size="small" variant="outlined" label={title} />
-        </Tooltip>
-        <Typography
-          variant="body2"
-          sx={{ flex: 1, fontFamily: 'ui-monospace, Consolas, monospace' }}
-          noWrap
-        >
-          {body}
-        </Typography>
-        <IconButton size="small" color="error" onClick={onDelete}>
-          <DeleteOutlineIcon fontSize="small" />
-        </IconButton>
-      </Stack>
-    </Paper>
-  );
-}
 
 /**
  * Безусловное действие `SecAction`.
@@ -62,21 +36,33 @@ function ReadOnlyBlock({
  * Сворачивается наравне с правилом, хотя условий у него нет: файл
  * инициализации CRS состоит из таких блоков почти целиком, и развёрнутыми
  * они стоят столько же, сколько правила.
+ *
+ * Копии у него, в отличие от правила, нет: `id` у `SecAction` такой же
+ * обязательный и такой же единственный, а свободный номер копии подбирают
+ * там, где знают про весь файл, — этого о безусловном действии пока никто
+ * не делает, и молча оставлять дубль номера хуже, чем не копировать вовсе.
  */
 function ActionCard({
   block,
   expanded,
   onToggleExpanded,
   onChange,
+  onMoveUp,
+  onMoveDown,
   onDelete,
 }: {
   block: Extract<VisualBlock, { kind: 'action' }>;
   expanded: boolean;
   onToggleExpanded: () => void;
   onChange: (actions: VisualActions) => void;
+  onMoveUp: (() => void) | null;
+  onMoveDown: (() => void) | null;
   onDelete: () => void;
 }) {
   const { t } = useI18n();
+  // `SecAction` — обычный носитель `ctl`: у безусловного действия исключение
+  // применяется на каждом запросе, и именно так пишут файлы-надстройки.
+  const exclusions = useRuleExclusions(block.statementIndex, block.statementIndex);
 
   return (
     <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
@@ -117,13 +103,21 @@ function ActionCard({
             {block.comments.join(' ') || actionSummary(block.actions)}
           </Typography>
         )}
-        <IconButton size="small" color="error" onClick={onDelete}>
-          <DeleteOutlineIcon fontSize="small" />
-        </IconButton>
+        <BlockActions
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
+          onDelete={onDelete}
+          deleteLabel="builder.deleteBlock"
+        />
       </Stack>
       <Collapse in={expanded} unmountOnExit>
         <Divider />
-        <ActionsPanel alwaysExpanded actions={block.actions} onChange={onChange} />
+        <ActionsPanel
+          alwaysExpanded
+          actions={block.actions}
+          exclusions={exclusions}
+          onChange={onChange}
+        />
       </Collapse>
     </Paper>
   );
@@ -168,15 +162,35 @@ export function VisualBuilder() {
   /**
    * Раскрыт ли блок — то есть занимает ли он больше одной строки.
    *
-   * Метка и директива не раскрываются никогда: сворачивать в них нечего, а по
-   * высоте они совпадают со свёрнутой карточкой, поэтому в серию встают
-   * наравне с ней. Файлу CRS это важнее, чем кажется: меток в нём столько же,
-   * сколько разделов.
+   * Метка не раскрывается никогда, а директива — только та, чья форма за одну
+   * строку не ручается. Свёрнутыми они все ростом со свёрнутую карточку и в
+   * серию встают наравне с ней. Файлу CRS это важнее, чем кажется: меток в
+   * нём столько же, сколько разделов.
    */
   const isOpen = (index: number) => {
     const key = blockExpansionKey(blocks[index]);
     return key !== null && isExpanded(key);
   };
+
+  /**
+   * Правка строки блока — замена ровно одного утверждения.
+   *
+   * Описание над строкой не трогается: комментарий человек писал сам, и
+   * перегенерировать его заодно значило бы переписать чужой текст.
+   */
+  const commitStatement = (statementIndex: number, text: string) =>
+    replaceLines(statementIndex, statementIndex, [text]);
+
+  /**
+   * Копия строки следом за ней.
+   *
+   * Заготовки директивы у конструктора нет и быть не может — их десятки, и
+   * какая нужна, знает только автор файла. Зато исключения пишут очередями,
+   * и копия соседней строки — самый короткий путь к следующей: остаётся
+   * поправить номер.
+   */
+  const duplicateStatement = (statementIndex: number, text: string) =>
+    replaceLines(statementIndex, statementIndex, [text, text]);
 
   const renderBlock = (index: number) => {
     const block = blocks[index];
@@ -216,27 +230,71 @@ export function VisualBuilder() {
                 emitActionBlock(actions, block.comments),
               )
             }
+            onMoveUp={swapWith(index, -1)}
+            onMoveDown={swapWith(index, 1)}
             onDelete={() => removeBlock(block.startIndex, block.statementIndex)}
           />
         );
       case 'marker':
         return (
-          <ReadOnlyBlock
+          <StatementRow
             key={block.key}
+            kind="builder.marker"
             title={t('builder.marker')}
-            body={block.label}
+            text={block.text}
+            onCommit={(text) => commitStatement(block.statementIndex, text)}
+            onMoveUp={swapWith(index, -1)}
+            onMoveDown={swapWith(index, 1)}
+            onDuplicate={() => duplicateStatement(block.statementIndex, block.text)}
             onDelete={() => removeBlock(block.startIndex, block.statementIndex)}
           />
         );
-      case 'directive':
+      case 'directive': {
+        // Исключение — тоже директива, но говорит она о чужих правилах, и
+        // одного имени тут мало: важно, до кого оно дотянулось. Директива
+        // несёт ровно одно исключение — в отличие от правила, у которого их
+        // столько, сколько в нём написано `ctl`.
+        const exclusion = compiled.exclusions.byStatement.get(block.statementIndex)?.[0];
+
+        // Формы нет — незнакомое имя, лишний аргумент, макрос в значении.
+        // Строка честнее формы, которая показала бы меньше, чем в ней есть.
+        if (block.form === null) {
+          return (
+            <StatementRow
+              key={block.key}
+              kind="builder.directive"
+              title={
+                exclusion === undefined
+                  ? t('builder.directive')
+                  : t(exclusionOpKey(exclusion.directive.op))
+              }
+              icon={exclusion === undefined ? undefined : exclusionIcon(exclusion.directive.op)}
+              text={block.text}
+              marks={exclusion === undefined ? undefined : <ExclusionMarks entry={exclusion} />}
+              onCommit={(text) => commitStatement(block.statementIndex, text)}
+              onMoveUp={swapWith(index, -1)}
+              onMoveDown={swapWith(index, 1)}
+              onDuplicate={() => duplicateStatement(block.statementIndex, block.text)}
+              onDelete={() => removeBlock(block.startIndex, block.statementIndex)}
+            />
+          );
+        }
+
         return (
-          <ReadOnlyBlock
+          <DirectiveRow
             key={block.key}
-            title={t('builder.directive')}
-            body={[block.name, ...block.args].join(' ')}
+            form={block.form}
+            exclusion={exclusion}
+            expanded={expanded}
+            onToggleExpanded={toggle}
+            onChange={(form) => commitStatement(block.statementIndex, emitDirective(form))}
+            onMoveUp={swapWith(index, -1)}
+            onMoveDown={swapWith(index, 1)}
+            onDuplicate={() => duplicateStatement(block.statementIndex, block.text)}
             onDelete={() => removeBlock(block.startIndex, block.statementIndex)}
           />
         );
+      }
     }
   };
 

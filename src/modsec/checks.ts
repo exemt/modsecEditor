@@ -17,6 +17,8 @@
  *    логи, противоречия между звеньями.
  *  - {@link checkDocument} видит файл: директивы конфигурации, метки,
  *    переменные, которые кто-то должен был выставить раньше.
+ *  - {@link checkExclusions} видит связи между директивами: какое исключение
+ *    какое правило правит и работает ли оно вообще.
  *
  * Каждая проверка тут — ответ на вопрос «что человек хотел сказать»,
  * поэтому ложное срабатывание дороже пропуска: сообщение, которому не
@@ -34,10 +36,23 @@ import {
   transformMeta,
   variableMeta,
 } from './semantics';
+import {
+  canonicalDirectiveName,
+  directiveIssues,
+  parseDirective,
+} from './directives';
 import { selectorIssue, selectorPattern } from './quoting';
 import { isValidIpEntry } from './ip';
 import { reviewRegex } from './regex';
+import {
+  exclusionList,
+  exclusionSelectorText,
+  exclusionSignature,
+  isExclusionCtl,
+} from './exclusions';
 import type { Diagnostics } from './diagnostics';
+import type { DirectiveStatement } from './types';
+import type { ExclusionIndex, ExclusionMatch } from './exclusions';
 import type { VisualActions, VisualCondition, VisualOperator, VisualTarget } from './model';
 
 /**
@@ -776,6 +791,42 @@ export function checkConditionStructure(condition: VisualCondition, diag: Diagno
 }
 
 /**
+ * Структурные проверки директивы конфигурации.
+ *
+ * Достаются почти даром: таблица `directives.ts` уже знает, сколько
+ * аргументов директива принимает и из чего выбирается её значение, — и то,
+ * что об этом умеет сказать форма, обязана сказать и панель замечаний.
+ * Иначе строка, приехавшая из чужого конфига, краснела бы в конструкторе
+ * молча, а свёрнутый блок не краснел бы вовсе.
+ */
+export function checkDirective(statement: DirectiveStatement, diag: Diagnostics): void {
+  const name = canonicalDirectiveName(statement.name);
+  if (name === null) return;
+
+  const { form, refusal } = parseDirective(statement);
+
+  if (refusal === 'args') {
+    diag.report('directiveArgCount', { name, count: String(statement.args.length) });
+    return;
+  }
+  if (refusal === 'syntax') {
+    diag.report('directiveBadValue', { name, value: statement.args[0] ?? '' });
+    return;
+  }
+  // Макрос в значении — не повод для замечания: раскрывает его движок, и
+  // проверить `%{tx.limit}` отсюда всё равно нечем.
+  if (form === null) return;
+
+  // У исключения о недостающей выборке говорит `exclusionNoTarget`, и
+  // вторая запись о том же читалась бы как две разные беды.
+  if (form.arg === 'exclusion') return;
+
+  for (const issue of directiveIssues(form)) {
+    diag.report(issue.code, { name, value: issue.value });
+  }
+}
+
+/**
  * Проверяет одно условие цепочки.
  *
  * Порядок разделов повторяет порядок чтения правила: что проверяем, чем
@@ -978,6 +1029,10 @@ export function checkRule(
   }
 
   for (const action of actions.extra) {
+    // Исключения `ctl` конструктор правит полями, и говорить о них «поля нет»
+    // значило бы отправлять человека в текст мимо готовой формы.
+    if (isExclusionCtl(action)) continue;
+
     // Имя из базы ключевых слов — просто действие, которому не нашлось поля
     // в форме: правило верное, править его придётся текстом. Имени, которого
     // в базе нет, ModSecurity не знает тоже, и это опечатка — говорить о ней
@@ -1004,5 +1059,201 @@ export function checkDocument(context: DocumentContext, diag: Diagnostics): void
   if (context.hasBlockingRule && (engine === 'detectiononly' || engine === 'off')) {
     diag.at(context.engineLine);
     diag.report('engineNotEnforcing', { mode: context.engine as string });
+  }
+}
+
+/**
+ * Со скольких снятых правил удаление считается широким.
+ *
+ * Десяток — это уже не «выключить ложное срабатывание», а «выключить
+ * категорию»; иногда именно этого и хотят, поэтому не предупреждение, а совет.
+ */
+const BROAD_REMOVAL = 10;
+
+/**
+ * Строка директивы, безусловно снявшей все эти правила, если такая есть.
+ *
+ * Безусловно — значит директивой файла. `ctl` снимает правило только для тех
+ * запросов, на которых сработал его носитель, поэтому «править нечего» про
+ * такое правило сказать нельзя: на остальных запросах оно работает.
+ *
+ * Ответ есть только когда снято всё: если хоть одно правило выборки осталось,
+ * исключение делает свою работу и придраться не к чему.
+ */
+function allRemovedBy(index: ExclusionIndex, matches: ExclusionMatch[]): number | null {
+  let line: number | null = null;
+
+  for (const match of matches) {
+    const ref = index.byRule
+      .get(match.key)
+      ?.removedBy.find((removal) => removal.source === 'directive');
+    if (ref === undefined) return null;
+    line ??= ref.line;
+  }
+
+  return line;
+}
+
+/**
+ * Проверяет исключения: работают ли они и то ли делают, что задумано.
+ *
+ * Уровень тот же файловый, но вопрос свой. У обычной проверки ответ выводится
+ * из самого правила; здесь всё держится на связи двух строк, и почти каждая
+ * ошибка — не в том, как написано, а в том, что написанное ни к чему не
+ * относится: номер, которого в файле нет, порядок, при котором исключение не
+ * встречается со своей целью, вторая правка правила, уже снятого первой.
+ *
+ * Порядок — там, где директива и `ctl` расходятся сильнее всего, и расходятся
+ * в противоположные стороны. Директива применяется при чтении конфигурации,
+ * поэтому обязана стоять ниже цели; `ctl` применяется при срабатывании
+ * носителя, поэтому обязан отработать раньше — а порядок исполнения задаёт
+ * сначала фаза и только потом строка. Поэтому «не дотянулось» здесь одно, а
+ * сообщений о нём два: причины у них разные, и чинят их по-разному.
+ *
+ * Замечание о директиве адресуется только строке: чинить придётся её, а
+ * правило может быть и вовсе из чужого набора. У `ctl` адрес есть — он
+ * написан внутри правила, и его карточка как раз то место, где о нём и надо
+ * сказать.
+ */
+export function checkExclusions(index: ExclusionIndex, diag: Diagnostics): void {
+  /** Отпечаток исключения → строка, где оно встретилось впервые. */
+  const seen = new Map<string, number>();
+
+  for (const { directive, matches, carrier } of exclusionList(index)) {
+    diag.at(
+      directive.line,
+      carrier === undefined ? undefined : { ruleKey: carrier.key, slot: 'actions' },
+    );
+    const target = exclusionSelectorText(directive);
+    const applied = matches.filter((match) => match.applies);
+
+    // Два одинаковых `ctl` в разных правилах — не повтор: условия у правил
+    // разные, и каждое снимает своё. Повтор — это два одинаковых в одном
+    // списке действий, поэтому отпечаток считается внутри носителя.
+    const signature =
+      carrier === undefined
+        ? exclusionSignature(directive)
+        : `${carrier.key}:${exclusionSignature(directive)}`;
+    const first = seen.get(signature);
+    if (first === undefined) seen.set(signature, directive.line);
+    else diag.report('exclusionDuplicate', { name: directive.name, line: String(first) });
+
+    if (directive.ids.some((range) => range.from > range.to)) {
+      diag.report('exclusionEmptyRange', { target });
+    }
+
+    if (directive.selector === 'msg') {
+      diag.report('exclusionByMsgFragile', { name: directive.name });
+    }
+
+    // Список целей заменяет прежний, а не добавляется к нему, поэтому цель
+    // без `!` — это не исключение, а расширение проверки. Третий аргумент
+    // меняет дело: с ним директива именно заменяет одну цель другой.
+    if (
+      directive.op === 'updateTarget' &&
+      directive.replaced === undefined &&
+      directive.targets.length > 0 &&
+      directive.targets.every((variable) => !variable.exclusion)
+    ) {
+      diag.report('exclusionUpdateTargetNotExclusion', {
+        name: directive.name,
+        targets: directive.targets.map((variable) => variable.raw).join('|'),
+      });
+    }
+
+    if (directive.op === 'updateAction') {
+      const meta = directive.actions.find((a) => a.name === 'id' || a.name === 'phase');
+      if (meta !== undefined) {
+        diag.report('exclusionUpdateActionMetadata', {
+          name: directive.name,
+          action: meta.name,
+        });
+      }
+    }
+
+    // Записанное неверно `ctl` конфигурации не роняет: неизвестную выборку он
+    // молча не находит. Поэтому то, о чём у директивы говорит компиляция
+    // ошибкой, здесь приходится говорить предупреждением — и говорить точнее,
+    // потому что ошибиться в этой записи можно там, где у директивы нечем.
+    if (directive.source === 'ctl') {
+      if (directive.badIds.length > 0) {
+        diag.report('exclusionCtlBadId', {
+          name: directive.name,
+          value: directive.badIds.join(' '),
+        });
+      }
+
+      if (directive.op === 'removeTarget' && directive.targets.length === 0) {
+        diag.report('exclusionCtlNoTarget', { name: directive.name });
+      }
+
+      // Цель у записи `ctl` ровно одна: всё после `;` ModSecurity читает
+      // одним именем с параметром, поэтому `ARGS:a|ARGS:b` для него параметр
+      // `a|ARGS:b`, которого нет ни у одного правила. Список целей здесь не
+      // «снимает не все», а не снимает ничего.
+      if (directive.op === 'removeTarget' && directive.targets.length > 1) {
+        diag.report('exclusionCtlTargetList', {
+          name: directive.name,
+          targets: directive.targets.map((variable) => variable.raw).join('|'),
+        });
+      }
+
+      // Снимаемую цель движок сравнивает с целями правила по имени и
+      // параметру, а `!` и `&` в это сравнение не входят: такая цель не
+      // совпадёт ни с одной, и исключение промолчит. Вычитают цель директивой.
+      const dead = directive.targets.find((variable) => variable.exclusion || variable.count);
+      if (directive.op === 'removeTarget' && dead !== undefined) {
+        diag.report('exclusionCtlDeadTarget', { name: directive.name, target: dead.raw });
+      }
+
+      // Носитель, обрывающий транзакцию, делает исключение бессмысленным:
+      // до правила, которое он снял, дело всё равно не дойдёт.
+      if (carrier !== undefined && carrier.stops !== '' && matches.length > 0) {
+        diag.report('exclusionCtlCarrierStops', {
+          name: directive.name,
+          action: carrier.stops,
+        });
+      }
+    }
+
+    if (matches.length === 0) {
+      // Промах выборки — совет, а не предупреждение: правило законно живёт в
+      // другом файле. А в файле, где своих правил нет вовсе, это и вовсе
+      // обычное дело — надстройка над чужим набором, и молчать здесь честнее.
+      if (index.fileHasIds && !directive.incomplete) {
+        diag.report('exclusionNoMatch', { name: directive.name, target });
+      }
+    } else if (applied.length === 0 && directive.source === 'directive') {
+      diag.report('exclusionBeforeRule', { name: directive.name, id: matches[0].id });
+    } else if (applied.length === 0 && carrier !== undefined) {
+      diag.report('exclusionCtlAfterRule', {
+        name: directive.name,
+        id: matches[0].id,
+        phase: String(carrier.phase),
+      });
+    }
+
+    if (directive.op === 'remove' && applied.length > BROAD_REMOVAL) {
+      diag.report('exclusionTooBroad', {
+        name: directive.name,
+        count: String(applied.length),
+      });
+    }
+
+    // Правило, которое директива уже сняла целиком. Правку в нём делать
+    // нечего, а `ctl`, снимающий его второй раз, — не ошибка, а лишняя
+    // строка: об этих двух случаях и сказано по-разному.
+    const alreadyGone = applied.length > 0 ? allRemovedBy(index, applied) : null;
+    if (alreadyGone !== null && directive.op !== 'remove') {
+      diag.report('exclusionRemovedThenUpdated', {
+        name: directive.name,
+        line: String(alreadyGone),
+      });
+    } else if (alreadyGone !== null && directive.source === 'ctl') {
+      diag.report('exclusionCtlAlreadyRemoved', {
+        name: directive.name,
+        line: String(alreadyGone),
+      });
+    }
   }
 }

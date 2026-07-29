@@ -6,7 +6,8 @@
  * в том же виде, что и текст правила, — её сверяют с файлом глазами.
  */
 
-import { actionsToList, emitOperator, targetsToVariables } from '../../modsec/emit';
+import { actionsToList, emitOperator } from '../../modsec/emit';
+import { targetsToVariables } from '../../modsec/model';
 import { serializeActions, serializeVariables } from '../../modsec/serialize';
 import type { RuleAction } from '../../modsec/types';
 import type { VisualActions, VisualCondition } from '../../modsec/model';

@@ -323,6 +323,229 @@ describe('цена исполнения и запись', () => {
   });
 });
 
+describe('исключения', () => {
+  /** Правило, к которому исключения обращаются в этих тестах. */
+  const RULE = `SecRule ARGS "@rx attack" "id:1001,phase:2,deny,msg:'SQL Injection',tag:'attack-sqli'"`;
+
+  it('требует обязательный аргумент', () => {
+    expect(codes([RULE, 'SecRuleUpdateTargetById 1001'].join('\n'))).toContain(
+      'exclusionNoTarget',
+    );
+  });
+
+  it('не принимает за номер то, что номером не является', () => {
+    expect(codes([RULE, 'SecRuleRemoveById 1001 нет'].join('\n'))).toContain('exclusionBadId');
+  });
+
+  it('говорит об исключении, которое стоит выше своей цели', () => {
+    expect(codes(['SecRuleRemoveById 1001', RULE].join('\n'))).toContain('exclusionBeforeRule');
+  });
+
+  it('молчит, когда исключение стоит ниже правила', () => {
+    expect(codes([RULE, 'SecRuleRemoveById 1001'].join('\n'))).not.toContain(
+      'exclusionBeforeRule',
+    );
+  });
+
+  it('замечает цель без «!»: она заменяет список, а не вычитает из него', () => {
+    expect(codes([RULE, 'SecRuleUpdateTargetById 1001 "ARGS:comment"'].join('\n'))).toContain(
+      'exclusionUpdateTargetNotExclusion',
+    );
+  });
+
+  it('не придирается к замене одной цели другой', () => {
+    expect(
+      codes([RULE, 'SecRuleUpdateTargetById 1001 "ARGS:comment" "ARGS"'].join('\n')),
+    ).not.toContain('exclusionUpdateTargetNotExclusion');
+  });
+
+  it('замечает попытку сменить метаданные правила', () => {
+    expect(codes([RULE, 'SecRuleUpdateActionById 1001 "phase:1"'].join('\n'))).toContain(
+      'exclusionUpdateActionMetadata',
+    );
+  });
+
+  it('замечает правку правила, которое уже снято целиком', () => {
+    expect(
+      codes(
+        [RULE, 'SecRuleRemoveById 1001', 'SecRuleUpdateTargetById 1001 "!ARGS:comment"'].join(
+          '\n',
+        ),
+      ),
+    ).toContain('exclusionRemovedThenUpdated');
+  });
+
+  it('не считает правку напрасной, пока хоть одно её правило на месте', () => {
+    const source = [
+      RULE,
+      `SecRule ARGS "@rx x" "id:1002,phase:2,deny,msg:'y',tag:'attack-sqli'"`,
+      'SecRuleRemoveById 1001',
+      'SecRuleUpdateTargetByTag "attack-sqli" "!ARGS:comment"',
+    ].join('\n');
+    expect(codes(source)).not.toContain('exclusionRemovedThenUpdated');
+  });
+
+  it('замечает перевёрнутый диапазон', () => {
+    expect(codes([RULE, 'SecRuleRemoveById 1200-1100'].join('\n'))).toContain(
+      'exclusionEmptyRange',
+    );
+  });
+
+  it('советует проверить выборку, которая никого не нашла', () => {
+    expect(codes([RULE, 'SecRuleRemoveById 999999'].join('\n'))).toContain('exclusionNoMatch');
+  });
+
+  // Файл без своих правил — надстройка над чужим набором: ссылка «в пустоту»
+  // там обычное дело, и говорить о ней значило бы ругать нормальную работу.
+  it('молчит о промахе в файле, где своих правил нет', () => {
+    expect(codes('SecRuleRemoveById 942100')).not.toContain('exclusionNoMatch');
+  });
+
+  it('замечает повтор того же исключения', () => {
+    expect(
+      codes([RULE, 'SecRuleRemoveById 1001', 'SecRuleRemoveById 1001'].join('\n')),
+    ).toContain('exclusionDuplicate');
+  });
+
+  it('говорит о выборке по тексту сообщения', () => {
+    expect(codes([RULE, 'SecRuleRemoveByMsg "SQL Injection"'].join('\n'))).toContain(
+      'exclusionByMsgFragile',
+    );
+  });
+
+  it('считает широким удаление, снявшее десятки правил', () => {
+    const rules = Array.from(
+      { length: 12 },
+      (_, i) => `SecRule ARGS "@rx x" "id:${2000 + i},phase:2,deny,msg:'y',tag:'attack-dos'"`,
+    );
+    const found = codes([...rules, 'SecRuleRemoveByTag "attack-dos"'].join('\n'));
+    expect(found).toContain('exclusionTooBroad');
+  });
+
+  it('относит сообщение к строке исключения, а не затронутого правила', () => {
+    const result = analyzeDocument(
+      parseModsec(['SecRuleRemoveById 1001', RULE].join('\n')),
+    );
+    const found = result.diagnostics.find((d) => d.code === 'exclusionBeforeRule');
+    expect(found?.line).toBe(1);
+    // Чинить придётся директиву, а правило может быть и из чужого набора,
+    // поэтому адреса в модели конструктора у сообщения нет.
+    expect(found?.anchor).toBeUndefined();
+  });
+});
+
+describe('исключения через ctl', () => {
+  /** Правило-цель: вторая фаза, тег и сообщение — есть чем выбирать. */
+  const RULE = `SecRule ARGS "@detectXSS" "id:941100,phase:2,block,msg:'XSS',tag:'attack-xss'"`;
+
+  /** Носитель: первая фаза, ничего не прерывает — исключение доживёт до цели. */
+  const carrier = (ctl: string) =>
+    `SecRule REQUEST_FILENAME "@streq /api" "id:1000,phase:1,pass,nolog,${ctl}"`;
+
+  it('говорит о `ctl`, который выполняется позже своей цели', () => {
+    const late = `SecRule REQUEST_FILENAME "@streq /api" "id:1000,phase:2,pass,nolog,ctl:ruleRemoveById=941100"`;
+    expect(codes([RULE, late].join('\n'))).toContain('exclusionCtlAfterRule');
+  });
+
+  // Порядок исполнения решает фаза, а не строка: у директивы на том же месте
+  // было бы замечание, а здесь исключение работает.
+  it('молчит о `ctl` из более ранней фазы, где бы он ни стоял', () => {
+    expect(codes([RULE, carrier('ctl:ruleRemoveById=941100')].join('\n'))).not.toContain(
+      'exclusionCtlAfterRule',
+    );
+  });
+
+  it('не путает порядок `ctl` с порядком директивы', () => {
+    expect(codes([carrier('ctl:ruleRemoveById=941100'), RULE].join('\n'))).not.toContain(
+      'exclusionBeforeRule',
+    );
+  });
+
+  it('замечает выборку, которую `ctl` прочитает одной строкой', () => {
+    const found = codes([carrier('ctl:ruleRemoveById=941100 941110'), RULE].join('\n'));
+    expect(found).toContain('exclusionCtlBadId');
+    // Конфигурация от этого не падает — ошибкой это назвать нельзя.
+    expect(found).not.toContain('exclusionBadId');
+  });
+
+  it('замечает снятие цели, у которого цели нет', () => {
+    expect(codes([carrier('ctl:ruleRemoveTargetById=941100'), RULE].join('\n'))).toContain(
+      'exclusionCtlNoTarget',
+    );
+  });
+
+  // Всё после `;` ModSecurity читает одним именем с параметром, поэтому
+  // список целей в одной записи не снимает даже первую.
+  it('замечает список целей в одной записи', () => {
+    expect(
+      codes([carrier('ctl:ruleRemoveTargetById=941100;ARGS:a|ARGS:b'), RULE].join('\n')),
+    ).toContain('exclusionCtlTargetList');
+  });
+
+  // Снимаемую цель движок сравнивает по имени и параметру: вычитание и
+  // подсчёт в неё не входят, и такая запись молчит.
+  it('замечает вычитание и подсчёт в снимаемой цели', () => {
+    expect(codes([carrier('ctl:ruleRemoveTargetById=941100;!ARGS:a'), RULE].join('\n'))).toContain(
+      'exclusionCtlDeadTarget',
+    );
+    expect(codes([carrier('ctl:ruleRemoveTargetById=941100;&ARGS'), RULE].join('\n'))).toContain(
+      'exclusionCtlDeadTarget',
+    );
+  });
+
+  it('молчит о простой цели из имени и параметра', () => {
+    expect(
+      codes([carrier('ctl:ruleRemoveTargetById=941100;ARGS:a'), RULE].join('\n')),
+    ).not.toContain('exclusionCtlDeadTarget');
+  });
+
+  it('замечает носителя, который сам обрывает транзакцию', () => {
+    const blocking = `SecRule REQUEST_FILENAME "@streq /api" "id:1000,phase:1,deny,msg:'x',ctl:ruleRemoveById=941100"`;
+    expect(codes([blocking, RULE].join('\n'))).toContain('exclusionCtlCarrierStops');
+  });
+
+  it('молчит о носителе, который лишь пропускает запрос дальше', () => {
+    expect(codes([carrier('ctl:ruleRemoveById=941100'), RULE].join('\n'))).not.toContain(
+      'exclusionCtlCarrierStops',
+    );
+  });
+
+  it('замечает `ctl`, снимающий правило, снятое директивой насовсем', () => {
+    const source = [carrier('ctl:ruleRemoveById=941100'), RULE, 'SecRuleRemoveById 941100'].join(
+      '\n',
+    );
+    expect(codes(source)).toContain('exclusionCtlAlreadyRemoved');
+  });
+
+  it('не считает повтором два одинаковых `ctl` в разных правилах', () => {
+    const source = [
+      carrier('ctl:ruleRemoveById=941100'),
+      `SecRule REQUEST_FILENAME "@streq /web" "id:1001,phase:1,pass,nolog,ctl:ruleRemoveById=941100"`,
+      RULE,
+    ].join('\n');
+    expect(codes(source)).not.toContain('exclusionDuplicate');
+  });
+
+  it('считает повтором два одинаковых `ctl` в одном списке действий', () => {
+    const source = [
+      carrier('ctl:ruleRemoveById=941100,ctl:ruleRemoveById=941100'),
+      RULE,
+    ].join('\n');
+    expect(codes(source)).toContain('exclusionDuplicate');
+  });
+
+  // У директивы адреса в модели нет: чинить надо строку. У `ctl` он есть — он
+  // написан внутри правила, и его карточка как раз то место, где о нём говорят.
+  it('относит сообщение о `ctl` к карточке носителя', () => {
+    const late = `SecRule REQUEST_FILENAME "@streq /api" "id:1000,phase:2,pass,nolog,ctl:ruleRemoveById=941100"`;
+    const result = analyzeDocument(parseModsec([RULE, late].join('\n')));
+    const found = result.diagnostics.find((d) => d.code === 'exclusionCtlAfterRule');
+
+    expect(found?.line).toBe(2);
+    expect(found?.anchor).toEqual({ ruleKey: 'rule-1', slot: 'actions' });
+  });
+});
+
 describe('каталог диагностик', () => {
   // Уровень и тема заданы в каталоге один раз: если проверка начнёт
   // выдавать код с другим уровнем, разойдётся весь фильтр по темам.

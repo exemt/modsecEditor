@@ -21,6 +21,7 @@ export const EXAMPLE_SECTIONS = [
   'logic',
   'state',
   'flow',
+  'exclusions',
   'mistakes',
 ] as const;
 
@@ -441,7 +442,15 @@ SecMarker END_STRICT_CHECKS
 # и не оставляя дыру во всём остальном приложении.
 SecRule REQUEST_FILENAME "@beginsWith /api/import" \\
     "id:6101,phase:1,pass,nolog,t:lowercase,\\
-    ctl:requestBodyAccess=On,ctl:ruleRemoveTargetById=2001;ARGS:payload"
+    ctl:requestBodyAccess=On,ctl:ruleRemoveTargetById=6110;ARGS:payload"
+
+# Правило, у которого исключение отбирает одну цель. Порядок здесь не такой,
+# как у SecRuleRemoveById: ctl применяется при срабатывании, а не при чтении
+# конфигурации, поэтому он обязан отработать раньше — первая фаза раньше
+# второй, и к проверке ARGS:payload из списка целей уже вычтен.
+SecRule ARGS "@detectXSS" \\
+    "id:6110,phase:2,t:none,t:urlDecodeUni,block,\\
+    msg:'XSS in a parameter',severity:CRITICAL,tag:'attack-xss'"
 
 # Ту же настройку можно задать всему файлу сразу — но тогда она
 # действует на каждый запрос, и это уже другое решение.
@@ -451,8 +460,82 @@ SecRequestBodyLimit 13107200
   },
 
   /* ---------------------------------------------------------------- */
+  /* Исключения                                                        */
+  /* ---------------------------------------------------------------- */
+  {
+    id: 'exclusions',
+    section: 'exclusions',
+    labelKey: 'examples.exclusions',
+    noteKey: 'examples.exclusions.note',
+    code: `# Ложное срабатывание чинят не удалением правила, а вычитанием одной
+# цели: защита остаётся всюду, кроме поля, где разметка — обычное дело.
+SecRule ARGS "@detectXSS" \\
+    "id:7001,phase:2,t:none,t:urlDecodeUni,block,\\
+    msg:'XSS in a parameter',severity:CRITICAL,tag:'attack-xss'"
+
+# Директива читается при загрузке конфигурации, поэтому стоит ниже правила:
+# выше него правила для неё ещё не существует.
+SecRuleUpdateTargetById 7001 "!ARGS:article_body"
+
+# Тег выбирает не одно правило, а весь класс проверок — так исключают поле
+# из всех правил категории разом.
+SecRuleUpdateTargetByTag "attack-xss" "!ARGS:comment_html"
+
+# Действия правила можно заменить, не трогая ни его условие, ни его место
+# в наборе: пусть считается и пишется в журнал, но запрос не прерывает.
+SecRuleUpdateActionById 7001 "pass"
+`,
+  },
+
+  /* ---------------------------------------------------------------- */
   /* Учебные ошибки                                                    */
   /* ---------------------------------------------------------------- */
+  {
+    id: 'exclusion-order',
+    section: 'mistakes',
+    labelKey: 'examples.exclusion-order',
+    noteKey: 'examples.exclusion-order.note',
+    code: `# Исключение применяется в момент чтения конфигурации, поэтому порядок
+# строк для него — не оформление, а работа. Файл загрузится, обе строки
+# выглядят осмысленно, а исключения не будет.
+SecRuleRemoveById 8001
+
+SecRule ARGS "@detectSQLi" \\
+    "id:8001,phase:2,t:none,t:urlDecodeUni,block,\\
+    msg:'SQL injection',severity:CRITICAL,tag:'attack-sqli'"
+
+# Тот же промах в другом виде: номера, которого в наборе нет. Обычно это
+# опечатка, но иногда — ссылка на правило из файла, подключённого позже.
+SecRuleUpdateTargetById 8010 "!ARGS:comment"
+`,
+  },
+  {
+    id: 'ctl-late',
+    section: 'mistakes',
+    labelKey: 'examples.ctl-late',
+    noteKey: 'examples.ctl-late.note',
+    code: `# Исключение через ctl действует с момента срабатывания своего правила,
+# поэтому оно обязано отработать раньше цели — в отличие от директивы,
+# которая обязана стоять ниже. Порядок исполнения решает сначала фаза,
+# потом строка, и здесь против исключения то одно, то другое.
+
+# Фаза та же, а строка ниже цели: к этому месту правило 8110 уже проверено.
+SecRule ARGS "@detectXSS" \\
+    "id:8110,phase:2,t:none,t:urlDecodeUni,block,\\
+    msg:'XSS in a parameter',severity:CRITICAL,tag:'attack-xss'"
+
+SecRule REQUEST_FILENAME "@streq /api/import" \\
+    "id:8101,phase:2,pass,nolog,ctl:ruleRemoveTargetById=8110;ARGS:payload"
+
+# Здесь строка выше цели, зато фаза позже — и этого достаточно: первая фаза
+# проходит целиком раньше второй, где бы её правила ни были написаны.
+SecRule REQUEST_FILENAME "@streq /api/import" \\
+    "id:8102,phase:2,pass,nolog,ctl:ruleRemoveById=8120"
+
+SecRule REQUEST_METHOD "@streq TRACE" \\
+    "id:8120,phase:1,deny,status:405,msg:'TRACE is not allowed',severity:WARNING"
+`,
+  },
   {
     id: 'never-matches',
     section: 'mistakes',

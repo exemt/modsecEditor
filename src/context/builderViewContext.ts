@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react';
+import { isPanelArg } from '../modsec/directives';
 import type { VisualBlock, VisualModel } from '../modsec/model';
 
 /**
@@ -21,12 +22,18 @@ export const INITIALLY_EXPANDED = 10;
  * есть у каждого правила и ни с кем не совпадает, а если это не так, то
  * конструктор всё равно заблокирован и запоминать нечего.
  *
- * У метки и прочих директив ключа нет вовсе: они занимают одну строку,
- * сворачивать у них нечего.
+ * У метки ключа нет вовсе: она занимает одну строку, сворачивать в ней
+ * нечего. У директивы он есть ровно тогда, когда её форма не помещается в
+ * строку, — и это её собственный ключ со всеми его недостатками: имени,
+ * которое не совпадало бы с чужим, у директивы нет, а раскрытие, съехавшее
+ * после вставки строки выше, задевает четыре вида из двенадцати.
  */
 export function blockExpansionKey(block: VisualBlock): string | null {
   if (block.kind === 'rule') return block.rule.actions.id || block.key;
   if (block.kind === 'action') return block.actions.id || block.key;
+  if (block.kind === 'directive' && block.form !== null && isPanelArg(block.form.arg)) {
+    return block.key;
+  }
   return null;
 }
 

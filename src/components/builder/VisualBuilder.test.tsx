@@ -64,6 +64,22 @@ function cardOf(id: string): HTMLElement {
 const expandedCards = () => screen.queryAllByRole('button', { name: 'Свернуть правило' });
 const collapsedCards = () => screen.queryAllByRole('button', { name: 'Развернуть правило' });
 
+/**
+ * Пункт меню «Добавить» на панели режима.
+ *
+ * Кнопку панели отличает от одноимённых кнопок внутри карточек то, что за ней
+ * меню: подпись у неё та же, потому что вид блока выбирают уже в меню.
+ */
+async function addBlock(user: ReturnType<typeof userEvent.setup>, item: string) {
+  const menu = screen
+    .getAllByRole('button', { name: 'Добавить' })
+    .find((button) => button.getAttribute('aria-haspopup') === 'menu');
+  if (menu === undefined) throw new Error('нет кнопки «Добавить» на панели режима');
+
+  await user.click(menu);
+  await user.click(await screen.findByRole('menuitem', { name: item }));
+}
+
 const BAD_BOT = [
   '# Блокируем известного зловредного User-Agent',
   'SecRule REQUEST_HEADERS:User-Agent "@contains badbot" \\',
@@ -160,7 +176,7 @@ describe('VisualBuilder — правки уходят в текст правил
     const user = userEvent.setup();
     renderBuilder('SecRule ARGS:test "@rx x" "id:1001,phase:2,deny"\n');
 
-    await user.click(screen.getByRole('button', { name: 'Добавить' }));
+    await user.click(within(cardOf('1001')).getByRole('button', { name: 'Добавить' }));
     await waitFor(() => expect(source()).toContain('ARGS:test|ARGS'));
 
     // Перечень первой области уже занял «ТОЛЬКО», переключаем вторую.
@@ -194,7 +210,7 @@ describe('VisualBuilder — правки уходят в текст правил
     const user = userEvent.setup();
     renderBuilder(BAD_BOT);
 
-    await user.click(screen.getByRole('button', { name: 'Добавить' }));
+    await user.click(within(cardOf('1001')).getByRole('button', { name: 'Добавить' }));
 
     await waitFor(() => {
       expect(source()).toContain('SecRule REQUEST_HEADERS:User-Agent|ARGS');
@@ -587,7 +603,7 @@ describe('VisualBuilder — большой файл', () => {
 
     expect(expandedCards()).toHaveLength(10);
 
-    await user.click(screen.getByRole('button', { name: 'Добавить правило' }));
+    await addBlock(user, 'Добавить правило');
 
     await waitFor(() => expect(expandedCards()).toHaveLength(11));
   });
@@ -648,5 +664,559 @@ describe('VisualBuilder — проверка регулярного выраже
 
     expect(await dialog.findByText(/Invalid regular expression/)).toBeInTheDocument();
     expect(dialog.getByRole('button', { name: 'Применить' })).toBeDisabled();
+  });
+});
+
+describe('VisualBuilder — исключения', () => {
+  const RULE = `SecRule ARGS "@rx attack" "id:942100,phase:2,deny,msg:'SQL Injection'"`;
+
+  it('показывает исключение именем из файла, а не подписью к нему', async () => {
+    const user = userEvent.setup();
+    renderBuilder([RULE, 'SecRuleUpdateTargetById 942100 "!ARGS:comment"', ''].join('\n'));
+
+    // Заголовком блока стоит написание из файла: «Изменить цели по номеру»
+    // пришлось бы сверять с текстовой вкладкой по памяти. Подпись с
+    // пояснением остаётся в подсказке.
+    expect(screen.getByText('SecRuleUpdateTargetById')).toBeInTheDocument();
+    // Номер правила — не подпись, а переход к его карточке.
+    expect(screen.getByLabelText('Показать правило 942100')).toBeInTheDocument();
+
+    // Свёрнутая панель показывает остаток строки: имя уже стоит слева, и
+    // повторённое оно съедало бы место у того, ради чего строку и читают.
+    await user.click(screen.getByRole('button', { name: 'Свернуть блок' }));
+    expect(screen.getByText('942100 "!ARGS:comment"')).toBeInTheDocument();
+  });
+
+  it('правит обычную директиву полем, а не строкой', () => {
+    renderBuilder(['SecRequestBodyAccess On', RULE, ''].join('\n'));
+
+    expect(screen.getByText('SecRequestBodyAccess')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Доступ к телу запроса' })).toHaveValue('On');
+  });
+
+  it('помечает исключение, которое стоит выше своей цели', () => {
+    renderBuilder(['SecRuleRemoveById 942100', RULE, ''].join('\n'));
+
+    expect(screen.getByText('не применяется')).toBeInTheDocument();
+  });
+
+  it('говорит о выборке, которая никого не нашла', () => {
+    renderBuilder([RULE, 'SecRuleRemoveById 999999', ''].join('\n'));
+
+    expect(screen.getByText('правил не найдено')).toBeInTheDocument();
+    expect(screen.queryByText('не применяется')).toBeNull();
+  });
+
+  it('говорит на карточке правила, что его сняли', async () => {
+    renderBuilder([RULE, 'SecRuleRemoveById 942100', ''].join('\n'));
+
+    const card = within(cardOf('942100'));
+    expect(card.getByText('выключено')).toBeInTheDocument();
+    expect(
+      await card.findByLabelText('Снято директивой «SecRuleRemoveById» в строке 2'),
+    ).toBeInTheDocument();
+  });
+
+  it('отличает правку правила от его снятия', () => {
+    renderBuilder([RULE, 'SecRuleUpdateActionById 942100 "pass"', ''].join('\n'));
+
+    const card = within(cardOf('942100'));
+    expect(card.getByText('изменено')).toBeInTheDocument();
+    expect(card.queryByText('выключено')).toBeNull();
+  });
+
+  /** Раскрытая секция исключений на карточке правила. */
+  const exclusionsOf = async (id: string, user: ReturnType<typeof userEvent.setup>) => {
+    const card = within(cardOf(id));
+    await user.click(card.getByRole('button', { name: 'Развернуть «Исключения»' }));
+    return card;
+  };
+
+  /** Окно, в котором у правила вычитают цель, — со второй кнопки полосы. */
+  const excludeWindow = async (id: string, user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(within(cardOf(id)).getByRole('button', { name: 'Исключить цель' }));
+    return within(await screen.findByRole('dialog'));
+  };
+
+  // Секция называет саму директиву: «изменено» без того, что именно изменено,
+  // отправляет искать правщика глазами по файлу.
+  it('называет на карточке правило правящую его директиву', async () => {
+    const user = userEvent.setup();
+    renderBuilder([RULE, 'SecRuleUpdateTargetById 942100 "!ARGS:comment"', ''].join('\n'));
+
+    // Свёрнутая секция говорит то же самое строкой о содержимом: закрытой
+    // дверью она быть не должна.
+    const card = within(cardOf('942100'));
+    expect(card.getByText('SecRuleUpdateTargetById 942100 "!ARGS:comment"')).toBeInTheDocument();
+
+    await user.click(card.getByRole('button', { name: 'Развернуть «Исключения»' }));
+
+    // Переходов два, и они в разные места: запись ведёт к своему блоку, номер
+    // строки — к строке в тексте, где видно, что стоит вокруг исключения.
+    expect(
+      card.getByRole('button', { name: 'Показать исключение в конструкторе' }),
+    ).toBeInTheDocument();
+    expect(card.getByRole('button', { name: 'Показать строку 2' })).toHaveTextContent('строка 2');
+  });
+
+  it('говорит, что правило никто не правит', () => {
+    renderBuilder([RULE, ''].join('\n'));
+
+    expect(
+      within(cardOf('942100')).getByText('правило никого не исключает, и его не исключают'),
+    ).toBeInTheDocument();
+  });
+
+  // Выписывают исключение с полосы: развёрнутый список уже стоящих для этого не
+  // нужен. Снятие целиком идёт и без окна — заполнять в нём нечего, запись
+  // известна по одному номеру правила.
+  it('дописывает снятие правила сразу за ним', async () => {
+    const user = userEvent.setup();
+    renderBuilder([RULE, 'SecMarker END', ''].join('\n'));
+
+    await user.click(within(cardOf('942100')).getByRole('button', { name: 'Выключить правило' }));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    // Ниже правила и выше всего остального: директива применяется при чтении
+    // конфигурации и своё правило видит только выше себя.
+    await waitFor(() =>
+      expect(source()).toBe([RULE, 'SecRuleRemoveById 942100', 'SecMarker END', ''].join('\n')),
+    );
+  });
+
+  it('дописывает вычитание цели, оставляя правило в работе', async () => {
+    const user = userEvent.setup();
+    renderBuilder([RULE, ''].join('\n'));
+
+    const dialog = await excludeWindow('942100', user);
+    // У `ARGS` готовых имён параметров нет, поэтому набранное отделяет запятая,
+    // а не выбор из списка.
+    await user.type(dialog.getByRole('combobox', { name: 'Параметры' }), 'comment,');
+    await user.click(dialog.getByRole('button', { name: 'Исключить цель' }));
+
+    await waitFor(() =>
+      expect(source()).toContain('SecRuleUpdateTargetById 942100 "!ARGS:comment"'),
+    );
+    expect(source()).toContain(RULE);
+  });
+
+  // Параметров бывает несколько, а строка остаётся одна: ModSecurity дописывает
+  // к целям правила весь список второго аргумента, и вычитаются оба.
+  it('вычитает несколько параметров одной строкой', async () => {
+    const user = userEvent.setup();
+    renderBuilder([RULE, ''].join('\n'));
+
+    const dialog = await excludeWindow('942100', user);
+    await user.type(dialog.getByRole('combobox', { name: 'Параметры' }), 'comment,bio,');
+    await user.click(dialog.getByRole('button', { name: 'Исключить цель' }));
+
+    await waitFor(() =>
+      expect(source()).toContain('SecRuleUpdateTargetById 942100 "!ARGS:comment|!ARGS:bio"'),
+    );
+  });
+
+  // Пустой перечень — вся коллекция: так у правила снимают `REQUEST_COOKIES`
+  // целиком, когда ложное срабатывание приходит не из одного поля. Третьего
+  // положения, «ВСЕ, КРОМЕ», у исключения при этом нет: терм без `!` цель
+  // правила не сузил бы, а дал бы ему ещё одно место для проверки.
+  it('снимает коллекцию целиком, пока параметры не перечислены', async () => {
+    const user = userEvent.setup();
+    renderBuilder([RULE, ''].join('\n'));
+
+    const dialog = await excludeWindow('942100', user);
+    await user.click(dialog.getByRole('button', { name: 'ВСЕ' }));
+    expect(dialog.getByRole('button', { name: 'ТОЛЬКО' })).toBeInTheDocument();
+    await user.click(dialog.getByRole('button', { name: 'ТОЛЬКО' }));
+    expect(dialog.queryByRole('button', { name: 'ВСЕ, КРОМЕ' })).toBeNull();
+
+    await user.click(dialog.getByRole('button', { name: 'Исключить цель' }));
+
+    await waitFor(() => expect(source()).toContain('SecRuleUpdateTargetById 942100 "!ARGS"'));
+  });
+
+  // Выписанное исключение — конец разговора: окно закрывается, и результат
+  // человек видит в списке секции, а не в окне поверх него.
+  it('закрывает окно, выписав исключение', async () => {
+    const user = userEvent.setup();
+    renderBuilder([RULE, ''].join('\n'));
+
+    const dialog = await excludeWindow('942100', user);
+    await user.click(dialog.getByRole('button', { name: 'Исключить цель' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const card = await exclusionsOf('942100', user);
+    expect(card.getByText('SecRuleUpdateTargetById 942100 "!ARGS"')).toBeInTheDocument();
+  });
+
+  it('не даёт снять правило дважды', async () => {
+    const user = userEvent.setup();
+    renderBuilder([RULE, 'SecRuleRemoveById 942100', ''].join('\n'));
+
+    const off = within(cardOf('942100')).getByRole('button', { name: 'Выключить правило' });
+    expect(off).toBeDisabled();
+
+    // Причина отказа приходит подсказкой обёртки: выключенной кнопке события
+    // не доходят, и наводятся поэтому на неё.
+    await user.hover(off.parentElement as HTMLElement);
+    expect(await screen.findByText('Уже снято директивой в строке 2')).toBeInTheDocument();
+  });
+
+  // Исключение ссылается на правило числом, и правилу с именем вместо номера
+  // его не выписать: `SecRuleRemoveById abc` не найдёт ничего.
+  it('не выписывает исключение правилу без номера', () => {
+    renderBuilder([`SecRule ARGS "@rx attack" "id:abc,phase:2,deny"`, ''].join('\n'));
+
+    const card = within(cardOf('abc'));
+    expect(card.getByRole('button', { name: 'Выключить правило' })).toBeDisabled();
+    expect(card.getByRole('button', { name: 'Исключить цель' })).toBeDisabled();
+  });
+
+  // Главное об исключении времени запроса — не запись, а то, что оно делает:
+  // `ruleRemoveTargetById=942100;ARGS:comment` приходится расшифровывать
+  // глазами, и ошибка в такой записи ничем себя не выдаёт.
+  it('показывает исключение правила фразой и правит его полем', async () => {
+    const user = userEvent.setup();
+    renderBuilder(
+      [
+        `SecRule REQUEST_URI "@beginsWith /api" "id:1000,phase:1,pass,nolog,ctl:ruleRemoveTargetById=942100;ARGS:comment"`,
+        RULE,
+        '',
+      ].join('\n'),
+    );
+
+    const card = await exclusionsOf('1000', user);
+    expect(card.getByText('не проверять ARGS:comment в правиле 942100')).toBeInTheDocument();
+    // В «Прочих действиях» этой записи больше нет: показанная дважды, она
+    // заставляет искать между двумя видами разницу.
+    expect(card.queryByText('Прочие действия')).toBeNull();
+
+    const pick = card.getByLabelText('Номер правила');
+    await user.clear(pick);
+    await user.type(pick, '942110{Enter}');
+
+    await waitFor(() =>
+      expect(source()).toContain('ctl:ruleRemoveTargetById=942110;ARGS:comment'),
+    );
+  });
+
+  // Цель в записи `ctl` ровно одна, поэтому вторая снятая цель — это вторая
+  // запись. Разворачивает строку формы в них редактор: набранное руками
+  // `ARGS:comment|ARGS:note` ModSecurity прочитал бы одним параметром и не
+  // снял бы ни одной цели.
+  it('снимает вторую цель второй записью', async () => {
+    const user = userEvent.setup();
+    renderBuilder(
+      [
+        `SecRule REQUEST_URI "@beginsWith /api" "id:1000,phase:1,pass,nolog,ctl:ruleRemoveTargetById=942100;ARGS:comment"`,
+        RULE,
+        '',
+      ].join('\n'),
+    );
+
+    const card = await exclusionsOf('1000', user);
+    await user.type(card.getByRole('combobox', { name: 'Параметры' }), 'note,');
+
+    await waitFor(() =>
+      expect(source()).toContain(
+        'ctl:ruleRemoveTargetById=942100;ARGS:comment,ctl:ruleRemoveTargetById=942100;ARGS:note',
+      ),
+    );
+    // И читается это обратно одной строкой: решение снять две цели было одно.
+    expect(card.getByText('не проверять ARGS:comment, ARGS:note в правиле 942100')).toBeInTheDocument();
+  });
+
+  // Снимаемую цель ModSecurity сравнивает с целью правила по имени и параметру.
+  // Ни `&`, ни `!` в это сравнение не входят, поэтому собрать их здесь нечем —
+  // в отличие от целей самого правила.
+  it('не даёт собрать в снимаемой цели подсчёт и вычитание', async () => {
+    const user = userEvent.setup();
+    renderBuilder(
+      [
+        `SecRule REQUEST_URI "@beginsWith /api" "id:1000,phase:1,pass,nolog,ctl:ruleRemoveTargetById=942100;ARGS"`,
+        RULE,
+        '',
+      ].join('\n'),
+    );
+
+    const card = await exclusionsOf('1000', user);
+    // Переключателей `&` на карточке два: у цели самого правила и у снимаемой.
+    // Нужен второй — секция исключений стоит ниже условий.
+    const counters = card.getAllByRole('button', { name: '&' });
+    expect(counters[counters.length - 1]).toBeDisabled();
+
+    // Положений у переключателя два: перебор возвращается в «ВСЕ», минуя
+    // «ВСЕ, КРОМЕ».
+    await user.click(card.getByRole('button', { name: 'ВСЕ' }));
+    expect(card.getByRole('button', { name: 'ТОЛЬКО' })).toBeInTheDocument();
+    await user.click(card.getByRole('button', { name: 'ТОЛЬКО' }));
+    expect(card.getByRole('button', { name: 'ВСЕ' })).toBeInTheDocument();
+    expect(card.queryByRole('button', { name: 'ВСЕ, КРОМЕ' })).toBeNull();
+  });
+
+  // Вид исключения выбирают до того, как запись появится: от него зависит и
+  // что она сделает с правилом, и какие поля у неё есть вовсе.
+  it('заводит исключение того вида, который выбрали в меню', async () => {
+    const user = userEvent.setup();
+    renderBuilder(
+      [`SecRule REQUEST_URI "@beginsWith /api" "id:1000,phase:1,pass,nolog"`, RULE, ''].join('\n'),
+    );
+
+    const card = await exclusionsOf('1000', user);
+    await user.click(card.getByRole('button', { name: /Добавить исключение/ }));
+    // Пункт назван и написанием из правила, и тем, что оно делает: выбирают
+    // здесь между «снять цель» и «снять правило целиком».
+    await user.click(await screen.findByRole('menuitem', { name: /^правило по номеру/ }));
+
+    await waitFor(() => expect(source()).toContain('ctl:ruleRemoveById='));
+    expect(card.getByRole('combobox', { name: 'Что снять' })).toHaveValue('правило по номеру');
+
+    // Снятому целиком правилу цель не нужна, и поля под неё в строке нет:
+    // ModSecurity прочитал бы её как мусор в номере. Единственная на карточке
+    // область проверки — та, в которую смотрит само правило.
+    expect(card.getAllByRole('combobox', { name: 'Область проверки' })).toHaveLength(1);
+  });
+
+  // Правило-исключение из набора CRS: условия говорят, где исключаем, а `ctl`
+  // стоит в последнем звене — и это часть смысла, а не оформление.
+  it('называет звено цепочки, в котором стоит исключение', async () => {
+    const user = userEvent.setup();
+    renderBuilder(
+      [
+        'SecRule REQUEST_HEADERS:Host "@streq dev.example.test" \\',
+        '    "id:20255302,phase:2,pass,nolog,chain"',
+        'SecRule REQUEST_URI "@beginsWith /favicon.ico" \\',
+        '    "t:none,chain"',
+        'SecRule REQUEST_HEADERS:Referer "@rx .*" \\',
+        '    "t:none,ctl:ruleRemoveTargetByTag=id1515300;REQUEST_HEADERS:Referer"',
+        '',
+      ].join('\n'),
+    );
+
+    const card = await exclusionsOf('20255302', user);
+    expect(
+      card.getByText('не проверять REQUEST_HEADERS:Referer в правилах с меткой «id1515300»'),
+    ).toBeInTheDocument();
+    expect(card.getByText('звено 3')).toBeInTheDocument();
+  });
+});
+
+describe('VisualBuilder — строки без формы', () => {
+  const RULE = `SecRule ARGS "@rx attack" "id:942100,phase:2,deny,msg:'SQL Injection'"`;
+
+  /** Полоса блока — по имени директивы в её заголовке. */
+  const directiveOf = (name: string) =>
+    within(screen.getByText(name).closest('.MuiPaper-root') as HTMLElement);
+
+  it('правит метку, не теряя её описания', async () => {
+    const user = userEvent.setup();
+    renderBuilder(['# Конец блокировок', 'SecMarker END-BLOCKING', ''].join('\n'));
+
+    const field = screen.getByRole('textbox', { name: 'Метка' });
+    expect(field).toHaveValue('SecMarker END-BLOCKING');
+
+    await user.clear(field);
+    await user.type(field, 'SecMarker END-REQUEST{Enter}');
+
+    await waitFor(() => expect(source()).toContain('SecMarker END-REQUEST'));
+    expect(source()).toContain('# Конец блокировок');
+  });
+
+  // Перестановка для исключения — не удобство, а единственная починка:
+  // директива применяется при чтении конфигурации и своё правило видит
+  // только ниже себя.
+  it('переставляет исключение под его цель', async () => {
+    const user = userEvent.setup();
+    renderBuilder(['SecRuleRemoveById 942100', RULE, ''].join('\n'));
+
+    expect(screen.getByText('не применяется')).toBeInTheDocument();
+
+    await user.click(
+      directiveOf('SecRuleRemoveById').getByRole('button', { name: 'Переместить ниже' }),
+    );
+
+    await waitFor(() =>
+      expect(source().indexOf('id:942100')).toBeLessThan(source().indexOf('SecRuleRemoveById')),
+    );
+    expect(screen.queryByText('не применяется')).toBeNull();
+  });
+
+  it('дублирует строку директивы следом за ней', async () => {
+    const user = userEvent.setup();
+    renderBuilder([RULE, 'SecRuleRemoveById 942100', ''].join('\n'));
+
+    await user.click(
+      directiveOf('SecRuleRemoveById').getByRole('button', { name: 'Дублировать строку' }),
+    );
+
+    await waitFor(() =>
+      expect(source().match(/^SecRuleRemoveById 942100$/gm)).toHaveLength(2),
+    );
+  });
+
+  it('удаляет строку директивы', async () => {
+    const user = userEvent.setup();
+    renderBuilder([RULE, 'SecRuleRemoveById 942100', ''].join('\n'));
+
+    await user.click(
+      directiveOf('SecRuleRemoveById').getByRole('button', { name: 'Удалить строку' }),
+    );
+
+    await waitFor(() => expect(source()).not.toContain('SecRuleRemoveById'));
+    expect(source()).toContain(RULE);
+  });
+});
+
+describe('VisualBuilder — форма директивы', () => {
+  const RULE = `SecRule ARGS "@rx attack" "id:942100,phase:2,deny,msg:'SQL Injection'"`;
+
+  it('правит значение выбором из списка', async () => {
+    const user = userEvent.setup();
+    renderBuilder(['SecRuleEngine On', RULE, ''].join('\n'));
+
+    await user.click(screen.getByRole('combobox', { name: 'Движок правил' }));
+    await user.click(await screen.findByText('Только обнаружение'));
+
+    await waitFor(() => expect(source()).toContain('SecRuleEngine DetectionOnly'));
+    // Правится одна строка: правило рядом с ней остаётся как было.
+    expect(source()).toContain(RULE);
+  });
+
+  // Имя — это и есть директива: сменить его значило бы завести другую, у
+  // которой свой вид аргумента. Такое решение принимают строкой, а не полем
+  // в общем ряду, — поэтому имени в форме нет вовсе.
+  it('не даёт сменить имя стоящей директивы', () => {
+    renderBuilder(['SecRequestBodyAccess Off', ''].join('\n'));
+
+    expect(screen.getByText('SecRequestBodyAccess')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Директива' })).toBeNull();
+    // Аргумент правится как раньше: неизменно только имя.
+    expect(screen.getByRole('combobox', { name: 'Доступ к телу запроса' })).toHaveValue('Off');
+  });
+
+  it('краснеет на значении не из набора, но форму не убирает', () => {
+    // Значение показано как есть и подсвечено: набор допустимых значений
+    // редактор знает из своей таблицы, а она может отстать от движка —
+    // поэтому строка остаётся правимой, а не блокирует конструктор.
+    renderBuilder(['SecRuleEngine Yes', ''].join('\n'));
+
+    const field = screen.getByRole('combobox', { name: 'Движок правил' });
+    expect(field).toHaveValue('Yes');
+    expect(field).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('оставляет текстовое поле там, где формы не заведено', () => {
+    // Путь плюс список действий — вид ради одной директивы: она осталась
+    // строкой, и правится строкой.
+    renderBuilder(['SecRuleScript /opt/rules/check.lua "id:1,phase:2"', ''].join('\n'));
+
+    expect(screen.getByRole('textbox', { name: 'Директива' })).toHaveValue(
+      'SecRuleScript /opt/rules/check.lua "id:1,phase:2"',
+    );
+    expect(screen.queryByRole('combobox', { name: 'Директива' })).toBeNull();
+  });
+
+  it('набирает номера снимаемых правил чипами', async () => {
+    const user = userEvent.setup();
+    renderBuilder([RULE, 'SecRuleRemoveById 942100', ''].join('\n'));
+
+    const pick = screen.getByRole('textbox', { name: 'Номера правил' });
+    await user.type(pick, '942110{Enter}');
+
+    await waitFor(() => expect(source()).toContain('SecRuleRemoveById 942100 942110'));
+    expect(source()).toContain(RULE);
+  });
+
+  // Директиву заводят из того же меню, что и правило: блоков в файле два вида,
+  // и до сих пор второй приходилось дописывать в текстовой вкладке.
+  it('заводит директиву из меню, собрав её в окне', async () => {
+    const user = userEvent.setup();
+    renderBuilder([RULE, ''].join('\n'));
+
+    await addBlock(user, 'Добавить директиву');
+    const dialog = within(await screen.findByRole('dialog'));
+
+    // Пока имя не выбрано, добавлять нечего.
+    expect(dialog.getByRole('button', { name: 'Добавить' })).toBeDisabled();
+
+    // Список имён всплывает над окном и живёт вне него — ищем его по экрану.
+    await user.type(dialog.getByRole('combobox', { name: 'Директива' }), 'Движок правил');
+    await user.click(await screen.findByRole('option', { name: /Движок правил/ }));
+
+    // Имя выбрано, значения ещё нет: такая строка не загрузится, и об этом
+    // сказано словами, а не одной погасшей кнопкой.
+    expect(dialog.getByRole('button', { name: 'Добавить' })).toBeDisabled();
+    expect(dialog.getByText(/такая строка не загрузится/)).toBeInTheDocument();
+
+    await user.click(dialog.getByRole('combobox', { name: 'Движок правил' }));
+    await user.click(await screen.findByText('Только обнаружение'));
+    await user.click(dialog.getByRole('button', { name: 'Добавить' }));
+
+    // Строка встаёт в конец файла собранной, а правило остаётся как было.
+    await waitFor(() => expect(source()).toContain('SecRuleEngine DetectionOnly'));
+    expect(source().trimEnd().endsWith('SecRuleEngine DetectionOnly')).toBe(true);
+    expect(source()).toContain(RULE);
+  });
+
+  // Директиве, чья форма в строку не влезает, окно даёт ту же панель, что и
+  // раскрытая строка: второй, отдельно написанной формы у неё нет.
+  it('заводит директиву с панелью тем же полем, что и правит', async () => {
+    const user = userEvent.setup();
+    renderBuilder([RULE, ''].join('\n'));
+
+    await addBlock(user, 'Добавить директиву');
+    const dialog = within(await screen.findByRole('dialog'));
+
+    await user.type(dialog.getByRole('combobox', { name: 'Директива' }), 'Части записи');
+    await user.click(await screen.findByRole('option', { name: /Части записи журнала/ }));
+
+    await user.type(dialog.getByRole('combobox', { name: 'Части записи' }), 'ABIJDEFHZ{Enter}');
+    await user.click(dialog.getByRole('button', { name: 'Добавить' }));
+
+    await waitFor(() => expect(source()).toContain('SecAuditLogParts ABIJDEFHZ'));
+  });
+
+  it('раскладывает умолчания фазы по полям', async () => {
+    const user = userEvent.setup();
+    renderBuilder(['SecDefaultAction "phase:2,log,auditlog,pass"', ''].join('\n'));
+
+    expect(screen.getByRole('combobox', { name: 'Реакция' })).toHaveValue('Пропустить');
+
+    await user.click(screen.getByRole('combobox', { name: 'Реакция' }));
+    await user.click(await screen.findByText('Запретить'));
+
+    await waitFor(() => expect(source()).toContain('phase:2,deny,log,auditlog'));
+  });
+});
+
+// Из меню заводят все четыре вида строки, а не только те два, у которых есть
+// форма: править то, чего нельзя завести, — половина работы.
+describe('VisualBuilder — меню «Добавить»', () => {
+  const RULE = `SecRule ARGS "@rx attack" "id:942100,phase:2,deny,msg:'SQL Injection'"`;
+
+  it('заводит безусловное действие со свободным номером', async () => {
+    const user = userEvent.setup();
+    renderBuilder([RULE, ''].join('\n'));
+
+    await addBlock(user, 'Добавить безусловное действие');
+
+    // Заготовка ничего не запрещает: условий у `SecAction` нет, и `deny` в
+    // ней закрыл бы все запросы сразу.
+    await waitFor(() => expect(source()).toContain('"id:942101,phase:1,pass,nolog"'));
+    expect(screen.getByText('Безусловное действие')).toBeInTheDocument();
+    // Замечаний заготовка не получает: иначе о ней сообщали бы в тот же миг,
+    // когда её завели.
+    expect(screen.queryByText(/заблокирован/)).toBeNull();
+  });
+
+  it('заводит метку, не повторяя занятое имя', async () => {
+    const user = userEvent.setup();
+    renderBuilder(['SecMarker MARKER', ''].join('\n'));
+
+    await addBlock(user, 'Добавить метку');
+
+    await waitFor(() => expect(source()).toContain('SecMarker MARKER-2'));
+    // Имя правят в самой строке: у метки это всё её содержимое.
+    expect(screen.getAllByRole('textbox', { name: 'Метка' })).toHaveLength(2);
   });
 });

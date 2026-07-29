@@ -7,22 +7,26 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { ActionsPanel } from './ActionsPanel';
+import { BlockActions } from './BlockActions';
 import { ConditionsPanel } from './ConditionsPanel';
 import { CommitField } from './CommitField';
+import { EffectMark } from './EffectMark';
+import { ExclusionsSection } from './ExclusionsSection';
 import { NotesPanel } from './NotesPanel';
 import { conditionSummary } from './summary';
 import { TITLE_COLUMN } from './layout';
-import { ruleLevelDiagnostics, useRuleDiagnostics } from '../diagnostics/useDiagnostics';
+import {
+  ruleLevelDiagnostics,
+  useRuleDiagnostics,
+  useRuleEffect,
+} from '../diagnostics/useDiagnostics';
 import { useI18n } from '../../i18n/useI18n';
 import { BLOCK_ROW } from '../../theme';
 import type { TranslationKey } from '../../i18n/translations';
+import type { ExclusionRef } from '../../modsec/exclusions';
 import type { VisualRule } from '../../modsec/model';
 
 interface RuleCardProps {
@@ -66,6 +70,18 @@ function summarize(rule: VisualRule, t: (key: TranslationKey) => string): string
 }
 
 /**
+ * Ссылка на исключение, о которой стоит сказать первой.
+ *
+ * Безусловная правка сильнее условной: `SecRuleRemoveById` снимает правило со
+ * всех запросов, `ctl:ruleRemoveById` — только с тех, на которых сработал его
+ * носитель. Отметка на карточке одна, и занимать её должна та, что вернее.
+ */
+function unconditionalFirst(refs: ExclusionRef[] | undefined): ExclusionRef | undefined {
+  if (refs === undefined) return undefined;
+  return refs.find((ref) => ref.source === 'directive') ?? refs[0];
+}
+
+/**
  * Карточка одного логического правила: описание, условия (И-цепочка)
  * и реакция. Всё, что здесь меняется, немедленно пересобирается в текст.
  *
@@ -93,6 +109,17 @@ export function RuleCard({
   const description = rule.comments.join(' ');
   const diagnostics = useRuleDiagnostics(rule.key);
   const notes = ruleLevelDiagnostics(diagnostics);
+
+  // Правило могли снять или поправить исключением ниже по файлу. Пока об этом
+  // не сказано, карточка показывает правило, которого в работе нет: поля
+  // заполнены, реакция выбрана, а на запрос оно не посмотрит.
+  //
+  // Директива идёт первой не по порядку в файле, а по силе сказанного: она
+  // снимает правило для всех запросов, `ctl` — только для тех, на которых
+  // сработал его носитель. Если верно и то и другое, говорить надо о первом.
+  const effect = useRuleEffect(rule.key);
+  const removal = unconditionalFirst(effect?.removedBy);
+  const change = unconditionalFirst(effect?.targetEdits) ?? unconditionalFirst(effect?.actionEdits);
 
   const worst = diagnostics.some((d) => d.severity === 'error')
     ? 'error'
@@ -173,6 +200,14 @@ export function RuleCard({
           />
         )}
 
+        {/* Отметка видна и у свёрнутой карточки, и у раскрытой: то, что
+            правило снято, важнее любого его поля. */}
+        {removal !== undefined ? (
+          <EffectMark mark={removal} removed />
+        ) : (
+          change !== undefined && <EffectMark mark={change} removed={false} />
+        )}
+
         {/* Счёт здесь общий — и об условиях, и о правиле: свёрнутая карточка
             не делит замечания по блокам, которых на ней не видно. Подсказка
             говорит об этом прямо, иначе число у края полосы остаётся
@@ -183,49 +218,14 @@ export function RuleCard({
           </Tooltip>
         )}
 
-        <Tooltip title={t('builder.moveUp')}>
-          <span>
-            <IconButton
-              size="small"
-              disabled={onMoveUp === null}
-              onClick={onMoveUp ?? undefined}
-              aria-label={t('builder.moveUp')}
-            >
-              <ArrowUpwardIcon fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
-        <Tooltip title={t('builder.moveDown')}>
-          <span>
-            <IconButton
-              size="small"
-              disabled={onMoveDown === null}
-              onClick={onMoveDown ?? undefined}
-              aria-label={t('builder.moveDown')}
-            >
-              <ArrowDownwardIcon fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
-        <Tooltip title={t('builder.duplicateRule')}>
-          <IconButton
-            size="small"
-            onClick={onDuplicate}
-            aria-label={t('builder.duplicateRule')}
-          >
-            <ContentCopyIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={t('builder.deleteRule')}>
-          <IconButton
-            size="small"
-            color="error"
-            onClick={onDelete}
-            aria-label={t('builder.deleteRule')}
-          >
-            <DeleteOutlineIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <BlockActions
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
+          onDuplicate={onDuplicate}
+          onDelete={onDelete}
+          duplicateLabel="builder.duplicateRule"
+          deleteLabel="builder.deleteRule"
+        />
       </Stack>
 
       {/* Черту под шапкой рисует первый блок своей верхней границей: у
@@ -242,6 +242,7 @@ export function RuleCard({
             actions={rule.actions}
             onChange={(actions) => onChange({ ...rule, actions })}
           />
+          <ExclusionsSection rule={rule} onChange={onChange} />
           <NotesPanel notes={notes} />
         </Box>
       </Collapse>

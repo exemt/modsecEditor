@@ -100,6 +100,30 @@ describe('проход по частям', () => {
     expect(slices.slice(0, -1).flat().map((d) => d.code)).not.toContain('engineNotEnforcing');
   });
 
+  /**
+   * Исключения — тоже уровень файла: пока проход не дошёл до конца, неизвестно,
+   * найдётся ли ниже правило, к которому директива обращается.
+   */
+  it('оставляет замечания об исключениях на последнюю выдачу', () => {
+    const doc = parseModsec(
+      [`SecRule ARGS "@rx x" "${CLEAN}"`, 'SecRuleRemoveById 999999'].join('\n'),
+    );
+    const compiled = compileDocument(doc);
+    const slices = [...inspectSlices(compiled.blocks, doc.statements, compiled.exclusions)];
+
+    expect(slices[slices.length - 1].map((d) => d.code)).toContain('exclusionNoMatch');
+  });
+
+  it('считает индекс исключений сам, когда его не передали', () => {
+    const doc = parseModsec(
+      [`SecRule ARGS "@rx x" "${CLEAN}"`, 'SecRuleRemoveById 999999'].join('\n'),
+    );
+
+    expect(
+      inspectDocument(compileDocument(doc).blocks, doc.statements).map((d) => d.code),
+    ).toContain('exclusionNoMatch');
+  });
+
   it('прерванный проход не выдумывает того, чего не проверил', () => {
     const doc = parseModsec(source);
     const slices = inspectSlices(compileDocument(doc).blocks, doc.statements);

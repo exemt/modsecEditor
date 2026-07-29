@@ -1,15 +1,21 @@
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import Button from '@mui/material/Button';
+import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import RedoIcon from '@mui/icons-material/Redo';
 import UndoIcon from '@mui/icons-material/Undo';
 import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
+import { AddDirectiveDialog } from './builder/AddDirectiveDialog';
 import { useRule } from '../context/ruleContext';
 import { useBuilderView } from '../context/builderViewContext';
 import { useI18n } from '../i18n/useI18n';
@@ -175,24 +181,111 @@ function FormatButton() {
   );
 }
 
-/** Главное действие визуального режима: новое правило в конец файла. */
-function AddRuleButton() {
+/**
+ * Главное действие визуального режима: новая строка в конец файла.
+ *
+ * Меню, а не кнопка, потому что видов строки в файле четыре, и все четыре
+ * конструктор правит: правило проверяет запрос, безусловное действие делает
+ * своё на каждом, метка служит целью перехода, директива настраивает движок
+ * или снимает чужое правило. Заводятся из меню тоже все четыре: уметь править
+ * то, чего нельзя завести, — половина работы, и вторую половину приходилось
+ * дописывать в текстовой вкладке. Подпись у кнопки поэтому одна на все четыре
+ * и вида не называет: вид выбирают в меню.
+ *
+ * Делит меню черта по тому, исполняется ли строка на запросе: над ней два
+ * вида, у которых есть номер и реакция, под ней два, у которых нет ни того,
+ * ни другого.
+ *
+ * Трое из четырёх заводятся сразу: заготовка правила и безусловного действия
+ * одна, а метке нужно только имя, и правится оно там же, в строке. Директива
+ * спрашивает в окне и имя, и значение: имя у неё потом неправимое, а
+ * незаполненная строка заблокировала бы конструктор целиком — вместе с
+ * возможностью её дозаполнить.
+ */
+function AddButton() {
   const { t } = useI18n();
-  const { addRule } = useRule();
+  const { addRule, addAction, addMarker, addDirective } = useRule();
   const { expandNext } = useBuilderView();
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+
+  /**
+   * Окно директивы: закрыто, ждёт закрытия меню, открыто.
+   *
+   * Ждать приходится потому, что фокус у меню и у окна общий. Закрываясь,
+   * меню возвращает фокус кнопке, которой открывалось, — и делает это позже,
+   * чем поле окна успевает фокус забрать. Вернувшийся наружу фокус ловушка
+   * окна отбирает назад, но отдаёт уже не полю, а самому окну: окно
+   * появлялось бы с полем, в которое не набрать, не щёлкнув по нему.
+   */
+  const [picking, setPicking] = useState<'closed' | 'awaiting' | 'open'>('closed');
+
+  /** Пункт меню: закрыть меню и сделать то, что в нём выбрали. */
+  const pick = (action: () => void) => () => {
+    setAnchor(null);
+    action();
+  };
 
   return (
-    <Button
-      size="small"
-      variant="contained"
-      startIcon={<AddIcon />}
-      onClick={() => {
-        expandNext();
-        addRule();
-      }}
-    >
-      {t('builder.addRule')}
-    </Button>
+    <>
+      <Button
+        size="small"
+        variant="contained"
+        startIcon={<AddIcon />}
+        endIcon={<ArrowDropDownIcon />}
+        aria-haspopup="menu"
+        onClick={(event) => setAnchor(event.currentTarget)}
+      >
+        {t('builder.add')}
+      </Button>
+
+      <Menu
+        anchorEl={anchor}
+        open={anchor !== null}
+        onClose={() => setAnchor(null)}
+        // Закрывшись, меню возвращает фокус кнопке — и только после этого
+        // открывается окно.
+        slotProps={{
+          transition: {
+            onExited: () => setPicking((state) => (state === 'awaiting' ? 'open' : state)),
+          },
+        }}
+      >
+        {/* Раскрытым появляется тот блок, которому есть что раскрывать:
+            у правила и безусловного действия это их форма. */}
+        <MenuItem
+          onClick={pick(() => {
+            expandNext();
+            addRule();
+          })}
+        >
+          {t('builder.addRule')}
+        </MenuItem>
+        <MenuItem
+          onClick={pick(() => {
+            expandNext();
+            addAction();
+          })}
+        >
+          {t('builder.addAction')}
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={pick(addMarker)}>{t('builder.addMarker')}</MenuItem>
+        <MenuItem onClick={pick(() => setPicking('awaiting'))}>
+          {t('builder.addDirective')}
+        </MenuItem>
+      </Menu>
+
+      <AddDirectiveDialog
+        open={picking === 'open'}
+        onClose={() => setPicking('closed')}
+        onAdd={(line) => {
+          // Раскрытой появится та директива, чья форма в строку не влезла:
+          // у остальных раскрывать нечего, и просьба останется без дела.
+          expandNext();
+          addDirective(line);
+        }}
+      />
+    </>
   );
 }
 
@@ -227,7 +320,7 @@ export function EditorToolbar({ tab }: { tab: EditorTab }) {
       }}
     >
       {tab === 'visual' && <ExpansionControls />}
-      {tab === 'text' ? <FormatButton /> : <AddRuleButton />}
+      {tab === 'text' ? <FormatButton /> : <AddButton />}
     </Stack>
   );
 }

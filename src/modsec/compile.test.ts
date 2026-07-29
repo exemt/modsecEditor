@@ -1,5 +1,6 @@
 import { parseModsec } from './parser';
-import { analyzeDocument, compileDocument, groupTargets } from './compile';
+import { analyzeDocument, compileDocument } from './compile';
+import { groupTargets } from './model';
 import type { DiagnosticCode } from './compile';
 import type { VisualRule } from './model';
 
@@ -157,6 +158,48 @@ describe('compileDocument — blocking errors', () => {
 
   it('rejects an unknown directive', () => {
     expect(codes('SecRuleEngin On')).toContain('unknownDirective');
+  });
+
+  it('rejects a directive given more arguments than it takes', () => {
+    expect(codes('SecRuleEngine On лишнее')).toContain('directiveArgCount');
+  });
+
+  it('rejects a directive left without its value', () => {
+    expect(codes('SecRuleEngine')).toContain('directiveValueMissing');
+    // Директива, у которой аргумента и не бывает, о пропаже не заявляет.
+    expect(codes('SecResponseBodyMimeTypesClear')).not.toContain('directiveValueMissing');
+  });
+
+  it('warns about a value the directive has no such value for', () => {
+    // Предупреждение, а не ошибка: таблица допустимых значений может
+    // отстать от движка, и блокировать из-за этого конструктор на весь
+    // файл значило бы наказать за незнание редактора.
+    expect(codes('SecRuleEngine Yes')).toContain('directiveBadValue');
+    expect(codes('SecRuleEngine DetectionOnly')).not.toContain('directiveBadValue');
+  });
+
+  it('rejects a limit written as something other than a number', () => {
+    expect(codes('SecRequestBodyLimit 12MB')).toContain('directiveNotNumber');
+    expect(codes('SecRequestBodyLimit 13107200')).not.toContain('directiveNotNumber');
+  });
+
+  it('warns about a letter an audit log entry has no part for', () => {
+    expect(codes('SecAuditLogParts ABQZ')).toContain('directiveUnknownFlag');
+    expect(codes('SecAuditLogParts ABIJDEFHZ')).not.toContain('directiveUnknownFlag');
+  });
+
+  it('says nothing twice about an unfinished exclusion', () => {
+    // О недостающей выборке говорит `exclusionNoTarget`, и вторая запись о
+    // том же читалась бы как две разные беды.
+    const found = codes('SecRuleRemoveById');
+    expect(found).toContain('exclusionNoTarget');
+    expect(found).not.toContain('directiveValueMissing');
+  });
+
+  it('says nothing about a directive it has no table for', () => {
+    // `SecRuleScript` осталась строкой намеренно: путь плюс список действий —
+    // вид ради одной директивы.
+    expect(codes('SecRuleScript /opt/rules/check.lua "id:1,phase:2"')).toEqual([]);
   });
 
   it('rejects unbalanced quotes', () => {

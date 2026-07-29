@@ -57,12 +57,24 @@ interface ChoiceFieldProps {
   /** Текст на месте пустого значения; задан — значение можно не выбирать. */
   emptyLabel?: string;
   /**
+   * В самом поле стоит написание из правила, а не человеческая подпись.
+   *
+   * Нужно там, где выбранное — это и есть то, что написано в файле:
+   * имя директивы под «Изменить цели по номеру» пришлось бы сверять с
+   * текстовой вкладкой по памяти. В открытом списке подпись остаётся —
+   * там места хватает на обе, и выбирают как раз по ней.
+   */
+  raw?: boolean;
+  /**
    * Что с полем не так. Задан — поле подсвечено красным, а текст стоит на
    * месте незаполненного значения и повторяется в подсказке. Годится и
    * недоступному полю: погашенное значение может быть не пустым, а негодным.
    */
   error?: string;
-  /** Забрать фокус сразу: поле только что появилось по действию человека. */
+  /**
+   * Забрать фокус сразу: поле только что появилось по действию человека.
+   * Список при этом остаётся закрытым — открывают его клик и набранное.
+   */
   autoFocus?: boolean;
   disabled?: boolean;
   disabledReason?: string;
@@ -97,6 +109,7 @@ export function ChoiceField({
   onChange,
   prefix = '',
   emptyLabel,
+  raw = false,
   error,
   autoFocus = false,
   disabled = false,
@@ -218,7 +231,11 @@ export function ChoiceField({
    */
   const fieldSx = {
     ...sx,
-    '& .MuiInputBase-input': { ...inputSx, ...(disabled && { pointerEvents: 'none' }) },
+    '& .MuiInputBase-input': {
+      ...(raw && { fontFamily: MONO }),
+      ...inputSx,
+      ...(disabled && { pointerEvents: 'none' }),
+    },
     ...(disabled &&
       error !== undefined && {
         '& .Mui-disabled': {
@@ -233,7 +250,12 @@ export function ChoiceField({
 
   const field = (
     <Autocomplete<Choice, false, boolean, false>
-      openOnFocus
+      // По фокусу список открывается — кроме того фокуса, который поле
+      // забрало само: окно, показавшееся с уже раскрытым списком, прячет за
+      // ним и заголовок, и подпись поля, то есть то, что человек как раз
+      // пришёл прочитать. Клик и первая набранная буква открывают список
+      // по-прежнему, так что лишнего действия это не добавляет.
+      openOnFocus={!autoFocus}
       autoHighlight
       selectOnFocus
       handleHomeEndKeys
@@ -247,7 +269,7 @@ export function ChoiceField({
       onInputChange={(_, next, reason) => setQuery(reason === 'input' ? next : '')}
       onOpen={() => setOpen(true)}
       onClose={() => setOpen(false)}
-      getOptionLabel={(choice) => localize(choice.label, choice.value)}
+      getOptionLabel={(choice) => (raw ? choice.value : localize(choice.label, choice.value))}
       isOptionEqualToValue={(choice, current) => choice.value === current.value}
       groupBy={sectioned ? (choice) => localize(choice.group, '') : undefined}
       // Поиск идёт по всему списку, даже когда он свёрнут: спрашивая про
