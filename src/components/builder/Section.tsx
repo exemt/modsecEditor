@@ -44,7 +44,13 @@ interface SectionProps {
    * поведение, и нажатие на неё сворачивало бы блок заодно.
    */
   actions?: ReactNode;
-  /** Развёрнут ли блок при появлении карточки. */
+  /**
+   * Развёрнут ли блок при появлении карточки.
+   *
+   * По умолчанию нет: карточка раскрывается на один блок, а остальные ждут,
+   * пока о них спросят. Иначе одно правило занимает экран целиком — и то, что
+   * человек открыл, приходится искать в нём прокруткой.
+   */
   defaultExpanded?: boolean;
   children: ReactNode;
 }
@@ -81,7 +87,7 @@ export function Section({
   monospace,
   counters,
   actions,
-  defaultExpanded = true,
+  defaultExpanded = false,
   children,
 }: SectionProps) {
   const { t } = useI18n();

@@ -8,6 +8,7 @@ import { Bracket, BracketLine } from './Bracket';
 import { ChipInput } from './ChipInput';
 import { ExclusionTargetRow } from './ExclusionTargetRow';
 import { SuggestField } from './SuggestField';
+import { PICK_COLUMN, TARGET_COLUMN } from './layout';
 import { useI18n } from '../../i18n/useI18n';
 import {
   exclusionDirectiveKind,
@@ -92,119 +93,146 @@ export function ExclusionDirectivePanel({ form, onChange }: ExclusionDirectivePa
 
   return (
     <Stack spacing={1.5}>
+      {/* Фраза — про директиву целиком, и ширина у неё вся, какая есть: она
+          не поле, а строка текста, и в колонку полей ложилась бы вдвое выше
+          без всякой на то причины. */}
       <Typography variant="body2">
         {phrase(t, form, kind, dropped, added)}
       </Typography>
 
-      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, alignItems: 'flex-start' }}>
-        {selector === 'id' ? (
-          <Box sx={{ flex: '1 1 280px', minWidth: 0 }}>
-            <ChipInput
-              monospace
-              fullWidth
-              // Номер снимаемого правила бывает не один, и в файле они стоят
-              // через пробел — отдельными аргументами. Чипы делают это
-              // видимым: `942100 942110` — два правила, а не одно с дефисом.
-              values={form.pick === '' ? [] : form.pick.split(' ')}
-              onChange={(ids) => onChange({ ...form, pick: ids.join(' ') })}
-              label={t(PICK_LABEL.id)}
-              dialogTitle={t(PICK_LABEL.id)}
-              separators={[' ', ',']}
-              isValueValid={(value) => ID_OR_RANGE.test(value)}
-              invalidHint={t('builder.exclusionBadIdHint')}
-              error={form.pick === ''}
-            />
-          </Box>
-        ) : (
-          <Box sx={{ flex: '1 1 280px', minWidth: 0 }}>
-            <SuggestField
-              monospace
-              label={t(PICK_LABEL[selector])}
-              suggestions={selector === 'tag' ? TAG_SUGGESTIONS : []}
-              value={form.pick}
-              onCommit={(pick) => onChange({ ...form, pick })}
-              error={form.pick === '' ? t('builder.exclusionPickRequired') : undefined}
-            />
+      {/* Поля — одна колонка, и мера у неё та же, что у секции целей: шире
+          неё в директиве-исключении нет ничего. Своей ширины у полей нет, они
+          берут отведённое, а отведена им была вся карточка — под номер правила
+          и слово `ARGS` доставалось поле в тысячу точек. С общей мерой у всех
+          строк совпали и левый край, и правый, а та же секция целей читается
+          в условии и в директиве одинаково. */}
+      <Stack spacing={1.5} sx={{ maxWidth: TARGET_COLUMN }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ flexWrap: 'wrap', gap: 1, alignItems: 'flex-start' }}
+        >
+          {selector === 'id' ? (
+            <Box sx={{ flex: '1 1 160px', minWidth: 0 }}>
+              <ChipInput
+                monospace
+                fullWidth
+                // Номер снимаемого правила бывает не один, и в файле они стоят
+                // через пробел — отдельными аргументами. Чипы делают это
+                // видимым: `942100 942110` — два правила, а не одно с дефисом.
+                values={form.pick === '' ? [] : form.pick.split(' ')}
+                onChange={(ids) => onChange({ ...form, pick: ids.join(' ') })}
+                label={t(PICK_LABEL.id)}
+                dialogTitle={t(PICK_LABEL.id)}
+                separators={[' ', ',']}
+                isValueValid={(value) => ID_OR_RANGE.test(value)}
+                invalidHint={t('builder.exclusionBadIdHint')}
+                error={form.pick === ''}
+              />
+            </Box>
+          ) : (
+            <Box sx={{ flex: '1 1 160px', minWidth: 0 }}>
+              <SuggestField
+                monospace
+                label={t(PICK_LABEL[selector])}
+                suggestions={selector === 'tag' ? TAG_SUGGESTIONS : []}
+                value={form.pick}
+                onCommit={(pick) => onChange({ ...form, pick })}
+                error={form.pick === '' ? t('builder.exclusionPickRequired') : undefined}
+              />
+            </Box>
+          )}
+
+          {op === 'updateAction' && (
+            // Действий приписывают несколько, и места им нужно побольше, чем
+            // номеру правила: в узкой колонке `pass,nolog,auditlog` ложится по
+            // действию в строку.
+            <Box sx={{ flex: '1 1 200px', minWidth: 0 }}>
+              <ChipInput
+                monospace
+                fullWidth
+                values={form.payload === '' ? [] : form.payload.split(',')}
+                onChange={(actions) => onChange({ ...form, payload: actions.join(',') })}
+                label={t('builder.exclusionActions')}
+                dialogTitle={t('builder.exclusionActions')}
+                separators={[',']}
+                error={form.payload === ''}
+              />
+            </Box>
+          )}
+        </Stack>
+
+        {/* Секция целей — ниже полей, а не рядом с ними: у неё своя высота,
+            растущая с каждой правленой целью, и своя ширина — имя параметра
+            бывает длиной в строку. Запас сверху — под плавающую подпись первого
+            поля, она стоит выше его верхнего края. */}
+        {op === 'updateTarget' && (
+          <Box sx={{ pt: 1 }}>
+            <Bracket label={t('builder.and')} color="error.main" line="target">
+              <Stack spacing={2}>
+                {rows.map((target, index) => (
+                  <ExclusionTargetRow
+                    key={`${target.name}-${index}`}
+                    target={target}
+                    canRemove={rows.length > 1}
+                    error={target.name === '' ? t('builder.exclusionTargetRequired') : undefined}
+                    onChange={(next) => setTargets(rows.map((v, i) => (i === index ? next : v)))}
+                    onRemove={() => setTargets(rows.filter((_, i) => i !== index))}
+                  />
+                ))}
+
+                {/* Кнопка отмечена как цель: скобка доводится до неё, и видно,
+                    что добавляется ещё одна правленая цель, а не что-то рядом. */}
+                <Box sx={{ position: 'relative', display: 'flex' }}>
+                  <BracketLine name="target" height="100%" />
+                  <Tooltip title={t('builder.addExclusionTargetHint')}>
+                    <Box component="span" sx={{ display: 'inline-flex' }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="error"
+                        startIcon={<AddIcon />}
+                        onClick={() => setTargets([...rows, makeExclusionTarget()])}
+                      >
+                        {t('builder.addExclusionTarget')}
+                      </Button>
+                    </Box>
+                  </Tooltip>
+                </Box>
+              </Stack>
+            </Bracket>
           </Box>
         )}
 
-        {op === 'updateAction' && (
-          <Box sx={{ flex: '1 1 280px', minWidth: 0 }}>
-            <ChipInput
-              monospace
-              fullWidth
-              values={form.payload === '' ? [] : form.payload.split(',')}
-              onChange={(actions) => onChange({ ...form, payload: actions.join(',') })}
-              label={t('builder.exclusionActions')}
-              dialogTitle={t('builder.exclusionActions')}
-              separators={[',']}
-              error={form.payload === ''}
-            />
-          </Box>
+        {/* Что такое третий аргумент, сказано подсказкой, а не строкой под
+            полем: нужно это один раз — пока не знаешь, — а строкой стояло в
+            каждой директиве правки целей постоянно и весило больше самого поля.
+            Погашенное поле — другое дело: молча пропавшая возможность читается
+            поломкой редактора, поэтому причина остаётся на виду. */}
+        {op === 'updateTarget' && (
+          <Stack spacing={0.5}>
+            <Tooltip title={t('builder.exclusionReplacedHint')} placement="top-start">
+              <Box sx={{ width: PICK_COLUMN }}>
+                <SuggestField
+                  monospace
+                  // Поле гаснет, только пока оно пустое: запертым оно не дало
+                  // бы ни убрать, ни поправить прочитанное из файла.
+                  disabled={!canReplace && form.replaced === ''}
+                  label={t('builder.exclusionReplaced')}
+                  suggestions={VARIABLE_SUGGESTIONS}
+                  value={form.replaced}
+                  onCommit={(replaced) => onChange({ ...form, replaced })}
+                />
+              </Box>
+            </Tooltip>
+            {!canReplace && (
+              <Typography variant="caption" color="text.secondary">
+                {t('builder.exclusionReplacedBlocked')}
+              </Typography>
+            )}
+          </Stack>
         )}
       </Stack>
-
-      {/* Секция целей — ниже полей, а не рядом с ними: у неё своя ширина
-          (имя параметра бывает длиной в строку) и своя высота, растущая с
-          каждой правленой целью. Запас сверху — под плавающую подпись
-          первого поля, она стоит выше его верхнего края. */}
-      {op === 'updateTarget' && (
-        <Box sx={{ pt: 1 }}>
-          <Bracket label={t('builder.and')} color="error.main" line="target">
-            <Stack spacing={2}>
-              {rows.map((target, index) => (
-                <ExclusionTargetRow
-                  key={`${target.name}-${index}`}
-                  target={target}
-                  canRemove={rows.length > 1}
-                  error={target.name === '' ? t('builder.exclusionTargetRequired') : undefined}
-                  onChange={(next) => setTargets(rows.map((v, i) => (i === index ? next : v)))}
-                  onRemove={() => setTargets(rows.filter((_, i) => i !== index))}
-                />
-              ))}
-
-              {/* Кнопка отмечена как цель: скобка доводится до неё, и видно,
-                  что добавляется ещё одна правленая цель, а не что-то рядом. */}
-              <Box sx={{ position: 'relative', display: 'flex' }}>
-                <BracketLine name="target" height="100%" />
-                <Tooltip title={t('builder.addExclusionTargetHint')}>
-                  <Box component="span" sx={{ display: 'inline-flex' }}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="error"
-                      startIcon={<AddIcon />}
-                      onClick={() => setTargets([...rows, makeExclusionTarget()])}
-                    >
-                      {t('builder.addExclusionTarget')}
-                    </Button>
-                  </Box>
-                </Tooltip>
-              </Box>
-            </Stack>
-          </Bracket>
-        </Box>
-      )}
-
-      {op === 'updateTarget' && (
-        <Stack spacing={0.5}>
-          <Box sx={{ width: 280 }}>
-            <SuggestField
-              monospace
-              // Поле гаснет, только пока оно пустое: запертым оно не дало бы
-              // ни убрать, ни поправить прочитанное из файла.
-              disabled={!canReplace && form.replaced === ''}
-              label={t('builder.exclusionReplaced')}
-              suggestions={VARIABLE_SUGGESTIONS}
-              value={form.replaced}
-              onCommit={(replaced) => onChange({ ...form, replaced })}
-            />
-          </Box>
-          <Typography variant="caption" color="text.secondary">
-            {t(canReplace ? 'builder.exclusionReplacedHint' : 'builder.exclusionReplacedBlocked')}
-          </Typography>
-        </Stack>
-      )}
     </Stack>
   );
 }

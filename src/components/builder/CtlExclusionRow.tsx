@@ -1,7 +1,7 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
+import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
@@ -12,15 +12,22 @@ import { ChoiceField } from './ChoiceField';
 import { ExclusionMarks } from './ExclusionMarks';
 import { SuggestField } from './SuggestField';
 import { TargetRow } from './TargetRow';
-import { CONDITION_PADDING, CONDITION_PADDING_TOP } from './layout';
+import { CONDITION_PADDING, CONDITION_PADDING_TOP, PICK_COLUMN } from './layout';
+import { useBuilderView } from '../../context/builderViewContext';
 import { useI18n } from '../../i18n/useI18n';
 import { ctlExclusionChoices } from '../../modsec/choices';
 import { ctlOption } from '../../modsec/exclusions';
 import { makeTarget, targetsToVariables } from '../../modsec/model';
 import { serializeVariable } from '../../modsec/serialize';
 import { TAG_SUGGESTIONS } from '../../modsec/suggestions';
+import type { I18nContextValue } from '../../i18n/context';
 import type { TranslationKey } from '../../i18n/translations';
-import type { CtlExclusion, ExclusionEntry, ExclusionSelector } from '../../modsec/exclusions';
+import type {
+  CtlExclusion,
+  ExclusionEntry,
+  ExclusionMatch,
+  ExclusionSelector,
+} from '../../modsec/exclusions';
 import type { VisualTarget } from '../../modsec/model';
 
 interface CtlExclusionRowProps {
@@ -58,6 +65,15 @@ const PICK_LABEL: Record<ExclusionSelector, TranslationKey> = {
 };
 
 /**
+ * Место выборки во фразе — метка, по которой фраза режется на до и после.
+ *
+ * Ссылку в переведённую строку иначе не поставить: приходит она целиком, а
+ * место номера в ней у каждого языка своё — по-русски он в конце, по-английски
+ * в середине. Метку ставит сам перевод, туда, где в шаблоне стоит `{pick}`.
+ */
+const SLOT = '\u0000';
+
+/**
  * Одно исключение времени запроса: строка `ctl` как форма.
  *
  * Полем, а не текстом, — в отличие от прочих `ctl`. Причина в том, что здесь
@@ -68,8 +84,13 @@ const PICK_LABEL: Record<ExclusionSelector, TranslationKey> = {
  * приходится расшифровывать глазами, и ошибка в ней ничем не выдаёт себя.
  *
  * Поэтому первой строкой стоит фраза о том, что исключение делает, а запись
- * собирается из полей под ней. Рядом — то, чего в самой записи нет: до каких
- * правил файла она дотянулась и дотянулась ли вообще.
+ * собирается из полей под ней. Фраза говорит и то, чего в самой записи нет:
+ * в каком звене цепочки она написана, и — ссылкой на месте номера — до какого
+ * правила файла дотянулась. Номер в ней тот же, что нашёл редактор, поэтому
+ * второй раз, отметкой рядом, он не называется: «не проверять ARGS:q в
+ * правиле 90» под руку с «правило: 90» читается заиканием. Не дотянулась,
+ * дотянулась слишком поздно или выбирает не номером — об этом по-прежнему
+ * говорят отметки: там номера фразой не названы.
  *
  * Цели снимаются той же секцией, что стоит у правила, и по той же причине:
  * снимают их такими же — вся коллекция, перечень параметров, — и второй способ
@@ -101,17 +122,36 @@ export function CtlExclusionRow({
   // список целей одного правила, а здесь каждая цель — своя запись.
   const shown = terms.map(serializeVariable).join(', ');
 
+  // Выборка называет ровно то правило, которое редактор и нашёл, — значит
+  // номер во фразе можно сделать ссылкой, а отметку с тем же номером убрать.
+  // Совпасть так они могут только у выборки по номеру: метка и шаблон
+  // сообщения называют признак, а не правило, и найденное по ним фразой не
+  // названо.
+  const found = entry?.matches ?? [];
+  const named =
+    value.selector === 'id' && found.length === 1 && found[0].id === value.pick
+      ? found[0]
+      : undefined;
+
   // Незаполненное исключение фразой не пересказать: «не проверять ARGS в
   // правиле не задано» читается как поломка редактора, а не как недописанная
   // запись. Поэтому вместо фразы стоит то, чего не хватает, — и говорится
   // именно то, чего: выборка и цель недописаны по-разному и чинятся в разных
-  // полях.
+  // полях. Звена при этом нет вовсе: у недописанной записи нечему случаться.
   const phrase =
     value.pick === ''
       ? t('builder.ctlIncomplete')
       : value.op === 'removeTarget' && terms.length === 0
         ? t('builder.ctlIncompleteTarget')
-        : t(PHRASE[`${value.op}/${value.selector}`], { pick: value.pick, target: shown });
+        : chained(
+            t,
+            t(PHRASE[`${value.op}/${value.selector}`], {
+              pick: named === undefined ? value.pick : SLOT,
+              target: shown,
+            }),
+            link,
+            links,
+          );
 
   // Цели, стоящие в секции: у недописанного исключения — одна пустая. Секция
   // без единого поля отняла бы у него то место, где цель называют, а кнопка
@@ -142,29 +182,9 @@ export function CtlExclusionRow({
             она встаёт там же, где у условий — по их первым полям. */}
         <BracketLine name="ctl" height="100%" />
 
-        <Typography variant="body2">{phrase}</Typography>
+        <Phrase text={phrase} match={named} />
 
-        {/* Место в цепочке — часть смысла: исключение случится, когда совпадёт
-            это звено, а у последнего это значит «совпала вся цепочка». */}
-        {links > 1 && (
-          <Tooltip
-            title={t(link === links - 1 ? 'builder.ctlLinkLastHint' : 'builder.ctlLinkHint', {
-              n: String(link + 1),
-            })}
-          >
-            {/* Подсказка — на обёртке: подписанная ею метка читалась бы вслух
-                пояснением вместо своего короткого «звено 3». */}
-            <Box component="span" sx={{ display: 'inline-flex' }}>
-              <Chip
-                size="small"
-                variant="outlined"
-                label={t('builder.ctlLink', { n: String(link + 1) })}
-              />
-            </Box>
-          </Tooltip>
-        )}
-
-        {entry !== undefined && <ExclusionMarks entry={entry} />}
+        {entry !== undefined && <ExclusionMarks entry={entry} named={named !== undefined} />}
 
         <Box sx={{ flex: 1 }} />
         <Tooltip title={t('builder.deleteExclusion')}>
@@ -201,7 +221,7 @@ export function CtlExclusionRow({
           value={value.pick}
           onCommit={(pick) => onChange({ ...value, pick })}
           error={value.pick === '' ? t('builder.ctlPickRequired') : undefined}
-          sx={{ width: 220 }}
+          sx={{ width: PICK_COLUMN }}
         />
       </Stack>
 
@@ -249,5 +269,68 @@ export function CtlExclusionRow({
         </Box>
       )}
     </Stack>
+  );
+}
+
+/**
+ * Дописывает фразе звено, в котором исключение стоит.
+ *
+ * Звено — часть смысла, а не адрес строки: `ctl` из головы применится, едва
+ * совпала голова, а из последнего звена — когда совпала вся цепочка. Сказано
+ * это словами в самой фразе, а не меткой рядом: метка «звено 3» называет
+ * место, но не говорит, что из этого следует, — а следует из этого всё.
+ *
+ * У правила из одного условия не говорится вовсе: «звено 1» там уточнение без
+ * второй возможности.
+ */
+function chained(
+  t: I18nContextValue['t'],
+  phrase: string,
+  link: number,
+  links: number,
+): string {
+  if (links < 2) return phrase;
+  const key = link === links - 1 ? 'builder.ctlPhraseWholeChain' : 'builder.ctlPhraseLink';
+  return t(key, { phrase, n: String(link + 1) });
+}
+
+/**
+ * Фраза об исключении; на месте номера правила — ссылка на само правило.
+ *
+ * Ссылкой, а не чипом, хотя рядом, у отметок, номера стоят чипами: там они
+ * стоят россыпью после подписи, и чип — то, во что можно попасть пальцем, а
+ * здесь номер стоит словом внутри предложения, и чип посреди него читался бы
+ * ярлыком, приклеенным к фразе, а не её частью.
+ *
+ * Правило, до которого запись не дотянулась, ссылкой не становится: перейти
+ * можно к тому, что есть в файле, а обещание перехода, никуда не ведущего,
+ * хуже его отсутствия.
+ */
+function Phrase({ text, match }: { text: string; match?: ExclusionMatch }) {
+  const { t } = useI18n();
+  const { revealRule } = useBuilderView();
+
+  if (match === undefined) return <Typography variant="body2">{text}</Typography>;
+
+  const [before, ...after] = text.split(SLOT);
+
+  return (
+    <Typography variant="body2">
+      {before}
+      <Tooltip title={t('builder.exclusionReveal', { id: match.id })}>
+        <Link
+          component="button"
+          variant="body2"
+          underline="hover"
+          onClick={() => revealRule(match.key)}
+          // Сброс кнопки у MUI ставит выравнивание по середине строки: номер
+          // сидел бы на пол-буквы выше слов, между которыми стоит.
+          sx={{ verticalAlign: 'baseline' }}
+        >
+          {match.id}
+        </Link>
+      </Tooltip>
+      {after.join(SLOT)}
+    </Typography>
   );
 }

@@ -368,7 +368,7 @@ const en = {
   'builder.exclusionReplacedHint':
     'Filled in only when the new target replaces an old one rather than being added to it',
   'builder.exclusionReplacedBlocked':
-    'Nothing to replace: every target here is being removed, and a removal takes no one place. The third argument names the target the new one stands in place of',
+    'Nothing to replace: every target here is being removed, and a removal takes no one place',
 
   'builder.exclusionWhoId': 'rules {pick}',
   'builder.exclusionWhoMsg': 'rules whose message matches "{pick}"',
@@ -404,10 +404,8 @@ const en = {
   'builder.addExclusionTargetHint':
     'Change one more target of the selected rules. Targets go into the file as one argument, separated by "|"',
 
-  'builder.ctlLink': 'link {n}',
-  'builder.ctlLinkHint':
-    'Written in link {n}: it applies as soon as that link matches, even if the rest of the chain does not',
-  'builder.ctlLinkLastHint': 'Written in the last link, {n}: it applies once the whole chain has matched',
+  'builder.ctlPhraseLink': '{phrase}, as soon as link {n} matches',
+  'builder.ctlPhraseWholeChain': '{phrase}, once the whole chain has matched',
   'builder.addCtlExclusion': 'Add exclusion',
   'builder.addCtlExclusionHint':
     'Add a ctl exclusion to the rule: it removes the named rules only on those requests where this rule fires',
@@ -1008,7 +1006,7 @@ const ru: Record<TranslationKey, string> = {
   'builder.exclusionReplacedHint':
     'Заполняется только тогда, когда новая цель встаёт вместо старой, а не добавляется к ней',
   'builder.exclusionReplacedBlocked':
-    'Заменять нечего: все цели здесь вычитаются, а вычитание ни на чьё место не встаёт. Третий аргумент называет ту цель, вместо которой встаёт новая',
+    'Заменять нечего: все цели здесь вычитаются, а вычитание ни на чьё место не встаёт',
 
   'builder.exclusionWhoId': 'правила {pick}',
   'builder.exclusionWhoMsg': 'правила, у которых сообщение подходит под «{pick}»',
@@ -1044,11 +1042,8 @@ const ru: Record<TranslationKey, string> = {
   'builder.addExclusionTargetHint':
     'Поправить ещё одну цель выбранных правил. В файл цели уходят одним аргументом, через «|»',
 
-  'builder.ctlLink': 'звено {n}',
-  'builder.ctlLinkHint':
-    'Написано в звене {n}: применится, едва совпадёт это звено, даже если остальная цепочка не совпадёт',
-  'builder.ctlLinkLastHint':
-    'Написано в последнем звене, {n}: применится, когда совпадёт вся цепочка',
+  'builder.ctlPhraseLink': '{phrase}, едва совпадёт звено {n}',
+  'builder.ctlPhraseWholeChain': '{phrase}, когда совпадёт вся цепочка',
   'builder.addCtlExclusion': 'Добавить исключение',
   'builder.addCtlExclusionHint':
     'Добавить правилу исключение через ctl: оно снимет названные правила только на тех запросах, где сработает это правило',

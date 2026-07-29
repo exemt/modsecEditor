@@ -19,6 +19,7 @@ import { LongTextField } from './LongTextField';
 import { Section, SECTION_PADDING } from './Section';
 import { SuggestField } from './SuggestField';
 import { ruleActionCount, ruleActionSummary } from './summary';
+import { FLAG_COLUMN, PHASE_COLUMN, REACTION_COLUMN, STATUS_COLUMN } from './layout';
 import { useI18n } from '../../i18n/useI18n';
 import { serializeAction } from '../../modsec/serialize';
 import { isExclusionCtl } from '../../modsec/exclusions';
@@ -131,10 +132,7 @@ export function ActionsPanel({
           />
         )}
 
-        {/* Ширина полей — под самое длинное название с запасом на кнопку
-            очистки и стрелку: «1 — Заголовки запроса» и «Разорвать
-            соединение» должны читаться целиком, а не с многоточием. */}
-        <Box sx={{ width: 260 }}>
+        <Box sx={{ width: PHASE_COLUMN }}>
           <ChoiceField
             prefix="phase:"
             label={t('builder.phase')}
@@ -149,7 +147,7 @@ export function ActionsPanel({
             названия «Запретить», «Блокировать» и «Разорвать соединение» сами
             по себе неразличимы, а разницу между ними — код ответа, чужой
             SecDefaultAction, молчащий обрыв — видно только из пояснений. */}
-        <Box sx={{ width: 250 }}>
+        <Box sx={{ width: REACTION_COLUMN }}>
           <ChoiceField
             label={t('builder.disruptive')}
             emptyLabel={t('builder.unset')}
@@ -186,7 +184,7 @@ export function ActionsPanel({
           suggestions={STATUS_SUGGESTIONS}
           value={actions.status}
           onCommit={(status) => onChange({ ...actions, status })}
-          sx={{ width: 160 }}
+          sx={{ width: STATUS_COLUMN }}
         />
 
         <CommitField
@@ -269,7 +267,7 @@ export function ActionsPanel({
               />
             </Box>
 
-            <Box sx={{ width: 190 }}>
+            <Box sx={{ width: FLAG_COLUMN }}>
               <ChoiceField
                 label={t('builder.log')}
                 emptyLabel={t('builder.unset')}
@@ -279,7 +277,7 @@ export function ActionsPanel({
               />
             </Box>
 
-            <Box sx={{ width: 190 }}>
+            <Box sx={{ width: FLAG_COLUMN }}>
               <ChoiceField
                 label={t('builder.auditlog')}
                 emptyLabel={t('builder.unset')}

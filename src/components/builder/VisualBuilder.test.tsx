@@ -52,17 +52,43 @@ function manyRules(count: number): string {
   return rules.join('\n');
 }
 
-/** Карточка правила с этим номером — по полю номера в её заголовке. */
+/**
+ * Карточка правила с этим номером — по номеру в её заголовке.
+ *
+ * Раскрытая держит его полем, свёрнутая — написанным: правят номер там, где
+ * видно всё правило целиком.
+ */
 function cardOf(id: string): HTMLElement {
   const field = screen
-    .getAllByRole('textbox', { name: 'ID правила' })
+    .queryAllByRole('textbox', { name: 'ID правила' })
     .find((input) => (input as HTMLInputElement).value === id);
-  if (field === undefined) throw new Error(`нет карточки правила ${id}`);
-  return field.closest('.MuiPaper-root') as HTMLElement;
+  const title = field ?? screen.queryByText(`Правило ${id}`);
+  if (title === null || title === undefined) throw new Error(`нет карточки правила ${id}`);
+  return title.closest('.MuiPaper-root') as HTMLElement;
 }
 
 const expandedCards = () => screen.queryAllByRole('button', { name: 'Свернуть правило' });
 const collapsedCards = () => screen.queryAllByRole('button', { name: 'Развернуть правило' });
+
+/**
+ * Раскрыть блок «Действия» на единственной карточке списка.
+ *
+ * Раскрытая карточка показывает один блок — условия, — а до полей реакции
+ * доходят тем же нажатием, каким до них доходит человек.
+ */
+async function openActions(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Развернуть «Действия»' }));
+}
+
+/**
+ * Раскрыть единственную в списке панель директивы.
+ *
+ * Раскрытым документ показывает первый блок, поэтому у директивы ниже правила
+ * полей нет, пока её не открыли.
+ */
+async function openDirective(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Развернуть блок' }));
+}
 
 /**
  * Пункт меню «Добавить» на панели режима.
@@ -411,6 +437,7 @@ describe('VisualBuilder — правки уходят в текст правил
     const user = userEvent.setup();
     renderBuilder(BAD_BOT);
 
+    await openActions(user);
     const message = screen.getByRole('textbox', { name: 'Сообщение' });
     await user.clear(message);
     await user.type(message, 'Новое сообщение');
@@ -426,6 +453,7 @@ describe('VisualBuilder — правки уходят в текст правил
     const user = userEvent.setup();
     renderBuilder(BAD_BOT);
 
+    await openActions(user);
     await user.click(screen.getByRole('button', { name: 'Ещё' }));
     await user.type(
       screen.getByRole('textbox', { name: 'Версия набора' }),
@@ -443,6 +471,7 @@ describe('VisualBuilder — правки уходят в текст правил
     const user = userEvent.setup();
     renderBuilder('SecRule ARGS "@rx evil" "id:1001,phase:2,deny,ctl:auditEngine=Off"\n');
 
+    await openActions(user);
     expect(screen.getByText('ctl:auditEngine=Off')).toBeInTheDocument();
 
     await user.type(screen.getByRole('textbox', { name: 'Сообщение' }), 'Найдено');
@@ -533,11 +562,11 @@ describe('VisualBuilder — правки уходят в текст правил
 });
 
 describe('VisualBuilder — большой файл', () => {
-  it('раскрывает первые десять правил, остальные показывает строкой', () => {
+  it('раскрывает первое правило, остальные показывает строкой', () => {
     renderBuilder(manyRules(13));
 
-    expect(expandedCards()).toHaveLength(10);
-    expect(collapsedCards()).toHaveLength(3);
+    expect(expandedCards()).toHaveLength(1);
+    expect(collapsedCards()).toHaveLength(12);
   });
 
   // Проверка идёт по самому DOM, а не по дереву доступности: спрятанное поле
@@ -545,8 +574,9 @@ describe('VisualBuilder — большой файл', () => {
   it('не держит в DOM полей свёрнутого правила', () => {
     renderBuilder(manyRules(13));
 
-    // У свёрнутой карточки остаётся одно поле — номер правила в заголовке.
-    expect(cardOf('1013').querySelectorAll('input')).toHaveLength(1);
+    // Поля свёрнутой карточки нет ни одного: номер и описание в ней
+    // написаны, а не набираются.
+    expect(cardOf('1013').querySelectorAll('input')).toHaveLength(0);
     expect(cardOf('1001').querySelectorAll('input').length).toBeGreaterThan(1);
   });
 
@@ -575,7 +605,7 @@ describe('VisualBuilder — большой файл', () => {
 
   it('считает раскрытые правила в панели', () => {
     renderBuilder(manyRules(13));
-    expect(screen.getByText('Раскрыто 10 из 13')).toBeInTheDocument();
+    expect(screen.getByText('Раскрыто 1 из 13')).toBeInTheDocument();
   });
 
   // Раскрытие помнится за номером правила, а не за его местом в файле:
@@ -601,11 +631,11 @@ describe('VisualBuilder — большой файл', () => {
     const user = userEvent.setup();
     renderBuilder(manyRules(12));
 
-    expect(expandedCards()).toHaveLength(10);
+    expect(expandedCards()).toHaveLength(1);
 
     await addBlock(user, 'Добавить правило');
 
-    await waitFor(() => expect(expandedCards()).toHaveLength(11));
+    await waitFor(() => expect(expandedCards()).toHaveLength(2));
   });
 
   /**
@@ -683,8 +713,13 @@ describe('VisualBuilder — исключения', () => {
 
     // Свёрнутая панель показывает остаток строки: имя уже стоит слева, и
     // повторённое оно съедало бы место у того, ради чего строку и читают.
-    await user.click(screen.getByRole('button', { name: 'Свернуть блок' }));
     expect(screen.getByText('942100 "!ARGS:comment"')).toBeInTheDocument();
+
+    // Раскрывается она в форму, и остаток строки уходит: то же значение стоит
+    // теперь в поле, а дважды его показывать незачем.
+    await openDirective(user);
+    expect(screen.getByRole('textbox', { name: 'Номера правил' })).toBeInTheDocument();
+    expect(screen.queryByText('942100 "!ARGS:comment"')).toBeNull();
   });
 
   it('правит обычную директиву полем, а не строкой', () => {
@@ -886,7 +921,12 @@ describe('VisualBuilder — исключения', () => {
     );
 
     const card = await exclusionsOf('1000', user);
-    expect(card.getByText('не проверять ARGS:comment в правиле 942100')).toBeInTheDocument();
+    // Номер правила стоит внутри самой фразы, и стоит ссылкой: до этого
+    // правила запись дотянулась, и второй раз, отметкой рядом, тот же номер
+    // не называется.
+    expect(card.getByText(/^не проверять ARGS:comment в правиле$/)).toBeInTheDocument();
+    expect(card.getByRole('button', { name: 'Показать правило 942100' })).toBeInTheDocument();
+    expect(card.queryByText('правило:')).toBeNull();
     // В «Прочих действиях» этой записи больше нет: показанная дважды, она
     // заставляет искать между двумя видами разницу.
     expect(card.queryByText('Прочие действия')).toBeNull();
@@ -923,7 +963,7 @@ describe('VisualBuilder — исключения', () => {
       ),
     );
     // И читается это обратно одной строкой: решение снять две цели было одно.
-    expect(card.getByText('не проверять ARGS:comment, ARGS:note в правиле 942100')).toBeInTheDocument();
+    expect(card.getByText(/^не проверять ARGS:comment, ARGS:note в правиле$/)).toBeInTheDocument();
   });
 
   // Снимаемую цель ModSecurity сравнивает с целью правила по имени и параметру.
@@ -986,7 +1026,7 @@ describe('VisualBuilder — исключения', () => {
         'SecRule REQUEST_HEADERS:Host "@streq dev.example.test" \\',
         '    "id:20255302,phase:2,pass,nolog,chain"',
         'SecRule REQUEST_URI "@beginsWith /favicon.ico" \\',
-        '    "t:none,chain"',
+        '    "t:none,chain,ctl:ruleRemoveById=1515300"',
         'SecRule REQUEST_HEADERS:Referer "@rx .*" \\',
         '    "t:none,ctl:ruleRemoveTargetByTag=id1515300;REQUEST_HEADERS:Referer"',
         '',
@@ -994,10 +1034,15 @@ describe('VisualBuilder — исключения', () => {
     );
 
     const card = await exclusionsOf('20255302', user);
+    // Звено сказано словами и сказано по-разному: из середины цепочки
+    // исключение случится, едва совпало это звено, а из последнего — только
+    // когда совпала вся цепочка.
+    expect(card.getByText('снять правило 1515300, едва совпадёт звено 2')).toBeInTheDocument();
     expect(
-      card.getByText('не проверять REQUEST_HEADERS:Referer в правилах с меткой «id1515300»'),
+      card.getByText(
+        'не проверять REQUEST_HEADERS:Referer в правилах с меткой «id1515300», когда совпадёт вся цепочка',
+      ),
     ).toBeInTheDocument();
-    expect(card.getByText('звено 3')).toBeInTheDocument();
   });
 });
 
@@ -1120,6 +1165,7 @@ describe('VisualBuilder — форма директивы', () => {
     const user = userEvent.setup();
     renderBuilder([RULE, 'SecRuleRemoveById 942100', ''].join('\n'));
 
+    await openDirective(user);
     const pick = screen.getByRole('textbox', { name: 'Номера правил' });
     await user.type(pick, '942110{Enter}');
 

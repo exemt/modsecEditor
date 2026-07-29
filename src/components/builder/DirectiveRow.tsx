@@ -2,14 +2,10 @@ import type { ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Collapse from '@mui/material/Collapse';
 import Divider from '@mui/material/Divider';
-import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
-import Stack from '@mui/material/Stack';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { BlockActions } from './BlockActions';
+import { BlockHeader, BlockTitle } from './BlockHeader';
 import { ChoiceField } from './ChoiceField';
 import { DirectivePanel } from './DirectivePanel';
 import { ExclusionMarks } from './ExclusionMarks';
@@ -17,7 +13,6 @@ import { LongTextField } from './LongTextField';
 import { SECTION_PADDING } from './Section';
 import { SuggestField } from './SuggestField';
 import { useLabel } from './useLabel';
-import { CHEVRON_COLUMN, DIRECTIVE_COLUMN } from './layout';
 import { useI18n } from '../../i18n/useI18n';
 import { directiveValueChoices } from '../../modsec/choices';
 import {
@@ -26,7 +21,6 @@ import {
   emitDirective,
   isPanelArg,
 } from '../../modsec/directives';
-import { BLOCK_ROW } from '../../theme';
 import type { TranslationKey } from '../../i18n/translations';
 import type { DirectiveForm, DirectiveIssue } from '../../modsec/directives';
 import type { ExclusionEntry } from '../../modsec/exclusions';
@@ -89,7 +83,6 @@ export function DirectiveRow({
   onDuplicate,
   onDelete,
 }: DirectiveRowProps) {
-  const { t } = useI18n();
   const panel = isPanelArg(form.arg);
 
   // Выжимка свёрнутой панели — сама директива без имени: имя уже стоит
@@ -99,62 +92,40 @@ export function DirectiveRow({
 
   return (
     <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-      <Stack
-        direction="row"
-        spacing={1}
-        sx={{ alignItems: 'center', height: BLOCK_ROW, px: 1.5 }}
+      <BlockHeader
+        toggle={
+          panel
+            ? {
+                expanded,
+                onToggle: onToggleExpanded,
+                collapseLabel: 'builder.collapseBlock',
+                expandLabel: 'builder.expandBlock',
+              }
+            : null
+        }
+        title={<DirectiveName name={form.name} />}
+        marks={exclusion !== undefined && <ExclusionMarks entry={exclusion} />}
+        actions={
+          <BlockActions
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+            onDuplicate={onDuplicate}
+            onDelete={onDelete}
+            duplicateLabel="builder.duplicateLine"
+            deleteLabel="builder.deleteLine"
+          />
+        }
       >
         {panel ? (
-          <Tooltip title={t(expanded ? 'builder.collapseBlock' : 'builder.expandBlock')}>
-            <IconButton
-              size="small"
-              onClick={onToggleExpanded}
-              aria-label={t(expanded ? 'builder.collapseBlock' : 'builder.expandBlock')}
-              aria-expanded={expanded}
-            >
-              {expanded ? (
-                <ExpandMoreIcon fontSize="small" />
-              ) : (
-                <ChevronRightIcon fontSize="small" />
-              )}
-            </IconButton>
-          </Tooltip>
-        ) : (
-          // Колонка раскрывашки пустует, но остаётся: уберёшь — и имя уедет
-          // влево от имён соседних блоков.
-          <Box sx={{ width: CHEVRON_COLUMN, flexShrink: 0 }} />
-        )}
-
-        <DirectiveName name={form.name} />
-
-        {panel ? (
-          expanded ? (
-            <Box sx={{ flex: 1 }} />
-          ) : (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              noWrap
-              sx={{ flex: 1, minWidth: 0, fontFamily: MONO }}
-            >
+          expanded ? null : (
+            <Typography variant="body2" color="text.secondary" noWrap sx={{ fontFamily: MONO }}>
               {summary}
             </Typography>
           )
         ) : (
           <DirectiveValue form={form} onChange={onChange} />
         )}
-
-        {exclusion !== undefined && <ExclusionMarks entry={exclusion} />}
-
-        <BlockActions
-          onMoveUp={onMoveUp}
-          onMoveDown={onMoveDown}
-          onDuplicate={onDuplicate}
-          onDelete={onDelete}
-          duplicateLabel="builder.duplicateLine"
-          deleteLabel="builder.deleteLine"
-        />
-      </Stack>
+      </BlockHeader>
 
       {panel && (
         <Collapse in={expanded} unmountOnExit>
@@ -184,15 +155,9 @@ function DirectiveName({ name }: { name: string }) {
     meta === null ? '' : `${localize(meta.label, name)} — ${localize(meta.note, '')}`;
 
   return (
-    <Tooltip describeChild title={hint} placement="top-start" enterDelay={600}>
-      <Typography
-        variant="body2"
-        noWrap
-        sx={{ width: DIRECTIVE_COLUMN, flexShrink: 0, fontFamily: MONO, fontWeight: 500 }}
-      >
-        {name}
-      </Typography>
-    </Tooltip>
+    <BlockTitle monospace hint={hint}>
+      {name}
+    </BlockTitle>
   );
 }
 

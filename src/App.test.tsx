@@ -76,6 +76,9 @@ describe('App', () => {
     renderApp('en');
 
     await user.click(screen.getByRole('tab', { name: 'Visual' }));
+    // Раскрытая карточка показывает условия, а поля реакции — за полосой
+    // блока: до сообщения доходят тем же нажатием, каким доходит человек.
+    await user.click(await screen.findByRole('button', { name: 'Expand "Actions"' }));
     const message = await screen.findByRole('textbox', { name: 'Message' });
 
     await user.clear(message);
@@ -166,8 +169,8 @@ describe('App', () => {
     });
 
     await user.clear(editor);
-    // Двенадцать правил: замечание относится к последнему, а раскрытыми
-    // изначально бывают только первые десять.
+    // Двенадцать правил: замечание относится к последнему, а раскрытым
+    // изначально бывает только первое.
     await user.paste(
       Array.from({ length: 12 }, (_, i) =>
         i === 11
@@ -184,8 +187,8 @@ describe('App', () => {
     await user.click(within(row).getByRole('button', { name: 'in the builder' }));
 
     // Вкладка сменилась сама, и карточка того самого правила раскрыта:
-    // сообщение видно в поле, а не только в свёрнутой сводке.
-    expect(await screen.findByDisplayValue('z')).toBeInTheDocument();
+    // условие видно полями, а не только выжимкой свёрнутой полосы.
+    expect(await screen.findByDisplayValue('TWO')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Visual' })).toHaveAttribute(
       'aria-selected',
       'true',
@@ -203,7 +206,12 @@ describe('App', () => {
     await user.clear(editor());
     await user.paste('SecRule ARGS "@rx evil" "id:1,phase:2,redirect:/blocked.html"');
     await user.click(screen.getByRole('tab', { name: 'Visual' }));
+    // Блок действий раскрывают нажатием — и после возвращения из текста снова:
+    // вкладка размонтирует список, а с ним и то, что человек в нём открыл.
+    const openActions = async () =>
+      user.click(await screen.findByRole('button', { name: 'Expand "Actions"' }));
 
+    await openActions();
     expect(await screen.findByRole('textbox', { name: 'Destination' })).toHaveValue(
       '/blocked.html',
     );
@@ -213,6 +221,7 @@ describe('App', () => {
     await user.clear(editor());
     await user.paste('SecRule ARGS "@rx evil" "id:1,phase:2,deny"');
     await user.click(screen.getByRole('tab', { name: 'Visual' }));
+    await openActions();
 
     await waitFor(() =>
       expect(screen.queryByRole('textbox', { name: 'Destination' })).toBeNull(),

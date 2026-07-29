@@ -1,18 +1,13 @@
 import { useEffect, useRef } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
 import Collapse from '@mui/material/Collapse';
 import Divider from '@mui/material/Divider';
-import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
-import Stack from '@mui/material/Stack';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { ActionsPanel } from './ActionsPanel';
 import { BlockActions } from './BlockActions';
+import { BlockHeader, BlockTitle } from './BlockHeader';
 import { BlockList } from './BlockList';
 import { DirectiveRow } from './DirectiveRow';
 import { ExclusionMarks } from './ExclusionMarks';
@@ -27,7 +22,6 @@ import { useI18n } from '../../i18n/useI18n';
 import { emitDirective } from '../../modsec/directives';
 import { emitActionBlock } from '../../modsec/emit';
 import { blockRange } from '../../modsec/model';
-import { BLOCK_ROW } from '../../theme';
 import type { VisualActions, VisualBlock, VisualModel } from '../../modsec/model';
 
 /**
@@ -66,50 +60,37 @@ function ActionCard({
 
   return (
     <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-      <Stack
-        direction="row"
-        spacing={1}
-        sx={{ alignItems: 'center', height: BLOCK_ROW, px: 1.5, bgcolor: 'action.hover' }}
+      <BlockHeader
+        toggle={{
+          expanded,
+          onToggle: onToggleExpanded,
+          collapseLabel: 'builder.collapseBlock',
+          expandLabel: 'builder.expandBlock',
+        }}
+        // Названо словом, а не написанием `SecAction`: у безусловного
+        // действия имя директивы — единственное, что в строке стоит до
+        // самих действий, и повторять его выжимкой справа незачем.
+        title={<BlockTitle>{t('builder.secAction')}</BlockTitle>}
+        actions={
+          <BlockActions
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+            onDelete={onDelete}
+            deleteLabel="builder.deleteBlock"
+          />
+        }
       >
-        <Tooltip title={t(expanded ? 'builder.collapseBlock' : 'builder.expandBlock')}>
-          <IconButton
-            size="small"
-            onClick={onToggleExpanded}
-            aria-label={t(expanded ? 'builder.collapseBlock' : 'builder.expandBlock')}
-            aria-expanded={expanded}
-          >
-            {expanded ? (
-              <ExpandMoreIcon fontSize="small" />
-            ) : (
-              <ChevronRightIcon fontSize="small" />
-            )}
-          </IconButton>
-        </Tooltip>
-        <Chip
-          size="small"
-          color="secondary"
-          variant="outlined"
-          label={t('builder.secAction')}
-        />
-        {expanded ? (
-          <Box sx={{ flex: 1 }} />
-        ) : (
+        {expanded ? null : (
           <Typography
             variant="body2"
             color="text.secondary"
-            sx={{ flex: 1, minWidth: 0, fontFamily: 'ui-monospace, Consolas, monospace' }}
+            sx={{ fontFamily: 'ui-monospace, Consolas, monospace' }}
             noWrap
           >
             {block.comments.join(' ') || actionSummary(block.actions)}
           </Typography>
         )}
-        <BlockActions
-          onMoveUp={onMoveUp}
-          onMoveDown={onMoveDown}
-          onDelete={onDelete}
-          deleteLabel="builder.deleteBlock"
-        />
-      </Stack>
+      </BlockHeader>
       <Collapse in={expanded} unmountOnExit>
         <Divider />
         <ActionsPanel

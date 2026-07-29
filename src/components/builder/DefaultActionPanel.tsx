@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import { ChoiceField } from './ChoiceField';
 import { CommitField } from './CommitField';
 import { SuggestField } from './SuggestField';
+import { FLAG_COLUMN, PHASE_COLUMN, REACTION_COLUMN, STATUS_COLUMN } from './layout';
 import { useI18n } from '../../i18n/useI18n';
 import { disruptiveChoices, logFlagChoices, phaseChoices } from '../../modsec/choices';
 import { readDefaultAction, writeDefaultAction } from '../../modsec/directives';
@@ -51,7 +52,7 @@ export function DefaultActionPanel({ form, onChange }: DefaultActionPanelProps) 
   return (
     <Stack spacing={1.5}>
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-        <Box sx={{ width: 260 }}>
+        <Box sx={{ width: PHASE_COLUMN }}>
           <ChoiceField
             prefix="phase:"
             label={t('builder.phase')}
@@ -65,7 +66,7 @@ export function DefaultActionPanel({ form, onChange }: DefaultActionPanelProps) 
           />
         </Box>
 
-        <Box sx={{ width: 250 }}>
+        <Box sx={{ width: REACTION_COLUMN }}>
           <ChoiceField
             label={t('builder.disruptive')}
             emptyLabel={t('builder.unset')}
@@ -101,12 +102,12 @@ export function DefaultActionPanel({ form, onChange }: DefaultActionPanelProps) 
           suggestions={STATUS_SUGGESTIONS}
           value={value.status}
           onCommit={(status) => set({ ...value, status })}
-          sx={{ width: 160 }}
+          sx={{ width: STATUS_COLUMN }}
         />
       </Stack>
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-        <Box sx={{ width: 230 }}>
+        <Box sx={{ width: FLAG_COLUMN }}>
           <ChoiceField
             label={t('builder.log')}
             emptyLabel={t('builder.unset')}
@@ -115,7 +116,7 @@ export function DefaultActionPanel({ form, onChange }: DefaultActionPanelProps) 
             onChange={(name) => set({ ...value, log: flagState(name, LOG_FLAGS) })}
           />
         </Box>
-        <Box sx={{ width: 230 }}>
+        <Box sx={{ width: FLAG_COLUMN }}>
           <ChoiceField
             label={t('builder.auditlog')}
             emptyLabel={t('builder.unset')}

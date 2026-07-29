@@ -14,7 +14,12 @@ import { TransformPipeline } from './TransformPipeline';
 import { PipelinePreview } from './PipelinePreview';
 import { OperatorValue } from './OperatorValue';
 import { useI18n } from '../../i18n/useI18n';
-import { CONDITION_PADDING, CONDITION_PADDING_TOP, TRANSFORM_COLUMN } from './layout';
+import {
+  CONDITION_PADDING,
+  CONDITION_PADDING_TOP,
+  TARGET_COLUMN,
+  TRANSFORM_COLUMN,
+} from './layout';
 import { CONTROL_HEIGHT } from '../../theme';
 import { DiagnosticNotes } from '../diagnostics/DiagnosticNotes';
 import { conditionConstraints } from '../../modsec/semantics';
@@ -72,7 +77,7 @@ export function ConditionRow({
         // значения не должно схлопываться из-за длинного списка целей.
         gridTemplateColumns: {
           xs: '1fr',
-          lg: `minmax(480px, 1.2fr) ${TRANSFORM_COLUMN}px minmax(340px, 1fr)`,
+          lg: `minmax(${TARGET_COLUMN}px, 1.2fr) ${TRANSFORM_COLUMN}px minmax(340px, 1fr)`,
         },
         gap: 1.5,
         // Полосы выровнены по верхнему краю: первое поле каждой из них

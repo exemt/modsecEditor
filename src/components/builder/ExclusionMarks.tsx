@@ -14,6 +14,18 @@ import type { ExclusionEntry } from '../../modsec/exclusions';
  */
 const SHOWN_RULES = 6;
 
+interface ExclusionMarksProps {
+  entry: ExclusionEntry;
+  /**
+   * Номера правил уже стоят в самой строке — здесь их не повторять.
+   *
+   * Так у фразы `ctl`-исключения: номер, до которого запись дотянулась, встаёт
+   * ссылкой внутрь фразы, и вторым списком рядом он читался бы не как тот же
+   * номер, а как другие правила.
+   */
+  named?: boolean;
+}
+
 /**
  * Отметки у строки исключения: кого оно задевает и работает ли вообще.
  *
@@ -28,7 +40,7 @@ const SHOWN_RULES = 6;
  * поэтому одна и та же отметка объясняется по-разному. Причина промаха тут
  * важнее самого промаха: чинят её переносом в другую фазу, а не вниз по файлу.
  */
-export function ExclusionMarks({ entry }: { entry: ExclusionEntry }) {
+export function ExclusionMarks({ entry, named = false }: ExclusionMarksProps) {
   const { t } = useI18n();
   const { revealRule } = useBuilderView();
   const { directive, matches } = entry;
@@ -40,7 +52,7 @@ export function ExclusionMarks({ entry }: { entry: ExclusionEntry }) {
 
   return (
     <>
-      {matches.length === 0 ? (
+      {matches.length === 0 && (
         <Tooltip title={t('builder.exclusionNoMatchHint')}>
           <Chip
             size="small"
@@ -49,7 +61,9 @@ export function ExclusionMarks({ entry }: { entry: ExclusionEntry }) {
             sx={{ flexShrink: 0 }}
           />
         </Tooltip>
-      ) : (
+      )}
+
+      {matches.length > 0 && !named && (
         <>
           {/* Номер сам за себя не говорит: «1000» рядом с директивой читается
               как её аргумент — то же число, что набрано в поле слева, — а не
@@ -70,13 +84,13 @@ export function ExclusionMarks({ entry }: { entry: ExclusionEntry }) {
               />
             </Tooltip>
           ))}
-        </>
-      )}
 
-      {matches.length > shown.length && (
-        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-          {`+${matches.length - shown.length}`}
-        </Typography>
+          {matches.length > shown.length && (
+            <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+              {`+${matches.length - shown.length}`}
+            </Typography>
+          )}
+        </>
       )}
 
       {inactive && (

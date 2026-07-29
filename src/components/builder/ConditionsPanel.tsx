@@ -50,6 +50,10 @@ export function ConditionsPanel({
       title={t('builder.conditions')}
       summary={preview}
       monospace
+      // Единственный раскрытый блок карточки: условия — то, ради чего правило
+      // и открывают, и то, о чём одна строка выжимки говорит меньше всего.
+      // Остальные блоки ждут, пока о них спросят.
+      defaultExpanded
       counters={
         <>
           <Counter
