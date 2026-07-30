@@ -117,6 +117,31 @@ describe('BlockList — что попадает в DOM', () => {
    * из-под курсора, унесла бы набранное с собой — а виновата была бы
    * прокрутка колесом, о которой человек и не думал.
    */
+  /**
+   * Список может укоротиться под руками: так набор заменяют примером.
+   *
+   * Серия помнит, какие её строки были видны, а увидеть это заново успевает
+   * только после рендера. Помнящая больше, чем в ней осталось, она спросила бы
+   * у модели блок, которого в новой уже нет.
+   */
+  it('не спрашивает строку, которой в укоротившемся списке уже нет', async () => {
+    const { container, rerender } = renderList(200);
+    const view = fakeViewport(container, 400);
+
+    view.scrollTo(200 * COLLAPSED_STEP);
+    await waitFor(() => expect(screen.queryByText('строка 0')).toBeNull());
+
+    const short = (index: number) => {
+      if (index >= 5) throw new Error(`строки ${index} в списке нет`);
+      return <button type="button">{`строка ${index}`}</button>;
+    };
+
+    rerender(<BlockList count={5} isOpen={() => false} render={short} dimmed={false} />);
+
+    view.scrollTo(0);
+    await waitFor(() => expect(rows()).toHaveLength(5));
+  });
+
   it('оставляет в DOM строку, в которой стоит курсор', async () => {
     const { container } = renderList(200);
     const view = fakeViewport(container, 400);

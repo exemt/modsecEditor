@@ -61,6 +61,10 @@ export function FileSetControls() {
   const { t } = useI18n();
   const { files, activeId, selectFile } = useWorkspace();
   const [managing, setManaging] = useState(false);
+  /** Список файлов раскрыт. */
+  const [listed, setListed] = useState(false);
+  /** На поле наведено: подсказка была бы показана, если бы список был закрыт. */
+  const [hinted, setHinted] = useState(false);
 
   const active = files.find((file) => file.id === activeId) ?? null;
 
@@ -69,9 +73,20 @@ export function FileSetControls() {
       {active !== null && (
         // `describeChild`: у поля есть имя, и подсказка обязана остаться
         // описанием, а не подменить это имя собой.
-        <Tooltip title={t('document.sectionHint')} describeChild>
+        //
+        // Пока список раскрыт, подсказки нет: всплывает она под полем, то есть
+        // ровно над теми именами, ради которых список и открыли.
+        <Tooltip
+          title={t('document.sectionHint')}
+          describeChild
+          open={hinted && !listed}
+          onOpen={() => setHinted(true)}
+          onClose={() => setHinted(false)}
+        >
           <Autocomplete<WorkspaceFile, false, true, false>
             openOnFocus
+            onOpen={() => setListed(true)}
+            onClose={() => setListed(false)}
             selectOnFocus
             handleHomeEndKeys
             autoHighlight

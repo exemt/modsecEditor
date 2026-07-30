@@ -124,7 +124,14 @@ interface RunProps {
 function CollapsedRun({ from, to, scroller, subscribe, held, flash, render }: RunProps) {
   const count = to - from;
   const box = useRef<HTMLDivElement>(null);
-  const [[first, last], setRange] = useState<[number, number]>([0, count]);
+  const [range, setRange] = useState<[number, number]>([0, count]);
+
+  // Серия могла укоротиться прямо перед этим рендером — например когда набор
+  // заменили примером. Замер вернёт границы на место, но он в слое раскладки,
+  // а строки рисуются раньше: непоправленные, они спросили бы у модели блок,
+  // которого в ней уже нет.
+  const first = Math.min(range[0], count);
+  const last = Math.min(range[1], count);
 
   const measure = useCallback(() => {
     const el = box.current;

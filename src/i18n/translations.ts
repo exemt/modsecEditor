@@ -580,7 +580,8 @@ const en = {
 
   'menu.file': 'File',
   'menu.fileHint': 'The set: where files come from and where they go',
-  'menu.newFile': 'New empty file',
+  'menu.newSet': 'New set — one empty file',
+  'menu.newFile': 'New empty file in the set',
   'menu.openFiles': 'Open files…',
   'menu.openArchive': 'Open an archive…',
   'menu.saveFile': 'Download "{name}"',
@@ -593,6 +594,8 @@ const en = {
     'Files of the set have been edited. An example replaces the set with its own single file, and those edits are discarded.',
   'document.replaceFilesBody':
     'Files of the set have been edited and have not been downloaded. Opening replaces the set with what you picked ({count}), and those edits are discarded. To keep them, add the files from the files window instead.',
+  'document.replaceBlankBody':
+    'Files of the set have been edited and have not been downloaded. A new set replaces them with a single empty file, and those edits are discarded.',
   'document.replace': 'Replace',
   'document.section': 'File',
   'document.sectionHint': 'Which file of the set you are editing — type part of a name to narrow the list',
@@ -1290,7 +1293,8 @@ const ru: Record<TranslationKey, string> = {
 
   'menu.file': 'Файл',
   'menu.fileHint': 'Набор: откуда файлы берутся и куда уходят',
-  'menu.newFile': 'Новый пустой файл',
+  'menu.newSet': 'Новый набор — один пустой файл',
+  'menu.newFile': 'Новый пустой файл в наборе',
   'menu.openFiles': 'Открыть файлы…',
   'menu.openArchive': 'Открыть архив…',
   'menu.saveFile': 'Выгрузить «{name}»',
@@ -1303,6 +1307,8 @@ const ru: Record<TranslationKey, string> = {
     'В наборе есть правленые файлы. Пример заменяет набор своим единственным файлом, и эти правки сотрутся.',
   'document.replaceFilesBody':
     'В наборе есть правленые и невыгруженные файлы. Открытие заменит набор выбранным ({count}), и эти правки сотрутся. Чтобы их сохранить, добавьте файлы из окна файлов набора.',
+  'document.replaceBlankBody':
+    'В наборе есть правленые и невыгруженные файлы. Новый набор заменит их одним пустым файлом, и эти правки сотрутся.',
   'document.replace': 'Заменить',
   'document.section': 'Файл',
   'document.sectionHint': 'Какой файл набора вы правите — наберите часть имени, чтобы сузить список',

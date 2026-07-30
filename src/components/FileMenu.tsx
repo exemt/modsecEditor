@@ -14,6 +14,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DownloadIcon from '@mui/icons-material/Download';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import FolderZipIcon from '@mui/icons-material/FolderZip';
+import LibraryAddIcon from '@mui/icons-material/LibraryAdd';
 import NoteAddIcon from '@mui/icons-material/NoteAdd';
 import { ConfirmDialog } from './ConfirmDialog';
 import { ExamplesDialog } from './ExamplesDialog';
@@ -22,6 +23,7 @@ import { downloadFile, downloadSet } from './download';
 import { FILE_ACCEPT, useFilePicker } from './useFilePicker';
 import { exampleFile } from '../data/exampleFile';
 import type { ModsecExample } from '../data/modsecExamples';
+import { DEFAULT_NAME } from '../store/filesSlice';
 import type { NewFile } from '../store/filesSlice';
 import { useI18n } from '../i18n/useI18n';
 import type { TranslationKey } from '../i18n/translations';
@@ -31,7 +33,7 @@ import { useWorkspace } from '../context/workspaceContext';
 /**
  * Всё, что делают с набором целиком: откуда он берётся и куда уходит.
  *
- * Меню, а не ряд кнопок над текстом. Действий здесь семь, делают их редко —
+ * Меню, а не ряд кнопок над текстом. Действий здесь восемь, делают их редко —
  * раз за сеанс открыли, раз сохранили, — и в виде постоянной полосы они всё
  * время занимали место у содержимого, ради которого редактор и открыт. Порядок
  * пунктов обычный для приложений, чтобы его не приходилось изучать: сначала
@@ -42,6 +44,12 @@ import { useWorkspace } from '../context/workspaceContext';
  * есть «Добавить»: там видно, куда файл встанет в порядке чтения, а здесь не
  * видно ничего. Поэтому же открытие спрашивает, если в наборе есть невыгруженные
  * правки: заменить работу молча нельзя, а выгрузить её после замены неоткуда.
+ *
+ * Начать с чистого листа — тоже замена, а не «удалить всё»: набор без файлов
+ * это редактор без текста, и вернуться в него было бы неоткуда. Поэтому новый
+ * набор — один пустой файл, и спрашивает он о том же и теми же словами, что
+ * пример и открытие. Стоит он выше нового файла в наборе, потому что решения
+ * разного размера: одно заменяет всё, второе прибавляет к тому, что есть.
  */
 export function FileMenu() {
   const { t } = useI18n();
@@ -126,6 +134,11 @@ export function FileMenu() {
 
       <Menu anchorEl={anchor} open={anchor !== null} onClose={() => setAnchor(null)}>
         <Item
+          icon={<LibraryAddIcon fontSize="small" />}
+          label={t('menu.newSet')}
+          onClick={pick(() => replace({ kind: 'blank' }))}
+        />
+        <Item
           icon={<NoteAddIcon fontSize="small" />}
           label={t('menu.newFile')}
           onClick={pick(newFile)}
@@ -191,14 +204,16 @@ export function FileMenu() {
         }}
       />
 
-      {/* Вопрос один на все замены, но говорит о своей: пример заменяет набор
-          одним учебным файлом, открытые файлы — собой. */}
       <ConfirmDialog
         open={pending !== null}
         title={t('document.replaceTitle')}
-        body={t(pending?.kind === 'files' ? 'document.replaceFilesBody' : 'document.replaceBody', {
-          count: String(pending?.kind === 'files' ? pending.files.length : 0),
-        })}
+        body={
+          pending === null
+            ? ''
+            : t(REPLACE_BODY[pending.kind], {
+                count: String(pending.kind === 'files' ? pending.files.length : 0),
+              })
+        }
         confirmLabel={t('document.replace')}
         onCancel={() => setPending(null)}
         onConfirm={() => {
@@ -225,11 +240,21 @@ export function FileMenu() {
  */
 type Pending =
   | { kind: 'example'; example: ModsecExample }
-  | { kind: 'files'; files: NewFile[] };
+  | { kind: 'files'; files: NewFile[] }
+  | { kind: 'blank' };
 
 function filesOf(pending: Pending): NewFile[] {
-  return pending.kind === 'example' ? [exampleFile(pending.example)] : pending.files;
+  if (pending.kind === 'example') return [exampleFile(pending.example)];
+  if (pending.kind === 'blank') return [{ name: DEFAULT_NAME, source: '' }];
+  return pending.files;
 }
+
+/** Вопрос один на все замены, но говорит о своей: чем именно заменяют набор. */
+const REPLACE_BODY: Record<Pending['kind'], TranslationKey> = {
+  example: 'document.replaceBody',
+  files: 'document.replaceFilesBody',
+  blank: 'document.replaceBlankBody',
+};
 
 /** Пункт меню со значком: значки выравнивают подписи в колонку. */
 function Item({

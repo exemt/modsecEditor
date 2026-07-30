@@ -109,6 +109,25 @@ describe('где переменная читается', () => {
     expect(found?.reads[0].text).toBe('TX:score');
   });
 
+  // Строка чтения — не строка правила, которое переменную выставило: место
+   // называют затем, чтобы к нему перейти.
+  it('называет строку чтения, а не первую строку файла', () => {
+    const found = lookupVariable(
+      one(
+        [
+          'SecAction "id:1,phase:1,pass,nolog,setvar:tx.threshold=5"',
+          '',
+          'SecRule TX:score "@ge %{tx.threshold}" "id:2,phase:2,deny,msg:\'x\'"',
+        ].join('\n'),
+      ),
+      'tx',
+      'threshold',
+    );
+
+    expect(found?.writes[0].line).toBe(1);
+    expect(found?.reads[0].line).toBe(3);
+  });
+
   it('видит чтение макросом в сообщении и в аргументе оператора', () => {
     const found = one(
       [

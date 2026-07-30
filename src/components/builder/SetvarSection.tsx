@@ -35,9 +35,13 @@ import type { SetvarOp } from '../../modsec/setvar';
  */
 const ROW_COLUMNS = [
   `${COLLECTION_COLUMN}px`,
-  'minmax(120px, 1fr)',
+  // Имени места больше, чем значению: `inbound_anomaly_score_threshold` — это
+  // тридцать один знак, а справа от знака равенства обычно стоит число или
+  // один макрос. Обрезанное имя при этом хуже обрезанного значения: значение
+  // правят, уже зная, какую переменную выставляют.
+  'minmax(160px, 1.5fr)',
   `${SETVAR_OP_COLUMN}px`,
-  'minmax(140px, 1.2fr)',
+  'minmax(120px, 1fr)',
   `${ICON_COLUMN}px`,
   `${ICON_COLUMN}px`,
 ].join(' ');

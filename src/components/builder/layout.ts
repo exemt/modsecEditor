@@ -101,7 +101,7 @@ export const COLLECTION_COLUMN = 210;
  * Поле вида записи: «задать», «прибавить», «вычесть», «удалить» со знаком,
  * которым каждое из них пишется в правиле.
  */
-export const SETVAR_OP_COLUMN = 170;
+export const SETVAR_OP_COLUMN = 150;
 
 /** Полоса преобразований целиком: ручка + выпадающий список + крестик. */
 export const TRANSFORM_COLUMN = 260;
