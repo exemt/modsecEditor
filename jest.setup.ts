@@ -25,6 +25,19 @@ if (typeof Blob.prototype.text !== 'function') {
   };
 }
 
+// То же и с `Blob.arrayBuffer()`: он нужен чтению архива — байты архива нельзя
+// прочитать текстом, распаковщик получил бы искажённую перекодировкой строку.
+if (typeof Blob.prototype.arrayBuffer !== 'function') {
+  Blob.prototype.arrayBuffer = function arrayBuffer(this: Blob) {
+    return new Promise<ArrayBuffer>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as ArrayBuffer);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsArrayBuffer(this);
+    });
+  };
+}
+
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: (query: string) => ({

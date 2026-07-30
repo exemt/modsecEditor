@@ -8,6 +8,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useRule } from '../../context/ruleContext';
 import { useBuilderView } from '../../context/builderViewContext';
 import { useEditorView } from '../../context/editorViewContext';
+import { useWorkspace } from '../../context/workspaceContext';
 import { useI18n } from '../../i18n/useI18n';
 import { diagnosticKey, fixKey, slotKey } from '../../i18n/translations';
 import { quickFixFor } from '../../modsec/fixes';
@@ -44,12 +45,23 @@ export function DiagnosticLine({ diagnostic, showPlace = false }: DiagnosticLine
   const { compiled, updateRule } = useRule();
   const { revealLine } = useEditorView();
   const { revealRule } = useBuilderView();
+  const { files, activeId, nameOf } = useWorkspace();
   const { anchor } = diagnostic;
+
+  /**
+   * Замечание не о том файле, который открыт.
+   *
+   * Модель на руках только у активного файла, поэтому у чужого замечания не
+   * ищется ни правило, ни правка: ключ `rule-3` есть в каждом файле, и поиск
+   * по открытой модели нашёл бы чужое правило. Перейти к нему всё равно можно —
+   * переход сменит файл.
+   */
+  const foreign = diagnostic.file !== undefined && diagnostic.file !== activeId;
 
   // Чинить можно только то, что компилятор разложил в модель: пока в тексте
   // есть блокирующая ошибка, правка не на что опереться.
   const fix = quickFixFor(diagnostic);
-  const rule = findRule(compiled.model, anchor?.ruleKey);
+  const rule = foreign ? null : findRule(compiled.model, anchor?.ruleKey);
 
   // Адрес читается от мелкого к крупному: «оператор · условие 2 · строка 7».
   // Номер строки отделён от остального: он не просто подпись, по нему
@@ -60,6 +72,12 @@ export function DiagnosticLine({ diagnostic, showPlace = false }: DiagnosticLine
           ? t('debug.condition', { index: String(anchor.condition) })
           : null,
         anchor?.slot !== undefined ? t(slotKey(anchor.slot)) : null,
+        // Имя файла — крупнее всего остального, поэтому стоит в конце адреса.
+        // Показывается, когда файлов несколько: в наборе список замечаний
+        // перемешан, и «строка 12» без файла — не адрес.
+        files.length > 1 && diagnostic.file !== undefined
+          ? t('debug.inFile', { file: nameOf(diagnostic.file) })
+          : null,
       ].filter((part): part is string => part !== null)
     : [];
   const line = showPlace ? diagnostic.line : undefined;
@@ -93,12 +111,12 @@ export function DiagnosticLine({ diagnostic, showPlace = false }: DiagnosticLine
 
       {/* Две ссылки, а не одна: у текста и у конструктора разные сильные
           стороны, и выбор между ними — за человеком, а не за панелью. */}
-      {showPlace && rule !== null && anchor !== undefined && (
+      {showPlace && anchor !== undefined && (rule !== null || foreign) && (
         <Link
           component="button"
           variant="caption"
           underline="hover"
-          onClick={() => revealRule(anchor.ruleKey)}
+          onClick={() => revealRule(anchor.ruleKey, diagnostic.file)}
           sx={{ whiteSpace: 'nowrap' }}
         >
           {t('debug.inBuilder')}
@@ -110,7 +128,7 @@ export function DiagnosticLine({ diagnostic, showPlace = false }: DiagnosticLine
           component="button"
           variant="caption"
           underline="hover"
-          onClick={() => revealLine(line)}
+          onClick={() => revealLine(line, diagnostic.file)}
           sx={{ whiteSpace: 'nowrap' }}
         >
           {t('debug.line', { line: String(line) })}

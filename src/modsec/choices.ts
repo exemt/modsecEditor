@@ -17,10 +17,12 @@
 
 import { DIRECTIVE_FORM_NAMES, directiveMeta } from './directives';
 import { CTL_EXCLUSION_OPTIONS } from './exclusions';
+import { SETVAR_COLLECTIONS } from './setvar';
 import {
   DISRUPTIVE_ACTIONS,
   OPERATOR_NAMES,
   PHASE_NAMES,
+  SETVAR_OPS,
   SEVERITY_NAMES,
   TRANSFORM_NAMES,
   ctlExclusionMeta,
@@ -28,6 +30,8 @@ import {
   logFlagMeta,
   operatorMeta,
   phaseMeta,
+  setvarCollectionMeta,
+  setvarOpMeta,
   severityMeta,
   transformMeta,
 } from './semantics';
@@ -248,6 +252,22 @@ export function ctlExclusionChoices(current: string): Choice[] {
 /** Уровни критичности срабатывания. */
 export function severityChoices(current: string): Choice[] {
   return actionChoices(SEVERITY_NAMES, severityMeta, current);
+}
+
+/**
+ * Коллекции, в которые `setvar` умеет писать.
+ *
+ * Список закрытый, и это не удобство, а единственная защита: присваивание в
+ * `geo` или `matched_var` ModSecurity примет и молча не сделает ничего —
+ * заполняет их движок. Из списка такую запись не набрать.
+ */
+export function setvarCollectionChoices(current: string): Choice[] {
+  return actionChoices(SETVAR_COLLECTIONS, setvarCollectionMeta, current);
+}
+
+/** Виды записи: задать, прибавить, вычесть, удалить. */
+export function setvarOpChoices(current: string): Choice[] {
+  return actionChoices(SETVAR_OPS, setvarOpMeta, current);
 }
 
 /**

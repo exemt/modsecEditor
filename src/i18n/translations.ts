@@ -35,8 +35,6 @@ const en = {
   'tab.visual': 'Visual',
   'tab.visualBlocked': 'Fix the errors in the text to switch to the visual editor',
 
-  'examples.title': 'Examples',
-  'examples.browse': 'Open the learning examples',
   'examples.dialogTitle': 'Examples of ModSecurity rules',
   'examples.hint': 'An example replaces the whole text in the editor.',
   'examples.list': 'Example list',
@@ -143,6 +141,7 @@ const en = {
   'debug.line': 'line {line}',
   'debug.inBuilder': 'in the builder',
   'debug.condition': 'condition {index}',
+  'debug.inFile': 'in {file}',
   'debug.blocked': 'Visual editor is blocked until the errors are fixed.',
 
   'builder.empty': 'No rules yet.',
@@ -260,6 +259,31 @@ const en = {
   'builder.log': 'Log',
   'builder.auditlog': 'Audit log',
   'builder.setvar': 'Set variables',
+  'builder.setvarCollection': 'Collection',
+  'builder.setvarName': 'Variable',
+  'builder.setvarOp': 'Record',
+  'builder.setvarValue': 'Value',
+  'builder.addSetvar': 'Set a variable',
+  'builder.deleteSetvar': 'Remove the assignment',
+  'builder.setvarNameRequired': 'Without a name the assignment writes nowhere',
+  'builder.setvarNoValue':
+    'Removal takes no value: it takes the variable out of the collection instead of writing something into it',
+  'builder.setvarRaw':
+    'No form for this one: a macro in the name, a collection the engine fills itself or a record with no value — edited as a whole line',
+
+  'builder.variableInfo': 'What the set knows about the variable',
+  'builder.variableSetIn': 'Set in',
+  'builder.variableReadIn': 'Read in',
+  'builder.variableNeverSet': 'nowhere — a rule reading it gets an empty value',
+  'builder.variableNeverRead': 'nowhere — what this record accumulates is never checked',
+  'builder.variableEarlyRead':
+    'The first read runs before the first write: phase comes first in the execution order, and what is read before the write is always empty',
+  'builder.variableNoStorage':
+    'The collection is not opened: without initcol and SecDataDir the record does not survive the request',
+  'builder.variableRule': 'rule {id}, {where}',
+  'builder.variableLine': 'line {line}',
+  'builder.variableLineIn': '{file}, line {line}',
+
   'builder.otherActions': 'Other actions',
   'builder.unset': 'not set',
   'builder.more': 'More',
@@ -285,8 +309,11 @@ const en = {
   'builder.exclusionLateHint':
     'It runs after the rules it names — a ctl exclusion has to fire earlier, and the phase decides that before the line does',
   'builder.exclusionNoMatch': 'no rule found',
-  'builder.exclusionNoMatchHint': 'No rule of this file matches — it may come from another one',
+  'builder.exclusionNoMatchHint':
+    'No rule of the loaded files matches — it may come from a set that is not open here',
   'builder.exclusionReveal': 'Show rule {id}',
+  'builder.exclusionRevealIn': 'Show rule {id} in {file}',
+  'builder.markFile': 'in {file}',
   'builder.exclusionRule': 'rule:',
   'builder.exclusionRules': 'rules:',
   'builder.effectRemoved': 'off',
@@ -305,6 +332,7 @@ const en = {
   'builder.countExclusionsInbound': 'Exclusions that remove or change this rule: {count}',
   'builder.countExclusionsOutbound': 'Exclusions this rule sets itself: {count}',
   'builder.exclusionAtLine': 'line {line}',
+  'builder.exclusionAtLineIn': '{file}, line {line}',
   'builder.exclusionRevealLine': 'Show line {line}',
   'builder.exclusionRevealBlock': 'Show the exclusion in the builder',
   'builder.excludeTargetTitle': 'A target exclusion for rule {id}',
@@ -431,6 +459,8 @@ const en = {
   'diag.danglingChain': 'The chain is broken: "chain" is set but there is no next rule.',
   'diag.missingId': 'The rule has no "id" — ModSecurity will refuse to load it.',
   'diag.duplicateId': 'Duplicate rule id "{id}".',
+  'diag.duplicateIdCrossFile':
+    'Rule id "{id}" is already taken in "{file}", line {line}: ModSecurity refuses to load a configuration where one id is used twice.',
   'diag.chainLinkHeadAction': 'Action "{name}" is only allowed on the first rule of a chain.',
 
   'diag.unknownVariable': 'Unknown variable "{name}".',
@@ -475,14 +505,17 @@ const en = {
   'diag.unescapedDot': 'The dot in "{value}" matches any character — write "\\." if a literal dot was meant.',
   'diag.overlappingTargets': '"{inner}" is already part of "{outer}" — the second area adds nothing.',
 
-  'diag.requestBodyAccessOff': '"SecRequestBodyAccess Off" in this file: "{name}" is always empty.',
-  'diag.responseBodyAccessOff': '"SecResponseBodyAccess Off" in this file: "{name}" is always empty.',
+  'diag.requestBodyAccessOff':
+    '"SecRequestBodyAccess Off" in the loaded files: "{name}" is always empty.',
+  'diag.responseBodyAccessOff':
+    '"SecResponseBodyAccess Off" in the loaded files: "{name}" is always empty.',
   'diag.disruptiveInLoggingPhase': 'In phase 5 the response has already been sent — "{name}" is ignored.',
-  'diag.missingMarker': 'There is no "SecMarker {name}" in this file — the jump leads nowhere.',
-  'diag.skipBeyondEnd': '"skip:{count}" skips more rules than the {rest} left in this file.',
-  'diag.engineNotEnforcing': 'SecRuleEngine is "{mode}": blocking actions in this file are logged but not applied.',
-  'diag.xmlWithoutProcessor': '"XML" is only filled in after "ctl:requestBodyProcessor=XML", which this file never sets.',
-  'diag.txNeverSet': 'Nothing in this file sets "tx.{name}".',
+  'diag.missingMarker':
+    'There is no "SecMarker {name}" in the loaded files — the jump leads nowhere.',
+  'diag.skipBeyondEnd': '"skip:{count}" skips more rules than the {rest} left after it.',
+  'diag.engineNotEnforcing': 'SecRuleEngine is "{mode}": blocking actions are logged but not applied.',
+  'diag.xmlWithoutProcessor': '"XML" is only filled in after "ctl:requestBodyProcessor=XML", which none of the loaded files sets.',
+  'diag.txNeverSet': 'Nothing in the loaded files sets "tx.{name}".',
 
   'diag.captureWithoutRegex': 'Nothing to capture: no check of this rule uses a regular expression.',
   'diag.captureMissing': '"%{TX.{index}}" is empty: the rule has no "capture" action.',
@@ -517,10 +550,12 @@ const en = {
   'diag.exclusionEmptyRange': 'Range "{target}" is inverted: no rule falls into it.',
   'diag.exclusionBeforeRule':
     '"{name}" stands above rule {id}: exclusions apply as the configuration is read, so this one does nothing.',
+  'diag.exclusionInEarlierFile':
+    '"{name}" sits in a file read before "{file}", where rule {id} is: exclusions apply as the configuration is read, so this one does nothing. Move the file below that one.',
   'diag.exclusionNoMatch':
-    'No rule in this file matches "{target}" — check that it comes from a file included earlier.',
+    'No rule of the loaded files matches "{target}" — check that it comes from a file included earlier.',
   'diag.exclusionTooBroad':
-    '"{name}" removes {count} rules of this file — a targeted exclusion keeps the protection everywhere else.',
+    '"{name}" removes {count} rules — a targeted exclusion keeps the protection everywhere else.',
   'diag.exclusionDuplicate': 'The same exclusion is already on line {line}.',
   'diag.exclusionByMsgFragile':
     '"{name}" selects by message text, and that is not a stable interface — a tag or an id survives an update of the rule set.',
@@ -539,19 +574,58 @@ const en = {
   'diag.exclusionCtlAlreadyRemoved':
     'The rule is already removed for good on line {line} — a per-request exclusion adds nothing to that.',
 
-  'toolbar.open': 'Open',
-  'toolbar.openHint': 'Load a .conf file from disk',
-  'toolbar.save': 'Save',
-  'toolbar.saveHint': 'Download the text as a .conf file',
   'toolbar.copy': 'Copy',
-  'toolbar.copyHint': 'Copy the whole text to the clipboard',
   'toolbar.copied': 'Copied to the clipboard',
   'toolbar.copyFailed': 'The browser did not allow access to the clipboard',
 
-  'document.replaceTitle': 'Replace the current text?',
+  'menu.file': 'File',
+  'menu.fileHint': 'The set: where files come from and where they go',
+  'menu.newFile': 'New empty file',
+  'menu.openFiles': 'Open files…',
+  'menu.openArchive': 'Open an archive…',
+  'menu.saveFile': 'Download "{name}"',
+  'menu.saveArchive': 'Download the whole set as an archive',
+  'menu.copy': 'Copy the text to the clipboard',
+  'menu.examples': 'Learning examples…',
+
+  'document.replaceTitle': 'Replace the whole set?',
   'document.replaceBody':
-    'The current text has been edited. Loading another document will discard those edits.',
+    'Files of the set have been edited. An example replaces the set with its own single file, and those edits are discarded.',
+  'document.replaceFilesBody':
+    'Files of the set have been edited and have not been downloaded. Opening replaces the set with what you picked ({count}), and those edits are discarded. To keep them, add the files from the files window instead.',
   'document.replace': 'Replace',
+  'document.section': 'File',
+  'document.sectionHint': 'Which file of the set you are editing — type part of a name to narrow the list',
+  'document.search': 'Part of a name',
+  'document.noMatch': 'No name in the set matches',
+
+  'files.manage': 'Files',
+  'files.manageHint': 'The set of files: order, adding, removing, downloading',
+  'files.title': 'Files of the set',
+  'files.order':
+    'ModSecurity reads the files in this order. Move a file below another one and its exclusions start reaching that one: a directive only applies to rules read before it.',
+  'files.list': 'Files of the set',
+  'files.current': 'editing',
+  'files.create': 'Empty file',
+  'files.addFromDisk': 'Files or an archive…',
+  'files.dropHere': 'Drop files or a .zip here — they are added to the end of the set',
+  'files.archiveFailed': 'That file could not be read as a .zip archive',
+  'files.download': 'Download "{name}" as it is',
+  'files.up': 'Move up — read earlier',
+  'files.down': 'Move down — read later',
+  'files.drag': 'Drag to reorder',
+  'files.remove': 'Remove "{name}" from the set',
+  'files.removeTitle': 'Remove the file?',
+  'files.removeBody':
+    '"{name}" has been edited and has not been downloaded. Removing it discards those edits.',
+  'files.removeConfirm': 'Remove',
+  'files.clearTitle': 'Clear the file?',
+  'files.clearBody':
+    '"{name}" is the only file of the set: it is emptied rather than removed — the editor always edits some file.',
+  'files.clearConfirm': 'Clear',
+  'files.edited': 'edited',
+  'files.lines': '{count} lines',
+  'files.empty': 'empty',
 
   'builder.destination': 'Destination',
   'builder.collapse': 'Collapse the rule',
@@ -677,8 +751,6 @@ const ru: Record<TranslationKey, string> = {
   'tab.visual': 'Визуальный',
   'tab.visualBlocked': 'Исправьте ошибки в тексте, чтобы перейти в визуальный редактор',
 
-  'examples.title': 'Примеры',
-  'examples.browse': 'Открыть учебные примеры',
   'examples.dialogTitle': 'Примеры правил ModSecurity',
   'examples.hint': 'Пример заменяет весь текст в редакторе.',
   'examples.list': 'Список примеров',
@@ -782,6 +854,7 @@ const ru: Record<TranslationKey, string> = {
   'debug.line': 'строка {line}',
   'debug.inBuilder': 'в конструкторе',
   'debug.condition': 'условие {index}',
+  'debug.inFile': 'в {file}',
   'debug.blocked': 'Визуальный редактор заблокирован, пока есть ошибки.',
 
   'builder.empty': 'Правил пока нет.',
@@ -896,6 +969,31 @@ const ru: Record<TranslationKey, string> = {
   'builder.log': 'Логировать',
   'builder.auditlog': 'Журнал аудита',
   'builder.setvar': 'Установка переменных',
+  'builder.setvarCollection': 'Коллекция',
+  'builder.setvarName': 'Переменная',
+  'builder.setvarOp': 'Запись',
+  'builder.setvarValue': 'Значение',
+  'builder.addSetvar': 'Выставить переменную',
+  'builder.deleteSetvar': 'Убрать присваивание',
+  'builder.setvarNameRequired': 'Без имени присваивание не пишет никуда',
+  'builder.setvarNoValue':
+    'Удаление значения не принимает: оно убирает переменную из коллекции, а не пишет в неё',
+  'builder.setvarRaw':
+    'Формы для этой записи нет: макрос в имени, коллекция, которую заполняет сам движок, или запись без значения — правится строкой целиком',
+
+  'builder.variableInfo': 'Что набор знает о переменной',
+  'builder.variableSetIn': 'Выставляется',
+  'builder.variableReadIn': 'Читается',
+  'builder.variableNeverSet': 'нигде — читающее правило получит пустое значение',
+  'builder.variableNeverRead': 'нигде — накопленное этой записью никто не проверяет',
+  'builder.variableEarlyRead':
+    'Первое чтение выполняется раньше первой записи: порядок задаёт сначала фаза, а прочитанное до записи всегда пусто',
+  'builder.variableNoStorage':
+    'Коллекция не открыта: без initcol и SecDataDir запись не переживёт запрос',
+  'builder.variableRule': 'правило {id}, {where}',
+  'builder.variableLine': 'строка {line}',
+  'builder.variableLineIn': '{file}, строка {line}',
+
   'builder.otherActions': 'Прочие действия',
   'builder.unset': 'не задано',
   'builder.more': 'Ещё',
@@ -922,8 +1020,10 @@ const ru: Record<TranslationKey, string> = {
     'Выполняется позже правил, которые называет: исключение через ctl обязано сработать раньше, а это решает сначала фаза и только потом строка',
   'builder.exclusionNoMatch': 'правил не найдено',
   'builder.exclusionNoMatchHint':
-    'Ни одно правило этого файла не подходит — возможно, оно приходит из другого',
+    'Ни одно правило загруженных файлов не подходит — возможно, оно приходит из набора, который здесь не открыт',
   'builder.exclusionReveal': 'Показать правило {id}',
+  'builder.exclusionRevealIn': 'Показать правило {id} в «{file}»',
+  'builder.markFile': 'в «{file}»',
   'builder.exclusionRule': 'правило:',
   'builder.exclusionRules': 'правила:',
   'builder.effectRemoved': 'выключено',
@@ -942,6 +1042,7 @@ const ru: Record<TranslationKey, string> = {
   'builder.countExclusionsInbound': 'Исключений, снимающих или правящих это правило: {count}',
   'builder.countExclusionsOutbound': 'Исключений, которые ставит само правило: {count}',
   'builder.exclusionAtLine': 'строка {line}',
+  'builder.exclusionAtLineIn': '«{file}», строка {line}',
   'builder.exclusionRevealLine': 'Показать строку {line}',
   'builder.exclusionRevealBlock': 'Показать исключение в конструкторе',
   'builder.excludeTargetTitle': 'Исключение цели у правила {id}',
@@ -1069,6 +1170,8 @@ const ru: Record<TranslationKey, string> = {
   'diag.danglingChain': 'Цепочка разорвана: указан «chain», но следующего правила нет.',
   'diag.missingId': 'У правила нет «id» — ModSecurity его не загрузит.',
   'diag.duplicateId': 'Идентификатор «{id}» уже используется.',
+  'diag.duplicateIdCrossFile':
+    'Идентификатор «{id}» уже занят правилом в файле «{file}», строка {line}: конфигурацию, где один номер использован дважды, ModSecurity не загрузит.',
   'diag.chainLinkHeadAction': 'Действие «{name}» допустимо только на первом правиле цепочки.',
 
   'diag.unknownVariable': 'Неизвестная переменная «{name}».',
@@ -1113,14 +1216,16 @@ const ru: Record<TranslationKey, string> = {
   'diag.unescapedDot': 'Точка в «{value}» совпадает с любым символом — напишите «\\.», если имелась в виду обычная точка.',
   'diag.overlappingTargets': '«{inner}» уже входит в «{outer}» — вторая область ничего не добавляет.',
 
-  'diag.requestBodyAccessOff': 'В файле указано «SecRequestBodyAccess Off» — «{name}» всегда пусто.',
-  'diag.responseBodyAccessOff': 'В файле указано «SecResponseBodyAccess Off» — «{name}» всегда пусто.',
+  'diag.requestBodyAccessOff':
+    'В загруженных файлах указано «SecRequestBodyAccess Off» — «{name}» всегда пусто.',
+  'diag.responseBodyAccessOff':
+    'В загруженных файлах указано «SecResponseBodyAccess Off» — «{name}» всегда пусто.',
   'diag.disruptiveInLoggingPhase': 'В фазе 5 ответ уже отправлен — действие «{name}» будет проигнорировано.',
-  'diag.missingMarker': 'Метки «SecMarker {name}» в этом файле нет — переходить некуда.',
-  'diag.skipBeyondEnd': '«skip:{count}» пропускает больше правил, чем осталось в файле ({rest}).',
-  'diag.engineNotEnforcing': 'SecRuleEngine в режиме «{mode}»: блокирующие действия этого файла попадут в лог, но не применятся.',
-  'diag.xmlWithoutProcessor': '«XML» заполняется только после «ctl:requestBodyProcessor=XML», а в этом файле его нет.',
-  'diag.txNeverSet': 'Переменную «tx.{name}» в этом файле никто не выставляет.',
+  'diag.missingMarker': 'Метки «SecMarker {name}» в загруженных файлах нет — переходить некуда.',
+  'diag.skipBeyondEnd': '«skip:{count}» пропускает больше правил, чем осталось после него ({rest}).',
+  'diag.engineNotEnforcing': 'SecRuleEngine в режиме «{mode}»: блокирующие действия попадут в лог, но не применятся.',
+  'diag.xmlWithoutProcessor': '«XML» заполняется только после «ctl:requestBodyProcessor=XML», а в загруженных файлах его нет.',
+  'diag.txNeverSet': 'Переменную «tx.{name}» в загруженных файлах никто не выставляет.',
 
   'diag.captureWithoutRegex': 'Захватывать нечего: ни одна проверка правила не использует регулярное выражение.',
   'diag.captureMissing': '«%{TX.{index}}» пусто: в правиле нет действия «capture».',
@@ -1155,10 +1260,12 @@ const ru: Record<TranslationKey, string> = {
   'diag.exclusionEmptyRange': 'Диапазон «{target}» перевёрнут: в него не попадает ни одно правило.',
   'diag.exclusionBeforeRule':
     '«{name}» стоит выше правила {id}: исключения применяются при чтении конфигурации, поэтому это ничего не даст.',
+  'diag.exclusionInEarlierFile':
+    '«{name}» стоит в файле, который читается раньше файла «{file}» с правилом {id}: исключения применяются при чтении конфигурации, поэтому это ничего не даст. Переставьте файл ниже.',
   'diag.exclusionNoMatch':
-    'Под «{target}» в этом файле не подходит ни одно правило — проверьте, что оно приходит из файла, подключённого раньше.',
+    'Под «{target}» в загруженных файлах не подходит ни одно правило — проверьте, что оно приходит из файла, подключённого раньше.',
   'diag.exclusionTooBroad':
-    '«{name}» снимает {count} правил этого файла — точечное исключение сохранит защиту в остальных местах.',
+    '«{name}» снимает {count} правил — точечное исключение сохранит защиту в остальных местах.',
   'diag.exclusionDuplicate': 'То же исключение уже есть в строке {line}.',
   'diag.exclusionByMsgFragile':
     '«{name}» выбирает по тексту сообщения, а это не стабильный интерфейс — тег или номер переживут обновление набора.',
@@ -1177,19 +1284,57 @@ const ru: Record<TranslationKey, string> = {
   'diag.exclusionCtlAlreadyRemoved':
     'Правило уже снято насовсем в строке {line} — исключение на один запрос к этому ничего не добавляет.',
 
-  'toolbar.open': 'Открыть',
-  'toolbar.openHint': 'Загрузить файл .conf с диска',
-  'toolbar.save': 'Сохранить',
-  'toolbar.saveHint': 'Выгрузить текст файлом .conf',
   'toolbar.copy': 'Копировать',
-  'toolbar.copyHint': 'Скопировать весь текст в буфер обмена',
   'toolbar.copied': 'Скопировано в буфер обмена',
   'toolbar.copyFailed': 'Браузер не дал доступ к буферу обмена',
 
-  'document.replaceTitle': 'Заменить текущий текст?',
+  'menu.file': 'Файл',
+  'menu.fileHint': 'Набор: откуда файлы берутся и куда уходят',
+  'menu.newFile': 'Новый пустой файл',
+  'menu.openFiles': 'Открыть файлы…',
+  'menu.openArchive': 'Открыть архив…',
+  'menu.saveFile': 'Выгрузить «{name}»',
+  'menu.saveArchive': 'Выгрузить весь набор архивом',
+  'menu.copy': 'Скопировать текст в буфер обмена',
+  'menu.examples': 'Учебные примеры…',
+
+  'document.replaceTitle': 'Заменить весь набор?',
   'document.replaceBody':
-    'Текущий текст изменён. Загрузка другого документа сотрёт эти правки.',
+    'В наборе есть правленые файлы. Пример заменяет набор своим единственным файлом, и эти правки сотрутся.',
+  'document.replaceFilesBody':
+    'В наборе есть правленые и невыгруженные файлы. Открытие заменит набор выбранным ({count}), и эти правки сотрутся. Чтобы их сохранить, добавьте файлы из окна файлов набора.',
   'document.replace': 'Заменить',
+  'document.section': 'Файл',
+  'document.sectionHint': 'Какой файл набора вы правите — наберите часть имени, чтобы сузить список',
+  'document.search': 'Часть имени',
+  'document.noMatch': 'В наборе нет подходящего имени',
+
+  'files.manage': 'Файлы',
+  'files.manageHint': 'Набор файлов: порядок, добавление, удаление, выгрузка',
+  'files.title': 'Файлы набора',
+  'files.order':
+    'ModSecurity читает файлы в этом порядке. Переставьте файл ниже другого — и его исключения начнут дотягиваться до того файла: директива действует только на правила, прочитанные раньше неё.',
+  'files.list': 'Файлы набора',
+  'files.current': 'правится',
+  'files.create': 'Пустой файл',
+  'files.addFromDisk': 'Файлы или архив…',
+  'files.dropHere': 'Перетащите сюда файлы или архив .zip — они добавятся в конец набора',
+  'files.archiveFailed': 'Этот файл не прочитался как архив .zip',
+  'files.download': 'Выгрузить «{name}» как есть',
+  'files.up': 'Выше — читается раньше',
+  'files.down': 'Ниже — читается позже',
+  'files.drag': 'Перетащите, чтобы изменить порядок',
+  'files.remove': 'Убрать «{name}» из набора',
+  'files.removeTitle': 'Убрать файл?',
+  'files.removeBody': '«{name}» правлен и не выгружен. Если убрать, правки пропадут.',
+  'files.removeConfirm': 'Убрать',
+  'files.clearTitle': 'Очистить файл?',
+  'files.clearBody':
+    '«{name}» — единственный файл набора: его не убирают, а очищают — редактор всегда правит какой-то файл.',
+  'files.clearConfirm': 'Очистить',
+  'files.edited': 'правлен',
+  'files.lines': 'строк: {count}',
+  'files.empty': 'пусто',
 
   'builder.destination': 'Адрес',
   'builder.collapse': 'Свернуть правило',

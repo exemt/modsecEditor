@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useRule } from './ruleContext';
 import { useEditorView } from './editorViewContext';
+import { useWorkspace } from './workspaceContext';
 import {
   BuilderViewContext,
   INITIALLY_EXPANDED,
@@ -22,6 +23,7 @@ import type { BuilderViewValue, RevealBlockRequest } from './builderViewContext'
 export function BuilderViewProvider({ children }: { children: ReactNode }) {
   const { compiled } = useRule();
   const { setTab } = useEditorView();
+  const { activeId, selectFile } = useWorkspace();
   const [chosen, setChosen] = useState<ReadonlySet<string> | null>(null);
   const [reveal, setReveal] = useState<RevealBlockRequest | null>(null);
 
@@ -82,7 +84,7 @@ export function BuilderViewProvider({ children }: { children: ReactNode }) {
   const resetExpanded = useCallback(() => setChosen(null), []);
 
   const revealSeq = useRef(0);
-  const revealRule = useCallback(
+  const show = useCallback(
     (ruleKey: string) => {
       const block = modelRef.current?.blocks.find((b) => b.key === ruleKey);
       const key = block === undefined ? null : blockExpansionKey(block);
@@ -98,6 +100,38 @@ export function BuilderViewProvider({ children }: { children: ReactNode }) {
     },
     [setTab],
   );
+
+  /** Просьба, ждущая своего файла: ключ правила, которого в этой модели нет. */
+  const awaited = useRef<{ file: string; ruleKey: string } | null>(null);
+
+  const revealRule = useCallback(
+    (ruleKey: string, file?: string) => {
+      if (file === undefined || file === activeId) {
+        show(ruleKey);
+        return;
+      }
+      awaited.current = { file, ruleKey };
+      selectFile(file);
+      setTab('visual');
+    },
+    [activeId, selectFile, setTab, show],
+  );
+
+  // Файл сменился: раскрытия прежнего — про другие правила, и держать их
+  // значило бы раскрыть в новом файле правила с теми же номерами. Ждущая
+  // просьба выполняется здесь же: модель уже от нужного файла.
+  const shown = useRef(activeId);
+  useEffect(() => {
+    if (shown.current === activeId) return;
+    shown.current = activeId;
+    setChosen(null);
+    known.current = new Set(keys);
+
+    const waiting = awaited.current;
+    if (waiting === null || waiting.file !== activeId) return;
+    awaited.current = null;
+    show(waiting.ruleKey);
+  }, [activeId, keys, show]);
 
   const value = useMemo<BuilderViewValue>(
     () => ({

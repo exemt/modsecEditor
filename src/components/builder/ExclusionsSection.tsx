@@ -16,6 +16,7 @@ import { useRuleEffect, useRuleExclusions } from '../diagnostics/useDiagnostics'
 import { useBuilderView } from '../../context/builderViewContext';
 import { useEditorView } from '../../context/editorViewContext';
 import { useRule } from '../../context/ruleContext';
+import { useWorkspace } from '../../context/workspaceContext';
 import { useI18n } from '../../i18n/useI18n';
 import { ctlExclusionActions, excludeRuleLine, isExclusionCtl } from '../../modsec/exclusions';
 import { makeTarget } from '../../modsec/model';
@@ -49,8 +50,13 @@ const MONOSPACE = 'ui-monospace, Consolas, monospace';
  * что правило правят со стороны, дела нет: заголовок со словом «никто» под ним
  * занимал бы две строки, чтобы сказать то же, что уже сказал счётчик на полосе
  * своим отсутствием. У второй дело есть — кнопка с меню видов
- * ({@link AddCtlExclusionMenu}), — и без заголовка она осталась бы висеть сама
- * по себе.
+ * ({@link AddCtlExclusionMenu}), — и она остаётся и на пустом списке.
+ *
+ * Подписаны стороны, только пока их две. Заголовок отвечает на вопрос «которая
+ * из двух», и над единственным списком отвечать ему нечего: над ним уже стоит
+ * название секции, а вторая подпись пересказывала бы её же. Поэтому пустая
+ * первая сторона забирает заголовки у обеих — в том числе у одинокой кнопки,
+ * которой от второй остаётся: к чему она добавляет, сказано на ней самой.
  */
 export function ExclusionsSection({
   rule,
@@ -63,6 +69,7 @@ export function ExclusionsSection({
   const { insertLines } = useRule();
   const { revealRule } = useBuilderView();
   const { revealLine } = useEditorView();
+  const { activeId, nameOf } = useWorkspace();
   const effect = useRuleEffect(rule.key);
   const own = useRuleExclusions(rule.headIndex, rule.tailIndex);
 
@@ -84,7 +91,7 @@ export function ExclusionsSection({
     .flat()
     .filter(isExclusionCtl);
   const entriesAt = (statementIndex: number) =>
-    own.filter((entry) => entry.directive.statementIndex === statementIndex);
+    own.filter((entry) => entry.directive.place.index === statementIndex);
 
   // Вид исключения приходит из меню кнопки, а не задан заготовкой: он решает,
   // что запись сделает с правилом, и менять его у стоящей строки — значит
@@ -129,6 +136,10 @@ export function ExclusionsSection({
   const append = (line: string) => insertLines(rule.tailIndex, [line]);
 
   const total = rows.length + ctls.length;
+
+  // Сторон в секции видно либо две, либо одна: вторая стоит всегда — ради
+  // кнопки, — а первая только с записями. Подписи нужны ровно первому случаю.
+  const twoSided = rows.length > 0;
 
   // Список на каждое место, где `ctl` может стоять: действия правила и каждое
   // звено цепочки. Своё место у записи не украшение — от него зависит, при
@@ -279,85 +290,82 @@ export function ExclusionsSection({
             две строки, чтобы сказать то же, что уже сказано числом на полосе,
             вернее, его отсутствием. */}
         {rows.length > 0 && (
-          <>
-            <Stack spacing={0.75}>
-              <Typography variant="body2" color="text.secondary">
-                {t('builder.exclusionsInbound')}
-              </Typography>
+          <Stack spacing={0.75}>
+            <SideTitle label={t('builder.exclusionsInbound')} />
 
-              {rows.map((ref, index) => (
-                <Stack
-                  key={index}
-                  direction="row"
-                  spacing={1}
-                  sx={{ flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}
-                >
-                  {/* Запись — сама себе переход: она стоит в файле блоком, и
-                      нажатие ведёт к нему, а не к её копии здесь. Блока может и
-                      не быть — `ctl` носит правило из другого файла, — и тогда
-                      запись остаётся текстом, а не притворяется ссылкой. */}
-                  {ref.key === '' ? (
+            {rows.map((ref, index) => (
+              <Stack
+                key={index}
+                direction="row"
+                spacing={1}
+                sx={{ flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}
+              >
+                {/* Запись — сама себе переход: она стоит в файле блоком, и
+                    нажатие ведёт к нему, а не к её копии здесь. Файл при этом
+                    может быть другим — исключения набора правят через границу
+                    файлов, — и тогда переход сначала открывает его. */}
+                {ref.key === '' ? (
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    label={ref.text}
+                    sx={{ fontFamily: MONOSPACE }}
+                  />
+                ) : (
+                  <Tooltip title={t('builder.exclusionRevealBlock')}>
                     <Chip
                       size="small"
                       variant="outlined"
                       label={ref.text}
+                      onClick={() => revealRule(ref.key, ref.file)}
                       sx={{ fontFamily: MONOSPACE }}
                     />
-                  ) : (
-                    <Tooltip title={t('builder.exclusionRevealBlock')}>
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        label={ref.text}
-                        onClick={() => revealRule(ref.key)}
-                        sx={{ fontFamily: MONOSPACE }}
-                      />
-                    </Tooltip>
-                  )}
-
-                  {/* Номер строки у правого края — там же, где счётчики полос:
-                      в столбик он читается как адрес всей секции, а не как
-                      хвост записи разной длины. И это ссылка: в тексте видно
-                      то, чего здесь нет, — что стоит вокруг исключения. */}
-                  <Box sx={{ flex: 1 }} />
-                  <Tooltip title={t('builder.exclusionRevealLine', { line: String(ref.line) })}>
-                    <Link
-                      component="button"
-                      variant="caption"
-                      underline="hover"
-                      onClick={() => revealLine(ref.line)}
-                      sx={{ flexShrink: 0 }}
-                    >
-                      {t('builder.exclusionAtLine', { line: String(ref.line) })}
-                    </Link>
                   </Tooltip>
-                </Stack>
-              ))}
-            </Stack>
+                )}
 
-            <Divider flexItem />
-          </>
+                {/* Номер строки у правого края — там же, где счётчики полос:
+                    в столбик он читается как адрес всей секции, а не как
+                    хвост записи разной длины. И это ссылка: в тексте видно
+                    то, чего здесь нет, — что стоит вокруг исключения. */}
+                <Box sx={{ flex: 1 }} />
+                <Tooltip title={t('builder.exclusionRevealLine', { line: String(ref.line) })}>
+                  <Link
+                    component="button"
+                    variant="caption"
+                    underline="hover"
+                    onClick={() => revealLine(ref.line, ref.file)}
+                    sx={{ flexShrink: 0 }}
+                  >
+                    {/* Чужой файл называется прямо в подписи: «строка 12» из
+                        другого файла — самый короткий способ уйти не туда. */}
+                    {ref.file === activeId
+                      ? t('builder.exclusionAtLine', { line: String(ref.line) })
+                      : t('builder.exclusionAtLineIn', {
+                          line: String(ref.line),
+                          file: nameOf(ref.file),
+                        })}
+                  </Link>
+                </Tooltip>
+              </Stack>
+            ))}
+          </Stack>
         )}
 
-        {/* Сторона вторая: что снимает само правило. Заголовок с пояснением
-            стоит и при пустом списке — в отличие от первой стороны: под ним
-            кнопка, которой исключение заводят, и она нужна ровно тогда, когда
-            исключения ещё нет.
+        {/* Сторона вторая: что снимает само правило. Показана она и при пустом
+            списке — в отличие от первой: в ней кнопка, которой исключение
+            заводят, и нужна та ровно тогда, когда исключения ещё нет.
 
             Разложено как цепочка условий — скобка связки, строка на запись,
             кнопка под ними, — потому что это такой же список, который правят:
             строки добавляют и убирают, и второй способ показать то же самое
             пришлось бы узнавать заново. */}
         <Stack spacing={1.5}>
-          <Tooltip title={t('builder.exclusionsOutboundHint')}>
-            {/* Подсказка ставится на обёртку, а не на сам текст: MUI подписывает
-                ею элемент целиком, и заголовок читался бы вслух пояснением. */}
-            <Box component="span" sx={{ alignSelf: 'flex-start' }}>
-              <Typography variant="body2" color="text.secondary">
-                {t('builder.exclusionsOutbound')}
-              </Typography>
-            </Box>
-          </Tooltip>
+          {twoSided && (
+            <SideTitle
+              label={t('builder.exclusionsOutbound')}
+              hint={t('builder.exclusionsOutboundHint')}
+            />
+          )}
 
           {/* Скобка И — тот самый верхний уровень, без которого связка у целей
               висела бы одна: правило ставит все свои исключения, а не одно из
@@ -378,5 +386,44 @@ export function ExclusionsSection({
         </Stack>
       </Stack>
     </Section>
+  );
+}
+
+/**
+ * Подпись стороны и черта под ней.
+ *
+ * Черта стоит между подписью и списком, а не между сторонами: подпись —
+ * заголовок своего списка, и линия под ней говорит, где список начинается, а
+ * не где кончился предыдущий. Поставленная в промежуток, она делила бы секцию
+ * на две карточки, каждую со своим названием, — тогда как сторон две у одного
+ * дела.
+ *
+ * Пунктиром и приглушённой по той же причине: сплошная линия во всю ширину
+ * читается границей блока и уже занята — ею отделены друг от друга сами блоки
+ * карточки ({@link Section}).
+ */
+function SideTitle({ label, hint }: { label: string; hint?: string }) {
+  const text = (
+    <Typography variant="body2" color="text.secondary">
+      {label}
+    </Typography>
+  );
+
+  return (
+    <Stack spacing={0.5}>
+      {hint === undefined ? (
+        text
+      ) : (
+        <Tooltip title={hint}>
+          {/* Подсказка ставится на обёртку, а не на сам текст: MUI подписывает
+              ею элемент целиком, и заголовок читался бы вслух пояснением. */}
+          <Box component="span" sx={{ alignSelf: 'flex-start' }}>
+            {text}
+          </Box>
+        </Tooltip>
+      )}
+
+      <Divider sx={{ borderStyle: 'dashed', opacity: 0.6 }} />
+    </Stack>
   );
 }

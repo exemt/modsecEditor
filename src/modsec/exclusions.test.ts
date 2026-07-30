@@ -1,5 +1,6 @@
 import { parseModsec } from './parser';
 import { compileDocument } from './compile';
+import { LONE_FILE, blockRef } from './workspace';
 import {
   collectExclusions,
   ctlExclusionActions,
@@ -11,6 +12,7 @@ import {
   excludeRuleLine,
   excludeTargetLine,
   indexExclusions,
+  indexWorkspaceExclusions,
   isExclusionCtl,
   makeExclusionTarget,
   readCtlExclusionRuns,
@@ -20,7 +22,8 @@ import {
 } from './exclusions';
 import { targetsToVariables } from './model';
 import { serializeVariable } from './serialize';
-import type { CtlExclusion, ExclusionEntry, ExclusionIndex } from './exclusions';
+import type { CtlExclusion, ExclusionEntry, ExclusionIndex, RuleEffect } from './exclusions';
+import type { WorkspaceUnit } from './workspace';
 
 /** Индекс исключений документа: то, с чем работают проверки и конструктор. */
 function index(source: string): ExclusionIndex {
@@ -31,6 +34,27 @@ function index(source: string): ExclusionIndex {
 /** Директивы индекса в порядке файла. */
 function entriesOf(found: ExclusionIndex): ExclusionEntry[] {
   return exclusionList(found);
+}
+
+/**
+ * Что исключения сделали с правилом одинокого документа.
+ *
+ * Ключ индекса — файл вместе с ключом блока: в наборе `rule-0` есть у каждого
+ * файла, и без имени файла спрашивать было бы не о чем.
+ */
+function effectOf(found: ExclusionIndex, key: string): RuleEffect | undefined {
+  return found.byRule.get(blockRef(LONE_FILE, key));
+}
+
+/** Файл набора: имя нужно там, где отметка называет чужой файл. */
+function unit(name: string, source: string): WorkspaceUnit {
+  const doc = parseModsec(source);
+  return { id: name, name, blocks: compileDocument(doc, name).blocks, statements: doc.statements };
+}
+
+/** Индекс исключений набора файлов, читаемого в этом порядке. */
+function workspace(...sources: [string, string][]): ExclusionIndex {
+  return indexWorkspaceExclusions(sources.map(([name, source]) => unit(name, source)));
 }
 
 const RULE = `SecRule ARGS "@rx attack" "id:942100,phase:2,deny,msg:'SQL Injection',tag:'attack-sqli'"`;
@@ -125,12 +149,12 @@ describe('сведение исключений с правилами', () => {
       ].join('\n'),
     );
 
-    expect(entriesOf(found).map((e) => e.matches.map((m) => m.key))).toEqual([
+    expect(entriesOf(found).map((entry) => entry.matches.map((m) => m.key))).toEqual([
       ['rule-0'],
       ['rule-0'],
       ['rule-0'],
     ]);
-    expect(found.byRule.get('rule-0')?.removedBy).toHaveLength(3);
+    expect(effectOf(found, 'rule-0')?.removedBy).toHaveLength(3);
   });
 
   it('накрывает диапазоном всё, что в него попало', () => {
@@ -150,7 +174,7 @@ describe('сведение исключений с правилами', () => {
     const found = index(['SecRuleRemoveById 942100', RULE].join('\n'));
 
     expect(entriesOf(found)[0].matches).toEqual([
-      { key: 'rule-1', id: '942100', applies: false },
+      { file: LONE_FILE, key: 'rule-1', id: '942100', applies: false },
     ]);
     // Правило не тронуто: до него исключение не дожило.
     expect(found.byRule.size).toBe(0);
@@ -165,10 +189,11 @@ describe('сведение исключений с правилами', () => {
       ].join('\n'),
     );
 
-    const effect = found.byRule.get('rule-0');
+    const effect = effectOf(found, 'rule-0');
     expect(effect?.removedBy).toEqual([]);
     expect(effect?.targetEdits).toEqual([
       {
+        file: LONE_FILE,
         key: 'directive-1',
         line: 2,
         name: 'SecRuleUpdateTargetById',
@@ -178,6 +203,7 @@ describe('сведение исключений с правилами', () => {
     ]);
     expect(effect?.actionEdits).toEqual([
       {
+        file: LONE_FILE,
         key: 'directive-2',
         line: 3,
         name: 'SecRuleUpdateActionById',
@@ -200,9 +226,9 @@ describe('сведение исключений с правилами', () => {
     expect(entriesOf(found)[0].matches).toEqual([]);
   });
 
-  it('различает файл правил и файл-надстройку', () => {
-    expect(index([RULE, 'SecRuleRemoveById 999999'].join('\n')).fileHasIds).toBe(true);
-    expect(index('SecRuleRemoveById 999999').fileHasIds).toBe(false);
+  it('различает набор правил и одинокую надстройку', () => {
+    expect(index([RULE, 'SecRuleRemoveById 999999'].join('\n')).hasIds).toBe(true);
+    expect(index('SecRuleRemoveById 999999').hasIds).toBe(false);
   });
 
   it('на пустом списке директив не смотрит на правила вовсе', () => {
@@ -210,8 +236,69 @@ describe('сведение исключений с правилами', () => {
     expect(indexExclusions(compileDocument(doc).blocks, [])).toEqual({
       byStatement: new Map(),
       byRule: new Map(),
-      fileHasIds: false,
+      names: new Map([[LONE_FILE, '']]),
+      hasIds: false,
     });
+  });
+});
+
+describe('сведение по набору файлов', () => {
+  it('дотягивается директивой до правила из файла, читаемого раньше', () => {
+    const found = workspace(['rules.conf', RULE], ['exclusions.conf', 'SecRuleRemoveById 942100']);
+
+    expect(entriesOf(found)[0].matches).toEqual([
+      { file: 'rules.conf', key: 'rule-0', id: '942100', applies: true },
+    ]);
+    expect(found.byRule.get(blockRef('rules.conf', 'rule-0'))?.removedBy).toEqual([
+      {
+        file: 'exclusions.conf',
+        key: 'directive-0',
+        line: 1,
+        name: 'SecRuleRemoveById',
+        text: 'SecRuleRemoveById 942100',
+        source: 'directive',
+      },
+    ]);
+  });
+
+  it('не даёт директиве дотянуться до правила из файла, читаемого позже', () => {
+    const found = workspace(['exclusions.conf', 'SecRuleRemoveById 942100'], ['rules.conf', RULE]);
+
+    expect(entriesOf(found)[0].matches).toEqual([
+      { file: 'rules.conf', key: 'rule-0', id: '942100', applies: false },
+    ]);
+    expect(found.byRule.size).toBe(0);
+  });
+
+  // У `ctl` порядок противоположный: он обязан отработать раньше цели, и файл,
+  // читаемый раньше, ему как раз подходит.
+  it('считает применённым `ctl` из файла, читаемого раньше', () => {
+    const found = workspace(
+      [
+        'carrier.conf',
+        'SecRule REQUEST_FILENAME "@streq /api" "id:1000,phase:1,pass,nolog,ctl:ruleRemoveById=942100"',
+      ],
+      ['rules.conf', RULE],
+    );
+
+    expect(entriesOf(found)[0].matches).toEqual([
+      { file: 'rules.conf', key: 'rule-0', id: '942100', applies: true },
+    ]);
+    expect(entriesOf(found)[0].carrier?.file).toBe('carrier.conf');
+  });
+
+  // Промах выборки в одинокой надстройке — норма: правила приходят из набора,
+  // которого здесь нет. А вот рядом с файлом правил это уже опечатка.
+  it('считает `hasIds` по всему набору, а не по файлу директивы', () => {
+    expect(workspace(['rules.conf', RULE], ['sub.conf', 'SecRuleRemoveById 999999']).hasIds).toBe(
+      true,
+    );
+    expect(workspace(['sub.conf', 'SecRuleRemoveById 999999']).hasIds).toBe(false);
+  });
+
+  it('помнит имена файлов набора: их называют отметки и замечания', () => {
+    const found = workspace(['rules.conf', RULE], ['exclusions.conf', 'SecRuleRemoveById 942100']);
+    expect(found.names.get('rules.conf')).toBe('rules.conf');
   });
 });
 
@@ -310,13 +397,16 @@ describe('исключения времени запроса', () => {
     const [entry] = entriesOf(found);
     // Носитель — правило целиком: фаза и реакция записаны в его голове.
     expect(entry.carrier).toEqual({
+      file: LONE_FILE,
       key: 'rule-0',
       id: '1000',
       phase: 1,
       conditional: true,
       stops: '',
     });
-    expect(entry.matches).toEqual([{ key: 'rule-2', id: '941100', applies: true }]);
+    expect(entry.matches).toEqual([
+      { file: LONE_FILE, key: 'rule-2', id: '941100', applies: true },
+    ]);
   });
 
   // Порядок исполнения — сначала фаза, потом строка, — поэтому исключение,
@@ -325,10 +415,11 @@ describe('исключения времени запроса', () => {
     const found = index([carrier('ctl:ruleRemoveById=941100'), TARGET].join('\n'));
 
     expect(entriesOf(found)[0].matches).toEqual([
-      { key: 'rule-1', id: '941100', applies: true },
+      { file: LONE_FILE, key: 'rule-1', id: '941100', applies: true },
     ]);
-    expect(found.byRule.get('rule-1')?.removedBy).toEqual([
+    expect(effectOf(found, 'rule-1')?.removedBy).toEqual([
       {
+        file: LONE_FILE,
         // Носитель `ctl` — само правило: за исключением отправляют к нему.
         key: 'rule-0',
         line: 1,
@@ -348,7 +439,7 @@ describe('исключения времени запроса', () => {
     );
 
     expect(entriesOf(found)[0].matches).toEqual([
-      { key: 'rule-0', id: '941100', applies: false },
+      { file: LONE_FILE, key: 'rule-0', id: '941100', applies: false },
     ]);
     expect(found.byRule.size).toBe(0);
   });
@@ -370,8 +461,8 @@ describe('исключения времени запроса', () => {
     );
 
     expect(entriesOf(found).map((entry) => entry.carrier)).toEqual([
-      { key: 'action-0', id: '900100', phase: 1, conditional: false, stops: '' },
-      { key: 'rule-1', id: '1001', phase: 1, conditional: true, stops: 'deny' },
+      { file: LONE_FILE, key: 'action-0', id: '900100', phase: 1, conditional: false, stops: '' },
+      { file: LONE_FILE, key: 'rule-1', id: '1001', phase: 1, conditional: true, stops: 'deny' },
     ]);
   });
 

@@ -2,6 +2,7 @@ import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useBuilderView } from '../../context/builderViewContext';
+import { useWorkspace } from '../../context/workspaceContext';
 import { useI18n } from '../../i18n/useI18n';
 import type { ExclusionEntry } from '../../modsec/exclusions';
 
@@ -43,6 +44,7 @@ interface ExclusionMarksProps {
 export function ExclusionMarks({ entry, named = false }: ExclusionMarksProps) {
   const { t } = useI18n();
   const { revealRule } = useBuilderView();
+  const { activeId, nameOf } = useWorkspace();
   const { directive, matches } = entry;
 
   const shown = matches.slice(0, SHOWN_RULES);
@@ -74,11 +76,24 @@ export function ExclusionMarks({ entry, named = false }: ExclusionMarksProps) {
             {t(matches.length === 1 ? 'builder.exclusionRule' : 'builder.exclusionRules')}
           </Typography>
 
+          {/* Правило может лежать в другом файле — тогда подсказка называет
+              его, а нажатие сначала переходит туда: ключ блока считается
+              внутри файла, и в открытом такого правила нет. */}
           {shown.map((match) => (
-            <Tooltip key={match.key} title={t('builder.exclusionReveal', { id: match.id })}>
+            <Tooltip
+              key={`${match.file}-${match.key}`}
+              title={
+                match.file === activeId
+                  ? t('builder.exclusionReveal', { id: match.id })
+                  : t('builder.exclusionRevealIn', {
+                      id: match.id,
+                      file: nameOf(match.file),
+                    })
+              }
+            >
               <Chip
                 size="small"
-                onClick={() => revealRule(match.key)}
+                onClick={() => revealRule(match.key, match.file)}
                 label={match.id === '' ? t('builder.unset') : match.id}
                 sx={{ flexShrink: 0 }}
               />

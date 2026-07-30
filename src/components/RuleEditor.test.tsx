@@ -2,9 +2,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { store } from '../store';
-import { applyRuleSource } from '../store/ruleSlice';
+import { applyRuleSource } from '../store/filesSlice';
 import { I18nProvider } from '../i18n/I18nProvider';
-import { RuleProvider } from '../context/RuleProvider';
+import { WorkspaceProvider } from '../context/WorkspaceProvider';
 import { EditorViewProvider } from '../context/EditorViewProvider';
 import RuleEditor from './RuleEditor';
 
@@ -16,11 +16,11 @@ function renderEditor(source: string) {
     <Provider store={store}>
       <I18nProvider initialLocale="en">
         <ThemeProvider theme={theme}>
-          <RuleProvider>
+          <WorkspaceProvider>
             <EditorViewProvider>
               <RuleEditor />
             </EditorViewProvider>
-          </RuleProvider>
+          </WorkspaceProvider>
         </ThemeProvider>
       </I18nProvider>
     </Provider>,

@@ -10,6 +10,8 @@ import {
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { store } from './store';
+import { packArchive } from './components/archive';
+import { selectSource } from './store/filesSlice';
 import { I18nProvider } from './i18n/I18nProvider';
 import App from './App';
 
@@ -28,20 +30,47 @@ function renderApp(locale: 'en' | 'ru' = 'en') {
 beforeEach(() => window.localStorage.clear());
 
 /**
- * Подсовывает файл в скрытый input.
+ * Подсовывает файлы в скрытый input.
  *
  * Нажатие на «Открыть» вызывает системное окно выбора, которого в тесте
  * нет и быть не может, поэтому проверяем всё, что происходит после выбора.
+ * Файлов бывает несколько сразу: набор для этого и держат открытым.
+ *
+ * Полей выбора в меню два, и различить их можно только фильтром: одно берёт
+ * файлы правил, другое — архив.
  */
-async function choose(root: HTMLElement, name: string, text: string) {
-  const input = root.querySelector<HTMLInputElement>('input[type="file"]');
-  if (input === null) throw new Error('в панели нет поля выбора файла');
+async function feed(root: HTMLElement, accept: 'conf' | 'zip', files: File[]) {
+  const input = root.querySelector<HTMLInputElement>(
+    `input[type="file"][accept*="${accept}"]`,
+  );
+  if (input === null) throw new Error(`в меню нет поля выбора (${accept})`);
 
-  const file = new File([text], name, { type: 'text/plain' });
-  Object.defineProperty(input, 'files', { value: [file], configurable: true });
+  Object.defineProperty(input, 'files', { value: files, configurable: true });
   await act(async () => {
     fireEvent.change(input);
   });
+}
+
+async function choose(root: HTMLElement, ...picked: [string, string][]) {
+  await feed(
+    root,
+    'conf',
+    picked.map(([name, text]) => new File([text], name, { type: 'text/plain' })),
+  );
+}
+
+/** Текст активного файла — то, что видно в редакторе. */
+const active = () => selectSource(store.getState().files);
+
+/**
+ * Выбирает пункт в меню «Файл».
+ *
+ * Всё, что делают с набором целиком, живёт в этом меню, поэтому через него
+ * проходит и открытие файлов, и выгрузка, и витрина примеров.
+ */
+async function fileMenu(user: ReturnType<typeof userEvent.setup>, item: string) {
+  await user.click(screen.getByRole('button', { name: 'File' }));
+  await user.click(await screen.findByRole('menuitem', { name: item }));
 }
 
 /**
@@ -51,8 +80,7 @@ async function choose(root: HTMLElement, name: string, text: string) {
  * подтвердить выбор. Эти три шага повторяются в каждом тесте про примеры.
  */
 async function pickExample(user: ReturnType<typeof userEvent.setup>, name: string) {
-  // Подпись кнопки перекрыта её же подсказкой — так работает Tooltip в MUI.
-  await user.click(screen.getByRole('button', { name: 'Open the learning examples' }));
+  await fileMenu(user, 'Learning examples…');
   await user.click(await screen.findByRole('button', { name }));
   await user.click(screen.getByRole('button', { name: 'Open in the editor' }));
 }
@@ -97,9 +125,9 @@ describe('App', () => {
 
     await pickExample(user, 'SQL Injection');
 
-    expect(screen.queryByText('Replace the current text?')).toBeNull();
-    await waitFor(() => expect(editor()).toHaveValue(store.getState().rule.source));
-    expect(store.getState().rule.source).toContain('@detectSQLi');
+    expect(screen.queryByText('Replace the whole set?')).toBeNull();
+    await waitFor(() => expect(editor()).toHaveValue(active()));
+    expect(active()).toContain('@detectSQLi');
   });
 
   it('asks before an example discards edited text', async () => {
@@ -113,12 +141,12 @@ describe('App', () => {
     await user.type(editor, 'SecRule ARGS "@rx mine" "id:9001"');
 
     await pickExample(user, 'SQL Injection');
-    expect(await screen.findByText('Replace the current text?')).toBeInTheDocument();
+    expect(await screen.findByText('Replace the whole set?')).toBeInTheDocument();
 
     // Отказ оставляет работу на месте.
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     await waitForElementToBeRemoved(() =>
-      screen.queryByText('Replace the current text?'),
+      screen.queryByText('Replace the whole set?'),
     );
     expect(editor).toHaveValue('SecRule ARGS "@rx mine" "id:9001"');
 
@@ -237,7 +265,7 @@ describe('App', () => {
 
     await user.clear(editor());
     await user.paste('SecRule ARGS "@rx survives" "id:7,phase:2,deny"');
-    await waitFor(() => expect(window.localStorage.getItem('exeditor.draft')).toContain(
+    await waitFor(() => expect(window.localStorage.getItem('exeditor.workspace')).toContain(
       'survives',
     ));
 
@@ -282,37 +310,87 @@ describe('App', () => {
       name: 'ModSecurity rules editor',
     });
 
-    await choose(baseElement, 'my-rules.conf', 'SecRule ARGS "@rx fromdisk" "id:42"');
+    await choose(baseElement, ['my-rules.conf', 'SecRule ARGS "@rx fromdisk" "id:42"']);
 
     await waitFor(() => expect(editor.value).toContain('fromdisk'));
-    // Имя открытого файла видно в панели: под ним же документ и выгрузится.
-    expect(screen.getByText('my-rules.conf')).toBeInTheDocument();
+    // Имя открытого файла стоит в поле выбора раздела: под ним же он и выгрузится.
+    expect(screen.getByLabelText('File')).toHaveValue('my-rules.conf');
   });
 
-  it('asks before a file discards edited text', async () => {
+  it('replaces the whole set with the files that were opened', async () => {
+    const { baseElement } = renderApp('en');
+
+    await choose(
+      baseElement,
+      ['first.conf', 'SecRule ARGS "@rx fromdisk" "id:42"'],
+      ['second.conf', 'SecRuleRemoveById 42'],
+    );
+
+    await waitFor(() => expect(active()).toContain('fromdisk'));
+    expect(store.getState().files.files.map((file) => file.name)).toEqual([
+      'first.conf',
+      'second.conf',
+    ]);
+  });
+
+  /**
+   * Открытие заменяет набор, поэтому спрашивает о невыгруженной работе.
+   *
+   * Пополняют набор в окне файлов — там видно, куда файл встанет в порядке
+   * чтения; здесь же «открыть» значит то же, что в любом приложении.
+   */
+  it('asks before opened files discard the edited text', async () => {
     const user = userEvent.setup();
     const { baseElement } = renderApp('en');
-    const editor = screen.getByRole<HTMLTextAreaElement>('textbox', {
-      name: 'ModSecurity rules editor',
-    });
+    const editor = () =>
+      screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'ModSecurity rules editor' });
 
-    await user.clear(editor);
+    await user.clear(editor());
     await user.paste('SecRule ARGS "@rx mine" "id:9001"');
 
-    await choose(baseElement, 'other.conf', 'SecRule ARGS "@rx fromdisk" "id:42"');
+    await choose(baseElement, ['first.conf', 'SecRule ARGS "@rx fromdisk" "id:42"']);
+    expect(await screen.findByText('Replace the whole set?')).toBeInTheDocument();
 
-    expect(await screen.findByText('Replace the current text?')).toBeInTheDocument();
-    expect(editor.value).toContain('mine');
+    // Отказ оставляет работу на месте.
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitForElementToBeRemoved(() => screen.queryByText('Replace the whole set?'));
+    expect(active()).toContain('mine');
 
-    await user.click(screen.getByRole('button', { name: 'Replace' }));
-    await waitFor(() => expect(editor.value).toContain('fromdisk'));
+    await choose(baseElement, ['first.conf', 'SecRule ARGS "@rx fromdisk" "id:42"']);
+    await user.click(await screen.findByRole('button', { name: 'Replace' }));
+
+    await waitFor(() => expect(active()).toContain('fromdisk'));
+    expect(store.getState().files.files).toHaveLength(1);
+  });
+
+  /**
+   * Архив открывается набором, а не одной строкой.
+   *
+   * Набор уходит из вкладки архивом, и вернуться он должен тем же архивом:
+   * иначе выгрузка есть, а загрузки нет — и порядок включения приходится
+   * собирать заново руками.
+   */
+  it('opens a .zip archive as the whole set', async () => {
+    const { baseElement } = renderApp('en');
+    const zip = packArchive([
+      { name: 'rules.conf', text: 'SecRule ARGS "@rx fromzip" "id:71"' },
+      { name: 'exclusions.conf', text: 'SecRuleRemoveById 71' },
+    ]);
+
+    await feed(baseElement, 'zip', [
+      new File([new Uint8Array(zip)], 'set.zip', { type: 'application/zip' }),
+    ]);
+
+    await waitFor(() => expect(active()).toContain('fromzip'));
+    const names = store.getState().files.files.map((file) => file.name);
+    expect(names).toEqual(expect.arrayContaining(['rules.conf', 'exclusions.conf']));
   });
 
   it('copies the whole text to the clipboard', async () => {
     const user = userEvent.setup();
     renderApp('en');
 
-    await user.click(screen.getByRole('button', { name: /^Copy/ }));
+    await fileMenu(user, 'Copy the text to the clipboard');
 
     expect(await screen.findByText('Copied to the clipboard')).toBeInTheDocument();
     expect(await navigator.clipboard.readText()).toContain('SecRule');
@@ -327,7 +405,7 @@ describe('App', () => {
       .spyOn(navigator.clipboard, 'writeText')
       .mockRejectedValueOnce(new Error('denied'));
 
-    await user.click(screen.getByRole('button', { name: /^Copy/ }));
+    await fileMenu(user, 'Copy the text to the clipboard');
 
     expect(
       await screen.findByText('The browser did not allow access to the clipboard'),

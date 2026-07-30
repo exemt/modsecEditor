@@ -55,6 +55,7 @@ export const DIAGNOSTIC_CATALOG = {
   danglingChain: ['error', 'structure'],
   missingId: ['error', 'structure'],
   duplicateId: ['error', 'structure'],
+  duplicateIdCrossFile: ['error', 'structure'],
   chainLinkHeadAction: ['error', 'structure'],
   exclusionNoTarget: ['error', 'structure'],
   exclusionBadId: ['error', 'structure'],
@@ -135,6 +136,7 @@ export const DIAGNOSTIC_CATALOG = {
   missingMarker: ['warning', 'environment'],
   skipBeyondEnd: ['warning', 'environment'],
   exclusionBeforeRule: ['warning', 'environment'],
+  exclusionInEarlierFile: ['warning', 'environment'],
   exclusionCtlAfterRule: ['warning', 'environment'],
   engineNotEnforcing: ['advice', 'environment'],
   exclusionNoMatch: ['advice', 'environment'],
@@ -210,6 +212,13 @@ export interface Diagnostic {
   code: DiagnosticCode;
   /** Подстановки в текст сообщения. */
   params?: Record<string, string>;
+  /**
+   * Файл набора, к которому относится диагностика.
+   *
+   * Строка и ключ правила считаются внутри файла, поэтому без него замечание
+   * из одного файла открывалось бы в другом. У одинокого документа файла нет.
+   */
+  file?: string;
   /** Строка исходника (1-based), к которой относится диагностика. */
   line?: number;
   anchor?: DiagnosticAnchor;
@@ -225,8 +234,20 @@ export interface Diagnostic {
 export class Diagnostics {
   readonly items: Diagnostic[] = [];
 
+  private file?: string;
   private line?: number;
   private anchor?: DiagnosticAnchor;
+
+  /**
+   * В каком файле набора идут проверки.
+   *
+   * Задаётся отдельно от {@link at} и реже: файл держится весь проход по
+   * одному документу, а строка меняется на каждом правиле.
+   */
+  inFile(file: string | undefined): this {
+    this.file = file;
+    return this;
+  }
 
   /** Куда относить последующие сообщения. */
   at(line: number | undefined, anchor?: DiagnosticAnchor): this {
@@ -251,6 +272,7 @@ export class Diagnostics {
       topic,
       code,
       params,
+      file: this.file,
       line: this.line,
       anchor: this.anchor && slot ? { ...this.anchor, slot } : this.anchor,
     });

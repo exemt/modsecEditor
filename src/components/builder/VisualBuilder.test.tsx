@@ -3,9 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { store } from '../../store';
-import { applyRuleSource } from '../../store/ruleSlice';
+import { applyRuleSource, replaceWorkspace, selectSource } from '../../store/filesSlice';
 import { I18nProvider } from '../../i18n/I18nProvider';
-import { RuleProvider } from '../../context/RuleProvider';
+import { WorkspaceProvider } from '../../context/WorkspaceProvider';
 import { BuilderViewProvider } from '../../context/BuilderViewProvider';
 import { EditorViewProvider } from '../../context/EditorViewProvider';
 import { setFullList } from './fullList';
@@ -24,7 +24,7 @@ function renderBuilder(source: string) {
     <Provider store={store}>
       <I18nProvider initialLocale="ru">
         <ThemeProvider theme={theme}>
-          <RuleProvider>
+          <WorkspaceProvider>
             <EditorViewProvider>
               {/* Панель режима стоит в строке вкладок, но принадлежит
                   визуальному режиму: тесты видят её вместе со списком,
@@ -34,14 +34,14 @@ function renderBuilder(source: string) {
                 <VisualBuilder />
               </BuilderViewProvider>
             </EditorViewProvider>
-          </RuleProvider>
+          </WorkspaceProvider>
         </ThemeProvider>
       </I18nProvider>
     </Provider>,
   );
 }
 
-const source = () => store.getState().rule.source;
+const source = () => selectSource(store.getState().files);
 
 /** Документ из `count` однотипных правил с номерами от 1001. */
 function manyRules(count: number): string {
@@ -558,6 +558,120 @@ describe('VisualBuilder — правки уходят в текст правил
 
     await waitFor(() => expect(source()).not.toContain('SecRule'));
     expect(source()).not.toContain('Блокируем');
+  });
+});
+
+/**
+ * Установка переменных проверяется на `SecAction`: панель действий — всё его
+ * содержимое, и до полей присваивания доходят без раскрывашек. Пишут такие
+ * блоки как раз ради `setvar`.
+ */
+describe('VisualBuilder — установка переменных', () => {
+  const setvarAction = (record: string) =>
+    `SecAction "id:1001,phase:1,pass,nolog,setvar:${record}"\n`;
+
+  it('разбирает присваивание на поля', () => {
+    renderBuilder(setvarAction('tx.anomaly_score=+%{tx.critical_anomaly_score}'));
+
+    expect(screen.getByRole('combobox', { name: 'Коллекция' })).toHaveValue('TX — транзакция');
+    expect(screen.getByRole('combobox', { name: 'Переменная' })).toHaveValue('anomaly_score');
+    expect(screen.getByRole('combobox', { name: 'Запись' })).toHaveValue('=+ прибавить');
+    expect(screen.getByRole('combobox', { name: 'Значение' })).toHaveValue(
+      '%{tx.critical_anomaly_score}',
+    );
+  });
+
+  // Разница между `=1` и `=+1` — один символ и целый смысл: первое затирает
+  // накопленный счёт. Поэтому вид записи выбирают, а не набирают.
+  it('меняет вид записи выбором', async () => {
+    const user = userEvent.setup();
+    renderBuilder(setvarAction('tx.score=+1'));
+
+    await user.click(screen.getByRole('combobox', { name: 'Запись' }));
+    await user.click(await screen.findByRole('option', { name: /задать/ }));
+
+    await waitFor(() => expect(source()).toContain('setvar:tx.score=1'));
+  });
+
+  it('правит имя переменной, не тронув остального', async () => {
+    const user = userEvent.setup();
+    renderBuilder(setvarAction('tx.score=+1'));
+
+    const name = screen.getByRole('combobox', { name: 'Переменная' });
+    await user.clear(name);
+    await user.type(name, 'own_score');
+    await user.tab();
+
+    await waitFor(() => expect(source()).toContain('setvar:tx.own_score=+1'));
+  });
+
+  // Заготовка обязана быть готовой записью: пустой `setvar` не переживает
+  // обхода через текст, а имя ей подбирает редактор — как имя новой метке.
+  it('заводит присваивание с незанятым именем', async () => {
+    const user = userEvent.setup();
+    renderBuilder(setvarAction('tx.var=1'));
+
+    await user.click(screen.getByRole('button', { name: 'Выставить переменную' }));
+
+    await waitFor(() => expect(source()).toContain('setvar:tx.var_2=1'));
+    expect(source()).toContain('setvar:tx.var=1');
+  });
+
+  it('убирает присваивание', async () => {
+    const user = userEvent.setup();
+    renderBuilder(setvarAction('tx.score=+1'));
+
+    await user.click(screen.getByRole('button', { name: 'Убрать присваивание' }));
+
+    await waitFor(() => expect(source()).not.toContain('setvar'));
+  });
+
+  it('гасит значение у удаления', async () => {
+    renderBuilder(setvarAction('!ip.dos_counter'));
+
+    expect(screen.getByRole('combobox', { name: 'Запись' })).toHaveValue('! удалить');
+    expect(screen.getByRole('combobox', { name: 'Значение' })).toBeDisabled();
+  });
+
+  // Форма, показывающая меньше, чем есть в записи, сохранила бы ровно то, что
+  // показала: имени с макросом полями не собрать.
+  it('оставляет строкой запись, разбор которой не сошёлся', () => {
+    renderBuilder(setvarAction('tx.%{rule.id}_flag=1'));
+
+    expect(screen.queryByRole('combobox', { name: 'Коллекция' })).toBeNull();
+    expect(screen.getByDisplayValue('tx.%{rule.id}_flag=1')).toBeInTheDocument();
+  });
+
+  it('называет место, где переменную читают', async () => {
+    const user = userEvent.setup();
+    renderBuilder(
+      [
+        'SecAction "id:1001,phase:1,pass,nolog,setvar:tx.flag=1"',
+        '',
+        'SecRule TX:flag "@eq 1" "id:1002,phase:2,deny,msg:\'flag\'"',
+        '',
+      ].join('\n'),
+    );
+
+    await user.hover(screen.getAllByRole('button', { name: 'Что набор знает о переменной' })[0]);
+
+    expect(await screen.findByText('Читается')).toBeInTheDocument();
+    // Ссылкой, а не текстом: место названо затем, чтобы к нему перейти.
+    expect(screen.getByRole('button', { name: 'правило 1002, строка 3' })).toBeInTheDocument();
+  });
+
+  // Выставленная и никем не читаемая переменная — не ошибка конфигурации:
+  // правило с ней загрузится и будет работать, просто накопленное ею никто
+  // не проверяет. Сказать об этом можно только по всему набору.
+  it('говорит, что переменную никто не читает', async () => {
+    const user = userEvent.setup();
+    renderBuilder(setvarAction('tx.flag=1'));
+
+    await user.hover(screen.getByRole('button', { name: 'Что набор знает о переменной' }));
+
+    expect(
+      await screen.findByText('нигде — накопленное этой записью никто не проверяет'),
+    ).toBeInTheDocument();
   });
 });
 
@@ -1264,5 +1378,65 @@ describe('VisualBuilder — меню «Добавить»', () => {
     await waitFor(() => expect(source()).toContain('SecMarker MARKER-2'));
     // Имя правят в самой строке: у метки это всё её содержимое.
     expect(screen.getAllByRole('textbox', { name: 'Метка' })).toHaveLength(2);
+  });
+});
+
+/**
+ * Конструктор смотрит на один файл, а исключения приходят из набора.
+ *
+ * Директива из файла-надстройки снимает правило из файла правил, и отметка об
+ * этом обязана назвать файл: «строка 1» без него отсылает к первой строке того
+ * файла, который открыт, — то есть не туда.
+ */
+describe('VisualBuilder — чужой файл набора', () => {
+  const RULE = `SecRule ARGS "@rx attack" "id:942100,phase:2,deny,msg:'SQL Injection'"`;
+
+  /** Набор файлов, читаемых в этом порядке; правится первый. */
+  function renderWorkspace(...files: [string, string][]) {
+    store.dispatch(
+      replaceWorkspace({ files: files.map(([name, source]) => ({ name, source })) }),
+    );
+    return render(
+      <Provider store={store}>
+        <I18nProvider initialLocale="ru">
+          <ThemeProvider theme={theme}>
+            <WorkspaceProvider>
+              <EditorViewProvider>
+                <BuilderViewProvider>
+                  <VisualBuilder />
+                </BuilderViewProvider>
+              </EditorViewProvider>
+            </WorkspaceProvider>
+          </ThemeProvider>
+        </I18nProvider>
+      </Provider>,
+    );
+  }
+
+  const activeName = () => {
+    const { files, activeId } = store.getState().files;
+    return files.find((file) => file.id === activeId)?.name;
+  };
+
+  it('называет файл в отметке о снятом правиле', async () => {
+    renderWorkspace(['rules.conf', RULE], ['exclusions.conf', 'SecRuleRemoveById 942100']);
+
+    expect(
+      await screen.findByLabelText(/Снято директивой «SecRuleRemoveById» в строке 1 · в «exclusions.conf»/),
+    ).toBeInTheDocument();
+  });
+
+  it('называет чужой файл у номера строки исключения и переходит к нему', async () => {
+    const user = userEvent.setup();
+    renderWorkspace(['rules.conf', RULE], ['exclusions.conf', 'SecRuleRemoveById 942100']);
+
+    await user.click(await screen.findByRole('button', { name: 'Развернуть «Исключения»' }));
+
+    // Адрес записи — с файлом: она стоит не в том файле, который открыт.
+    expect(await screen.findByText('«exclusions.conf», строка 1')).toBeInTheDocument();
+
+    // Переход к самой записи открывает её файл: правят там, где она написана.
+    await user.click(screen.getByRole('button', { name: 'Показать исключение в конструкторе' }));
+    await waitFor(() => expect(activeName()).toBe('exclusions.conf'));
   });
 });

@@ -4,12 +4,10 @@ import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Collapse from '@mui/material/Collapse';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import CloseIcon from '@mui/icons-material/Close';
 import { ChipInput } from './ChipInput';
 import { ChoiceField } from './ChoiceField';
 import { CommitField } from './CommitField';
@@ -17,6 +15,7 @@ import { Counter } from './Counter';
 import { CtlExclusionList } from './CtlExclusionList';
 import { LongTextField } from './LongTextField';
 import { Section, SECTION_PADDING } from './Section';
+import { SetvarSection } from './SetvarSection';
 import { SuggestField } from './SuggestField';
 import { ruleActionCount, ruleActionSummary } from './summary';
 import { FLAG_COLUMN, PHASE_COLUMN, REACTION_COLUMN, STATUS_COLUMN } from './layout';
@@ -30,12 +29,7 @@ import {
   phaseChoices,
   severityChoices,
 } from '../../modsec/choices';
-import {
-  MACRO_SUGGESTIONS,
-  SETVAR_SUGGESTIONS,
-  STATUS_SUGGESTIONS,
-  TAG_SUGGESTIONS,
-} from '../../modsec/suggestions';
+import { MACRO_SUGGESTIONS, STATUS_SUGGESTIONS, TAG_SUGGESTIONS } from '../../modsec/suggestions';
 import type { DisruptiveAction } from '../../modsec/semantics';
 import type { ExclusionEntry } from '../../modsec/exclusions';
 import type { VisualActions } from '../../modsec/model';
@@ -362,45 +356,15 @@ export function ActionsPanel({
             onChange={(tags) => onChange({ ...actions, tags })}
           />
 
-          {/* Только правка того, что уже есть в правиле: новое присваивание
-              набирается в текстовой вкладке. Пустой `setvar` не переживает
+          {/* Список стоит и пустым — иначе завести первое присваивание было бы
+              негде, а ради него `SecAction` и пишут. Заготовка при этом
+              обязана быть готовой записью: пустой `setvar` не переживает
               обхода через текст — компиляция отбрасывает действие без
-              значения, — а поле, которое исчезает само, хуже его отсутствия. */}
-          {actions.setvar.length > 0 && (
-            <Stack spacing={0.75}>
-              <Typography variant="body2" color="text.secondary">
-                {t('builder.setvar')}
-              </Typography>
-              {actions.setvar.map((setvar, index) => (
-                <Stack key={index} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-                  <LongTextField
-                    fullWidth
-                    monospace
-                    dialogTitle={t('builder.setvar')}
-                    suggestions={SETVAR_SUGGESTIONS}
-                    value={setvar}
-                    onCommit={(value) =>
-                      onChange({
-                        ...actions,
-                        setvar: actions.setvar.map((v, i) => (i === index ? value : v)),
-                      })
-                    }
-                  />
-                  <IconButton
-                    size="small"
-                    onClick={() =>
-                      onChange({
-                        ...actions,
-                        setvar: actions.setvar.filter((_, i) => i !== index),
-                      })
-                    }
-                  >
-                    <CloseIcon fontSize="small" />
-                  </IconButton>
-                </Stack>
-              ))}
-            </Stack>
-          )}
+              значения, — а ряд, исчезающий сам, хуже его отсутствия. */}
+          <SetvarSection
+            values={actions.setvar}
+            onChange={(setvar) => onChange({ ...actions, setvar })}
+          />
         </Stack>
       </Collapse>
     </Stack>

@@ -1,0 +1,101 @@
+import { createContext, useContext } from 'react';
+import type { CompileResult } from '../modsec/compile';
+import type { ExclusionIndex } from '../modsec/exclusions';
+import type { VariableIndex } from '../modsec/variables';
+import type { NewFile } from '../store/filesSlice';
+import type { Analysis } from './useInspection';
+
+/**
+ * Файл набора так, как его видит интерфейс.
+ *
+ * Разбора здесь нет намеренно: выбор раздела и менеджер файлов показывают имя,
+ * размер и отметку «правлен», а модель нужна только активному файлу — её
+ * отдаёт `useRule()`.
+ */
+export interface WorkspaceFile {
+  id: string;
+  name: string;
+  /** Число строк: размер файла надо назвать, не показывая его текст. */
+  lines: number;
+  /** Текст отличается от того, что открыли или сохранили. */
+  edited: boolean;
+  /** Пример, из которого файл открыт: по нему витрина отмечает выбранное. */
+  exampleId?: string;
+}
+
+/**
+ * Набор файлов: чем он сейчас является и что с ним можно сделать.
+ *
+ * Отдельно от `useRule()`, потому что вопросы разные. `useRule()` отвечает про
+ * текст, который правят: его модель, его историю, его правки. Здесь — про
+ * конфигурацию целиком: какие файлы в неё входят, в каком порядке читаются и
+ * что о ней говорит смысловой проход.
+ */
+export interface WorkspaceContextValue {
+  /** Файлы в порядке включения. */
+  files: WorkspaceFile[];
+  /** Файл, который правят. */
+  activeId: string;
+  /**
+   * Замечания всего набора и ход смыслового прохода.
+   *
+   * Одно на набор, а не по файлу: половина замечаний об исключениях — про
+   * связь двух файлов, и приписать их одному нельзя.
+   */
+  analysis: Analysis;
+  /** Кто из исключений набора правит какое правило. */
+  exclusions: ExclusionIndex;
+  /**
+   * Где переменные набора выставляются и где читаются.
+   *
+   * Рядом с исключениями и по той же причине: смысл записи `setvar:tx.flag=1`
+   * лежит не в ней самой, а в том, читает ли этот флаг кто-нибудь и стоит ли
+   * читающее правило после выставляющего. Считается это по набору — коллекция
+   * транзакции общая на файлы — и сразу, вместе с моделью: подсказка о
+   * переменной не должна появляться через паузу после самого поля.
+   */
+  variables: VariableIndex;
+  /**
+   * Компиляция активного файла.
+   *
+   * Живёт здесь, потому что здесь же кеш компиляций по файлам: считать её
+   * второй раз для того файла, который правят, незачем. Наружу её отдаёт
+   * `useRule().compiled` — потребителям нужен активный файл, а не набор.
+   */
+  activeCompiled: CompileResult;
+  /** Имя файла по идентификатору: им отметки называют чужой файл. */
+  nameOf: (id: string) => string;
+  /** Текст файла набора: его выгружают, не открывая. */
+  textOf: (id: string) => string;
+
+  /* --- Набор --- */
+  selectFile: (id: string) => void;
+  /** Дописывает файлы в конец набора и переходит к первому из них. */
+  openFiles: (files: NewFile[]) => void;
+  /** Заводит чистый файл со свободным именем. */
+  newFile: () => void;
+  /**
+   * Убирает файл из набора.
+   *
+   * Последний не убирается, а очищается: конфигурация без файлов — это
+   * редактор без текста, и вернуться в него было бы неоткуда.
+   */
+  removeFile: (id: string) => void;
+  /** Переставляет файл: порядок набора — это порядок включения. */
+  moveFile: (id: string, to: number) => void;
+  /** Файл лёг на диск — с этого места и считаем правки. */
+  markSaved: (id: string) => void;
+  /** Заменяет набор целиком: так открывают пример. */
+  replaceWorkspace: (files: NewFile[]) => void;
+}
+
+export const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
+
+/** Доступ к набору файлов. Бросает, если вызван вне `WorkspaceProvider`. */
+export function useWorkspace(): WorkspaceContextValue {
+  const ctx = useContext(WorkspaceContext);
+  if (ctx === null) {
+    throw new Error('useWorkspace must be used within a <WorkspaceProvider>');
+  }
+  return ctx;
+}

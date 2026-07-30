@@ -1,10 +1,10 @@
 import { configureStore } from '@reduxjs/toolkit';
 import type { Action, ThunkAction } from '@reduxjs/toolkit';
-import { ruleReducer } from './ruleSlice';
+import { filesReducer } from './filesSlice';
 
 export const store = configureStore({
   reducer: {
-    rule: ruleReducer,
+    files: filesReducer,
   },
 });
 

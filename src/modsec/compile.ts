@@ -28,12 +28,12 @@ import { isDisruptive, isHeadOnlyAction } from './semantics';
 import { Diagnostics } from './diagnostics';
 import { checkConditionStructure, checkDirective } from './checks';
 import { readDirective } from './directives';
-import { collectExclusions, emptyExclusionIndex, exclusionList } from './exclusions';
+import { readExclusions } from './exclusions';
 import { inspectDocument } from './inspect';
 import { emptyActions, groupTargets } from './model';
 import { unfold } from './parser';
+import { LONE_FILE, fileMark } from './workspace';
 import type { Diagnostic } from './diagnostics';
-import type { ExclusionIndex } from './exclusions';
 import type {
   VisualActions,
   VisualBlock,
@@ -68,14 +68,6 @@ export interface CompileResult {
    * конструктор не пустят, но сказать о нём всё остальное можно и полезно.
    */
   blocks: VisualBlock[];
-  /**
-   * Кто из директив файла правит чужие правила.
-   *
-   * Считается вместе с моделью, а не отложенным проходом: отметка «выключено
-   * исключением» стоит на карточке правила рядом с его номером, и появиться
-   * она должна тогда же, когда сама карточка.
-   */
-  exclusions: ExclusionIndex;
   diagnostics: Diagnostic[];
   errorCount: number;
   warningCount: number;
@@ -241,8 +233,10 @@ function toCondition(
  * визуальная вкладка должна быть недоступна, а пользователь остаётся
  * в текстовом редакторе с подсвеченным списком проблем.
  */
-export function compileDocument(doc: ParsedDocument | null): CompileResult {
-  const diag = new Diagnostics();
+export function compileDocument(doc: ParsedDocument | null, file = LONE_FILE): CompileResult {
+  // Файл называется здесь, а не приписывается замечаниям потом: строка и ключ
+  // правила считаются внутри файла, и замечание без него в наборе ведёт не туда.
+  const diag = new Diagnostics().inFile(fileMark(file));
 
   if (doc === null) {
     diag.report('notParsed');
@@ -250,7 +244,6 @@ export function compileDocument(doc: ParsedDocument | null): CompileResult {
       ok: false,
       model: null,
       blocks: [],
-      exclusions: emptyExclusionIndex(),
       diagnostics: diag.items,
       errorCount: 1,
       warningCount: 0,
@@ -408,11 +401,10 @@ export function compileDocument(doc: ParsedDocument | null): CompileResult {
     i++;
   }
 
-  // Сводится это только когда собраны все блоки: директива ссылается и на
-  // правило выше себя, и на правило ниже — разница между ними и есть то,
-  // сработает исключение или нет.
-  const exclusions = collectExclusions(blocks, statements);
-  for (const { directive } of exclusionList(exclusions)) {
+  // Правила здесь не нужны: недописанная директива не загрузится и в файле,
+  // где её цель есть. С кем она встретилась — вопрос набора, и на него
+  // отвечает смысловой проход, у которого на руках все файлы.
+  for (const directive of readExclusions(statements)) {
     // Ошибка загрузки бывает только у директивы: `ctl` с тем же промахом
     // конфигурацию не роняет — он молча ничего не снимает, а о молчаливом
     // «ничего» говорит смысловой проход, и говорит предупреждением.
@@ -431,7 +423,6 @@ export function compileDocument(doc: ParsedDocument | null): CompileResult {
     ok,
     model: ok ? { blocks } : null,
     blocks,
-    exclusions,
     diagnostics: byLine(diag.items),
     errorCount,
     warningCount: diag.count('warning'),
@@ -440,14 +431,22 @@ export function compileDocument(doc: ParsedDocument | null): CompileResult {
 }
 
 /**
- * Сообщения в порядке файла, а не в порядке проверок.
+ * Сообщения в порядке набора, а не в порядке проверок.
  *
- * Читать удобнее так: сначала всё про первое правило, потом про второе.
- * Сортировка устойчива, поэтому у сообщений об одной строке сохраняется
- * порядок проверок — от структуры к смыслу.
+ * Читать удобнее так: сначала всё про первое правило, потом про второе. Когда
+ * файлов несколько, первым словом идёт порядок включения: список замечаний
+ * читают сверху вниз, и файл, прыгающий от строки к строке, превращает один
+ * список в несколько. Сортировка устойчива, поэтому у сообщений об одной
+ * строке сохраняется порядок проверок — от структуры к смыслу.
  */
-export function byLine(diagnostics: readonly Diagnostic[]): Diagnostic[] {
-  return [...diagnostics].sort((a, b) => (a.line ?? 0) - (b.line ?? 0));
+export function byLine(
+  diagnostics: readonly Diagnostic[],
+  order?: ReadonlyMap<string, number>,
+): Diagnostic[] {
+  const place = (file?: string) => (order === undefined ? 0 : (order.get(file ?? '') ?? 0));
+  return [...diagnostics].sort(
+    (a, b) => place(a.file) - place(b.file) || (a.line ?? 0) - (b.line ?? 0),
+  );
 }
 
 /**
@@ -461,7 +460,7 @@ export function analyzeDocument(doc: ParsedDocument | null): CompileResult {
   const compiled = compileDocument(doc);
   if (doc === null) return compiled;
 
-  const semantic = inspectDocument(compiled.blocks, doc.statements, compiled.exclusions);
+  const semantic = inspectDocument(compiled.blocks, doc.statements);
   const diagnostics = byLine([...compiled.diagnostics, ...semantic]);
   const count = (severity: Diagnostic['severity']) =>
     diagnostics.filter((d) => d.severity === severity).length;

@@ -8,15 +8,18 @@ import Tabs from '@mui/material/Tabs';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
 import RuleEditor from './components/RuleEditor';
-import { DocumentBar } from './components/DocumentBar';
 import { DebugPanel } from './components/DebugPanel';
 import { EditorToolbar, HistoryButtons } from './components/EditorToolbar';
+import { FileMenu } from './components/FileMenu';
+import { FileSetControls } from './components/FileSetControls';
 import { VisualBuilder } from './components/builder/VisualBuilder';
 import { modsecExamples } from './data/modsecExamples';
 import { useI18n } from './i18n/useI18n';
 import { LOCALE_LABELS, type Locale } from './i18n/translations';
-import { RuleProvider } from './context/RuleProvider';
+import { WorkspaceProvider } from './context/WorkspaceProvider';
+import { exampleFile } from './data/exampleFile';
 import { useRule } from './context/ruleContext';
 import { BuilderViewProvider } from './context/BuilderViewProvider';
 import { EditorViewProvider } from './context/EditorViewProvider';
@@ -41,12 +44,10 @@ function EditorTabs() {
 
   return (
     <>
-      <DocumentBar />
-
       {/* Панель режима живёт в строке вкладок, а не над содержимым: своей
           полосы она не заработала, а вкладки её высоту всё равно задают.
-          Порядок в строке — от общего к частному: история документа, взгляд
-          на него, что умеет этот взгляд, главное действие. */}
+          Порядок в строке — от общего к частному: набор целиком, история
+          документа, взгляд на него, что умеет этот взгляд, главное действие. */}
       <Box
         sx={{
           display: 'flex',
@@ -57,6 +58,9 @@ function EditorTabs() {
           borderColor: 'divider',
         }}
       >
+        <FileMenu />
+        <Divider orientation="vertical" sx={{ height: 20 }} />
+
         <HistoryButtons />
         <Divider orientation="vertical" sx={{ height: 20 }} />
 
@@ -101,40 +105,52 @@ function App() {
 
   return (
     <Dialog open maxWidth="xl" fullWidth>
-      <DialogTitle
-        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}
-      >
-        <span>{t('app.title')}</span>
-        <ToggleButtonGroup
-          size="small"
-          exclusive
-          value={locale}
-          onChange={(_, next: Locale | null) => next && setLocale(next)}
-          aria-label={t('app.language')}
-        >
-          {locales.map((l) => (
-            <ToggleButton key={l} value={l} sx={{ px: 1.5, py: 0.25 }}>
-              {LOCALE_LABELS[l]}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
-      </DialogTitle>
+      {/* Набор объявлен выше заголовка: имя правимого файла стоит в заголовке
+          рядом с языком, а значит, о наборе должны знать оба — и заголовок, и
+          содержимое. */}
+      <WorkspaceProvider persist initialFile={exampleFile(modsecExamples[0])}>
+        <EditorViewProvider>
+          {/* Раскрытие карточек живёт выше вкладок: уйти в текст и вернуться —
+              не повод забыть, какие правила были открыты. */}
+          <BuilderViewProvider>
+            <DialogTitle
+              sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}
+              component="div"
+            >
+              <Typography variant="h6" component="h1" sx={{ flex: 1, minWidth: 0 }} noWrap>
+                {t('app.title')}
+              </Typography>
 
-      <DialogContent
-        dividers
-        sx={{ height: '85vh', p: 0, display: 'flex', flexDirection: 'column' }}
-      >
-        <RuleProvider persist initialSource={modsecExamples[0].code}>
-          <EditorViewProvider>
-            {/* Раскрытие карточек живёт выше вкладок: уйти в текст и вернуться —
-                не повод забыть, какие правила были открыты. */}
-            <BuilderViewProvider>
+              {/* Справа — то, что отвечает на «где я»: какой файл набора открыт,
+                  вход в набор, язык интерфейса. Действия над набором сюда не
+                  ставятся: они в меню «Файл» над содержимым. */}
+              <FileSetControls />
+
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={locale}
+                onChange={(_, next: Locale | null) => next && setLocale(next)}
+                aria-label={t('app.language')}
+              >
+                {locales.map((l) => (
+                  <ToggleButton key={l} value={l} sx={{ px: 1.5, py: 0.25 }}>
+                    {LOCALE_LABELS[l]}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            </DialogTitle>
+
+            <DialogContent
+              dividers
+              sx={{ height: '85vh', p: 0, display: 'flex', flexDirection: 'column' }}
+            >
               <EditorTabs />
               <DebugPanel />
-            </BuilderViewProvider>
-          </EditorViewProvider>
-        </RuleProvider>
-      </DialogContent>
+            </DialogContent>
+          </BuilderViewProvider>
+        </EditorViewProvider>
+      </WorkspaceProvider>
     </Dialog>
   );
 }

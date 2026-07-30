@@ -14,6 +14,7 @@ import { SuggestField } from './SuggestField';
 import { TargetRow } from './TargetRow';
 import { CONDITION_PADDING, CONDITION_PADDING_TOP, PICK_COLUMN } from './layout';
 import { useBuilderView } from '../../context/builderViewContext';
+import { useForeignFile } from '../../context/useForeignFile';
 import { useI18n } from '../../i18n/useI18n';
 import { ctlExclusionChoices } from '../../modsec/choices';
 import { ctlOption } from '../../modsec/exclusions';
@@ -309,6 +310,7 @@ function chained(
 function Phrase({ text, match }: { text: string; match?: ExclusionMatch }) {
   const { t } = useI18n();
   const { revealRule } = useBuilderView();
+  const foreign = useForeignFile(match?.file);
 
   if (match === undefined) return <Typography variant="body2">{text}</Typography>;
 
@@ -317,12 +319,18 @@ function Phrase({ text, match }: { text: string; match?: ExclusionMatch }) {
   return (
     <Typography variant="body2">
       {before}
-      <Tooltip title={t('builder.exclusionReveal', { id: match.id })}>
+      <Tooltip
+        title={
+          foreign === ''
+            ? t('builder.exclusionReveal', { id: match.id })
+            : t('builder.exclusionRevealIn', { id: match.id, file: foreign })
+        }
+      >
         <Link
           component="button"
           variant="body2"
           underline="hover"
-          onClick={() => revealRule(match.key)}
+          onClick={() => revealRule(match.key, match.file)}
           // Сброс кнопки у MUI ставит выравнивание по середине строки: номер
           // сидел бы на пол-буквы выше слов, между которыми стоит.
           sx={{ verticalAlign: 'baseline' }}

@@ -24,8 +24,14 @@ export interface RevealRequest {
 export interface EditorViewValue {
   tab: EditorTab;
   setTab: (tab: EditorTab) => void;
-  /** Открыть текстовую вкладку и подвести к строке. */
-  revealLine: (line: number) => void;
+  /**
+   * Открыть текстовую вкладку и подвести к строке.
+   *
+   * Файл называют, когда строка не в открытом файле: номера строк считаются
+   * внутри файла, и без перехода просьба привела бы к чужой строке с тем же
+   * номером.
+   */
+  revealLine: (line: number, file?: string) => void;
   /** Последняя просьба; `null`, пока никто ни о чём не просил. */
   reveal: RevealRequest | null;
 }

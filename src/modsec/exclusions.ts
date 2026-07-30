@@ -10,9 +10,11 @@
  * зависимости от порядка строк.
  *
  * Отсюда две функции. {@link readExclusions} разбирает директивы, ничего не
- * зная о правилах; {@link indexExclusions} сводит их с правилами файла и
- * отвечает на два разных вопроса — какие правила подходят под выборку и для
- * каких из них директива стоит достаточно низко, чтобы подействовать.
+ * зная о правилах; {@link indexWorkspaceExclusions} сводит их с правилами всего
+ * набора файлов и отвечает на два разных вопроса — какие правила подходят под
+ * выборку и для каких из них директива стоит достаточно низко, чтобы
+ * подействовать. Набор, а не файл, потому что включённые файлы для ModSecurity
+ * одна конфигурация: «ниже» бывает и в соседнем файле.
  *
  * Директивы разложены на две оси — что делают и как выбирают, — потому
  * что различаются они только этим: `SecRuleRemoveByTag` и
@@ -41,7 +43,9 @@ import { parseActions, parseVariables } from './parser';
 import { groupTargets, targetsToVariables } from './model';
 import { reviewRegex } from './regex';
 import { dquote, serializeActions, serializeVariable, serializeVariables } from './serialize';
+import { LONE_FILE, before, blockRef, loneUnit, statementRef } from './workspace';
 import type { VisualBlock, VisualTarget } from './model';
+import type { WorkspacePlace, WorkspaceUnit } from './workspace';
 import type {
   DirectiveStatement,
   ParsedStatement,
@@ -76,12 +80,12 @@ export interface IdRange {
 export interface ExclusionDirective {
   source: ExclusionSource;
   /**
-   * Индекс утверждения в `ParsedDocument.statements`.
+   * Место записи в наборе: файл и индекс утверждения внутри него.
    *
    * У `ctl` это утверждение, в действиях которого он написан, — то есть
    * звено цепочки, а не обязательно её голова.
    */
-  statementIndex: number;
+  place: WorkspacePlace;
   line: number;
   /**
    * Имя исключения: `SecRuleRemoveById` у директивы, `ctl:ruleRemoveById` у
@@ -114,6 +118,13 @@ export interface ExclusionDirective {
 
 /** Правило, попавшее под выборку исключения. */
 export interface ExclusionMatch {
+  /**
+   * Файл, в котором стоит правило.
+   *
+   * Ключ блока считается внутри файла, и без этого поля отправить к правилу
+   * можно было бы только в том файле, который открыт.
+   */
+  file: string;
   /** Ключ блока модели — по нему конструктор находит карточку. */
   key: string;
   /** Значение `id` правила: то, чем правило названо в файле. */
@@ -123,6 +134,8 @@ export interface ExclusionMatch {
    *
    * У директивы это значит «написана ниже правила»; у `ctl` — «носитель
    * выполняется раньше»: сначала по фазе, при равных фазах — по строке.
+   * И «ниже», и «раньше» считаются по набору: файл, включённый позже,
+   * целиком ниже включённого раньше.
    */
   applies: boolean;
 }
@@ -135,6 +148,8 @@ export interface ExclusionMatch {
  * директивы его нет вовсе.
  */
 export interface ExclusionCarrier {
+  /** Файл носителя. У `ctl` он тот же, что у самой записи: она внутри правила. */
+  file: string;
   /** Ключ блока-носителя: по нему конструктор находит карточку. */
   key: string;
   id: string;
@@ -160,6 +175,13 @@ export interface ExclusionEntry {
 /** Ссылка на исключение — то, чем правило может назвать своего правщика. */
 export interface ExclusionRef {
   /**
+   * Файл, в котором исключение написано.
+   *
+   * Правит правило и файл, включённый позже, — и это тот случай, когда отметка
+   * обязана называть файл: строка 12 без него ведёт не туда.
+   */
+  file: string;
+  /**
    * Ключ блока, в котором исключение написано: самой директивы или
    * правила-носителя `ctl`. По нему карточка правила отправляет к правщику.
    */
@@ -180,7 +202,7 @@ export interface ExclusionRef {
   source: ExclusionSource;
 }
 
-/** Что с правилом сделали исключения файла. */
+/** Что с правилом сделали исключения набора. */
 export interface RuleEffect {
   /** Директивы, снимающие правило целиком. */
   removedBy: ExclusionRef[];
@@ -190,31 +212,40 @@ export interface RuleEffect {
 
 export interface ExclusionIndex {
   /**
-   * Индекс утверждения → исключения, написанные в этом утверждении.
+   * Утверждение набора → исключения, написанные в этом утверждении.
    *
-   * Ключ — номер утверждения, потому что спрашивают отсюда двое и по-разному:
-   * проверки идут по всем исключениям в порядке файла (его хранит сам `Map`), а
-   * строка списка блоков спрашивает только про себя.
+   * Ключ — {@link statementRef}, то есть файл вместе с номером утверждения:
+   * спрашивают отсюда двое и по-разному. Проверки идут по всем исключениям в
+   * порядке включения (его хранит сам `Map`), а строка списка блоков
+   * спрашивает только про себя — и про себя в своём файле.
    *
    * Значение — список, а не одна запись: у директивы исключение в строке одно,
    * а правило носит их сколько угодно — `ctl:ruleRemoveById=1,ctl:ruleRemoveById=2`
    * в одном списке действий совершенно обычная запись.
    */
-  byStatement: Map<number, ExclusionEntry[]>;
-  /** Ключ блока модели → что с ним сделали. Только действующие директивы. */
+  byStatement: Map<string, ExclusionEntry[]>;
+  /** {@link blockRef} правила → что с ним сделали. Только действующие исключения. */
   byRule: Map<string, RuleEffect>;
   /**
-   * В файле есть хотя бы одно правило с `id`.
+   * Имена файлов набора: идентификатор → имя.
    *
-   * По этому признаку отличается файл правил от файла-надстройки: во втором
-   * исключения ссылаются на чужой набор, и промах выборки там — норма, а не
-   * опечатка.
+   * Держит их индекс, а не тот, кто его показывает: чужой файл называют и
+   * замечания, а у ядра других сведений о наборе нет.
    */
-  fileHasIds: boolean;
+  names: Map<string, string>;
+  /**
+   * В наборе есть хотя бы одно правило с `id`.
+   *
+   * По этому признаку отличается набор правил от одинокой надстройки: во
+   * второй исключения ссылаются на чужие правила, и промах выборки там —
+   * норма, а не опечатка. Считается по набору: правило, лежащее в соседнем
+   * файле, — это уже не чужой набор.
+   */
+  hasIds: boolean;
 }
 
 export function emptyExclusionIndex(): ExclusionIndex {
-  return { byStatement: new Map(), byRule: new Map(), fileHasIds: false };
+  return { byStatement: new Map(), byRule: new Map(), names: new Map(), hasIds: false };
 }
 
 /** Место в таблице «что делает × как выбирает». */
@@ -626,7 +657,7 @@ function toRange(arg: string): IdRange | null {
  */
 function readOne(
   statement: DirectiveStatement,
-  statementIndex: number,
+  place: WorkspacePlace,
   kind: ExclusionKind,
 ): ExclusionDirective {
   const ids: IdRange[] = [];
@@ -661,7 +692,7 @@ function readOne(
 
   return {
     source: 'directive',
-    statementIndex,
+    place,
     line: statement.span.startLine,
     name: statement.name,
     op: kind.op,
@@ -686,7 +717,7 @@ function readOne(
  */
 function readCtl(
   statement: SecRuleStatement | SecActionStatement,
-  statementIndex: number,
+  place: WorkspacePlace,
   action: RuleAction,
 ): ExclusionDirective | null {
   const ctl = splitCtl(action);
@@ -706,7 +737,7 @@ function readCtl(
 
   return {
     source: 'ctl',
-    statementIndex,
+    place,
     line: statement.span.startLine,
     name: `ctl:${ctlOption(ctl.op, ctl.selector)}`,
     op: ctl.op,
@@ -727,21 +758,31 @@ function readCtl(
  * дотянулся. `ctl` берётся из любого утверждения правила, а не только из
  * головы цепочки: в звене он тоже работает, а в модель конструктора
  * действия звеньев не попадают, и заметить его больше нечем.
+ *
+ * Файл и его номер в порядке включения приходят снаружи: разбор одного файла
+ * не знает, каким по счёту его включили, а без этого «ниже» между файлами не
+ * сравнить. У одинокого документа они и не нужны.
  */
-export function readExclusions(statements: ParsedStatement[]): ExclusionDirective[] {
+export function readExclusions(
+  statements: ParsedStatement[],
+  file: string = LONE_FILE,
+  order = 0,
+): ExclusionDirective[] {
   const found: ExclusionDirective[] = [];
 
-  statements.forEach((statement, statementIndex) => {
+  statements.forEach((statement, index) => {
+    const place: WorkspacePlace = { file, order, index };
+
     if (statement.kind === 'directive') {
       const kind = KINDS[statement.name.toLowerCase()];
-      if (kind !== undefined) found.push(readOne(statement, statementIndex, kind));
+      if (kind !== undefined) found.push(readOne(statement, place, kind));
       return;
     }
 
     if (statement.kind !== 'SecRule' && statement.kind !== 'SecAction') return;
     for (const action of statement.actions) {
       if (action.name.toLowerCase() !== 'ctl') continue;
-      const ctl = readCtl(statement, statementIndex, action);
+      const ctl = readCtl(statement, place, action);
       if (ctl !== null) found.push(ctl);
     }
   });
@@ -767,16 +808,18 @@ const DEFAULT_PHASE = 2;
  */
 const TERMINAL_ACTIONS = new Set(['deny', 'drop', 'redirect', 'proxy']);
 
-/** Правило файла в том виде, в котором его выбирают исключения. */
+/** Правило набора в том виде, в котором его выбирают исключения. */
 interface RuleRef {
+  /** Файл правила: ключ блока сам по себе в наборе не единственный. */
+  file: string;
   key: string;
   id: string;
   /** Номер правила; `NaN`, если `id` не задан или не число. */
   num: number;
   msg: string;
   tags: string[];
-  /** Индекс головной директивы: по нему сравнивается порядок строк. */
-  statementIndex: number;
+  /** Место головной директивы: по нему сравнивается порядок. */
+  place: WorkspacePlace;
   /** Последнее утверждение блока: `ctl` может стоять в любом звене цепочки. */
   lastIndex: number;
   /** Фаза правила: порядок исполнения задаёт сначала она, а потом строка. */
@@ -787,7 +830,7 @@ interface RuleRef {
   stops: string;
 }
 
-function toRuleRefs(blocks: VisualBlock[]): RuleRef[] {
+function toRuleRefs(blocks: VisualBlock[], file: string, order: number): RuleRef[] {
   const refs: RuleRef[] = [];
 
   for (const block of blocks) {
@@ -796,14 +839,16 @@ function toRuleRefs(blocks: VisualBlock[]): RuleRef[] {
     if (block.kind !== 'rule' && block.kind !== 'action') continue;
     const own = block.kind === 'rule' ? block.rule.actions : block.actions;
     const phase = Number.parseInt(own.phase, 10);
+    const head = block.kind === 'rule' ? block.rule.headIndex : block.statementIndex;
 
     refs.push({
+      file,
       key: block.key,
       id: own.id,
       num: Number.parseInt(own.id, 10),
       msg: own.msg,
       tags: own.tags,
-      statementIndex: block.kind === 'rule' ? block.rule.headIndex : block.statementIndex,
+      place: { file, order, index: head },
       lastIndex: block.kind === 'rule' ? block.rule.tailIndex : block.statementIndex,
       phase: Number.isNaN(phase) ? DEFAULT_PHASE : phase,
       conditional: block.kind === 'rule',
@@ -820,11 +865,12 @@ function toRuleRefs(blocks: VisualBlock[]): RuleRef[] {
  * Порядок исполнения — не порядок файла: ModSecurity сначала проходит фазу
  * целиком и только внутри неё идёт по строкам. Правило первой фазы,
  * написанное в конце файла, отработает раньше всей второй фазы, и для `ctl`
- * это и есть разница между «исключение есть» и «исключения нет».
+ * это и есть разница между «исключение есть» и «исключения нет». Строки при
+ * равных фазах считаются по набору: файл, включённый раньше, весь раньше.
  */
 function runsBefore(a: RuleRef, b: RuleRef): boolean {
   if (a.phase !== b.phase) return a.phase < b.phase;
-  return a.statementIndex < b.statementIndex;
+  return before(a.place, b.place);
 }
 
 /** Правила, подходящие под выборку директивы, без учёта порядка строк. */
@@ -863,14 +909,20 @@ function selectRules(
   );
 }
 
-/** Сводит директивы с правилами файла. */
-export function indexExclusions(
-  blocks: VisualBlock[],
-  directives: ExclusionDirective[],
-): ExclusionIndex {
-  if (directives.length === 0) return emptyExclusionIndex();
+/**
+ * Сводит исключения с правилами всего набора.
+ *
+ * Внутри одна и та же работа для одного файла и для десяти: правила собраны из
+ * всех файлов сразу, а различает их место — номер файла в порядке включения и
+ * индекс утверждения. Разделять эти два случая было бы разделением того, что
+ * ModSecurity не разделяет: включённые файлы для него одна конфигурация.
+ */
+function indexUnits(units: readonly WorkspaceUnit[], directives: ExclusionDirective[]): ExclusionIndex {
+  const names = new Map<string, string>();
+  for (const unit of units) names.set(unit.id, unit.name);
+  if (directives.length === 0) return { ...emptyExclusionIndex(), names };
 
-  const rules = toRuleRefs(blocks);
+  const rules = units.flatMap((unit, order) => toRuleRefs(unit.blocks, unit.id, order));
   const byNum = new Map<number, RuleRef[]>();
   for (const rule of rules) {
     if (Number.isNaN(rule.num)) continue;
@@ -881,12 +933,12 @@ export function indexExclusions(
 
   // Носителя ищут по любому утверждению блока: `ctl` из звена цепочки
   // принадлежит правилу целиком, а фаза и реакция записаны в её голове.
-  const byStatement = new Map<number, ExclusionEntry[]>();
-  const hostOf = new Map<number, RuleRef>();
+  const byStatement = new Map<string, ExclusionEntry[]>();
+  const hostOf = new Map<string, RuleRef>();
   if (directives.some((directive) => directive.source === 'ctl')) {
     for (const rule of rules) {
-      for (let index = rule.statementIndex; index <= rule.lastIndex; index++) {
-        hostOf.set(index, rule);
+      for (let index = rule.place.index; index <= rule.lastIndex; index++) {
+        hostOf.set(statementRef(rule.file, index), rule);
       }
     }
   }
@@ -894,21 +946,27 @@ export function indexExclusions(
   // Где живёт сама директива: отсюда правило узнаёт, куда отправить за своим
   // правщиком. Правила пропущены намеренно — `ctl` находит носителя выше, и
   // это единственный случай, когда исключение живёт внутри правила.
-  const blockOf = new Map<number, string>();
-  for (const block of blocks) {
-    if (block.kind !== 'rule') blockOf.set(block.statementIndex, block.key);
+  const blockOf = new Map<string, string>();
+  for (const unit of units) {
+    for (const block of unit.blocks) {
+      if (block.kind !== 'rule') {
+        blockOf.set(statementRef(unit.id, block.statementIndex), block.key);
+      }
+    }
   }
 
   const byRule = new Map<string, RuleEffect>();
 
   for (const directive of directives) {
+    const written = statementRef(directive.place.file, directive.place.index);
     const seen = new Set<string>();
     const matches: ExclusionMatch[] = [];
-    const host = directive.source === 'ctl' ? hostOf.get(directive.statementIndex) : undefined;
+    const host = directive.source === 'ctl' ? hostOf.get(written) : undefined;
 
     for (const rule of selectRules(directive, rules, byNum)) {
-      if (seen.has(rule.key)) continue;
-      seen.add(rule.key);
+      const ruleRef = blockRef(rule.file, rule.key);
+      if (seen.has(ruleRef)) continue;
+      seen.add(ruleRef);
 
       // Директива применяется при чтении конфигурации, поэтому правило,
       // объявленное ниже, для неё ещё не существует. У `ctl` наоборот: он
@@ -916,19 +974,20 @@ export function indexExclusions(
       // порядку исполнения, где первое слово за фазой.
       const applies =
         directive.source === 'directive'
-          ? directive.statementIndex > rule.statementIndex
+          ? before(rule.place, directive.place)
           : host !== undefined && runsBefore(host, rule);
-      matches.push({ key: rule.key, id: rule.id, applies });
+      matches.push({ file: rule.file, key: rule.key, id: rule.id, applies });
 
       if (!applies) continue;
 
-      let effect = byRule.get(rule.key);
+      let effect = byRule.get(ruleRef);
       if (effect === undefined) {
         effect = { removedBy: [], targetEdits: [], actionEdits: [] };
-        byRule.set(rule.key, effect);
+        byRule.set(ruleRef, effect);
       }
       const ref: ExclusionRef = {
-        key: (directive.source === 'ctl' ? host?.key : blockOf.get(directive.statementIndex)) ?? '',
+        file: directive.place.file,
+        key: (directive.source === 'ctl' ? host?.key : blockOf.get(written)) ?? '',
         line: directive.line,
         name: directive.name,
         text: exclusionRecordText(directive),
@@ -946,6 +1005,7 @@ export function indexExclusions(
         host === undefined
           ? undefined
           : {
+              file: host.file,
               key: host.key,
               id: host.id,
               phase: host.phase,
@@ -953,32 +1013,63 @@ export function indexExclusions(
               stops: host.stops,
             },
     };
-    const written = byStatement.get(directive.statementIndex);
-    if (written === undefined) byStatement.set(directive.statementIndex, [entry]);
-    else written.push(entry);
+    const already = byStatement.get(written);
+    if (already === undefined) byStatement.set(written, [entry]);
+    else already.push(entry);
   }
 
-  return { byStatement, byRule, fileHasIds: rules.some((rule) => rule.id !== '') };
+  return { byStatement, byRule, names, hasIds: rules.some((rule) => rule.id !== '') };
+}
+
+/** Сводит исключения одного файла с его правилами. */
+export function indexExclusions(
+  blocks: VisualBlock[],
+  directives: ExclusionDirective[],
+): ExclusionIndex {
+  return indexUnits([loneUnit(blocks, [])], directives);
 }
 
 /**
- * Все исключения файла в порядке следования.
+ * Разбор и сведение по всему набору.
  *
- * `Map` держит порядок вставки, а вставляют в него по порядку файла, — так что
- * это тот же обход, каким исключения читались. Отдельная функция здесь потому,
- * что порядок для исключений значим, и разворачивать индекс на месте каждый
- * раз значило бы каждый раз про это помнить.
+ * Читается каждый файл своим проходом — номера строк и индексы утверждений у
+ * него свои, — а сводятся все сразу: исключение из одного файла снимает
+ * правило из другого, и разделить эти два шага значило бы потерять ровно то,
+ * ради чего набор держат открытым.
+ *
+ * Уже прочитанные директивы можно передать готовыми: правка одного файла не
+ * меняет разбора остальных, и перечитывать весь набор на каждое нажатие
+ * незачем. Порядок в списке при этом обязан быть порядком включения — по нему
+ * идут проверки.
+ */
+export function indexWorkspaceExclusions(
+  units: readonly WorkspaceUnit[],
+  directives?: ExclusionDirective[],
+): ExclusionIndex {
+  return indexUnits(
+    units,
+    directives ?? units.flatMap((unit, order) => readExclusions(unit.statements, unit.id, order)),
+  );
+}
+
+/**
+ * Все исключения набора в порядке следования.
+ *
+ * `Map` держит порядок вставки, а вставляют в него по порядку включения, — так
+ * что это тот же обход, каким исключения читались. Отдельная функция здесь
+ * потому, что порядок для исключений значим, и разворачивать индекс на месте
+ * каждый раз значило бы каждый раз про это помнить.
  */
 export function exclusionList(index: ExclusionIndex): ExclusionEntry[] {
   return [...index.byStatement.values()].flat();
 }
 
-/** Разбор и сведение разом — для тех, у кого на руках уже есть и то и то. */
+/** Разбор и сведение одинокого документа — набор из одного файла. */
 export function collectExclusions(
   blocks: VisualBlock[],
   statements: ParsedStatement[],
 ): ExclusionIndex {
-  return indexExclusions(blocks, readExclusions(statements));
+  return indexWorkspaceExclusions([loneUnit(blocks, statements)]);
 }
 
 /**

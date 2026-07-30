@@ -17,11 +17,13 @@ import { StatementRow } from './StatementRow';
 import { actionSummary } from './summary';
 import { useRuleExclusions } from '../diagnostics/useDiagnostics';
 import { useRule } from '../../context/ruleContext';
+import { useWorkspace } from '../../context/workspaceContext';
 import { blockExpansionKey, useBuilderView } from '../../context/builderViewContext';
 import { useI18n } from '../../i18n/useI18n';
 import { emitDirective } from '../../modsec/directives';
 import { emitActionBlock } from '../../modsec/emit';
 import { blockRange } from '../../modsec/model';
+import { statementRef } from '../../modsec/workspace';
 import type { VisualActions, VisualBlock, VisualModel } from '../../modsec/model';
 
 /**
@@ -117,6 +119,16 @@ export function VisualBuilder() {
   const { compiled, updateRule, replaceLines, removeBlock, duplicateRule, swapBlocks } =
     useRule();
   const { isExpanded, toggleExpanded, expandNext, reveal } = useBuilderView();
+  const { exclusions, activeId } = useWorkspace();
+
+  /**
+   * Исключение, написанное в этой строке активного файла.
+   *
+   * Индекс исключений собран по всему набору, поэтому спрашивают его строкой
+   * вместе с файлом: номер утверждения сам по себе есть в каждом файле.
+   */
+  const exclusionAt = (statementIndex: number) =>
+    exclusions.byStatement.get(statementRef(activeId, statementIndex))?.[0];
 
   const lastGood = useRef<VisualModel | null>(null);
   useEffect(() => {
@@ -235,7 +247,7 @@ export function VisualBuilder() {
         // одного имени тут мало: важно, до кого оно дотянулось. Директива
         // несёт ровно одно исключение — в отличие от правила, у которого их
         // столько, сколько в нём написано `ctl`.
-        const exclusion = compiled.exclusions.byStatement.get(block.statementIndex)?.[0];
+        const exclusion = exclusionAt(block.statementIndex);
 
         // Формы нет — незнакомое имя, лишний аргумент, макрос в значении.
         // Строка честнее формы, которая показала бы меньше, чем в ней есть.

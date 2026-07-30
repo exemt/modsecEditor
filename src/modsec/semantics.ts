@@ -1462,3 +1462,125 @@ export const AUDIT_FLAGS = ['auditlog', 'noauditlog'] as const;
 export function logFlagMeta(name: string): ActionMeta | null {
   return LOG_FLAG_META[name] ?? null;
 }
+
+/**
+ * Коллекции, в которые пишет `setvar`, — по тому, сколько живёт запись.
+ *
+ * Разделены они не по назначению, а по этому: `tx.score` и `ip.counter`
+ * заполняются одинаковой строкой, но первое умирает вместе с запросом, а
+ * второе переживает его — и только если для коллекции открыто хранилище.
+ * Забытый `initcol` не ошибка конфигурации: правило загрузится, счётчик
+ * будет считать, а между запросами каждый раз начинать с нуля.
+ */
+export const SETVAR_COLLECTION_META: Record<string, ActionMeta> = {
+  ...actionGroup('Lives for one request', 'Живёт один запрос', {
+    tx: {
+      label: { en: 'TX — transaction', ru: 'TX — транзакция' },
+      note: {
+        en: 'The scratch pad of the rule set: what rules pass to each other between phases and links. Needs no storage and disappears with the request',
+        ru: 'Черновик набора правил: то, что правила передают друг другу между фазами и звеньями. Хранилища не требует и исчезает вместе с запросом',
+      },
+    },
+    env: {
+      label: { en: 'ENV — environment', ru: 'ENV — окружение' },
+      note: {
+        en: 'An environment variable of the process: unlike TX it is visible to the application behind the WAF, not only to the rules',
+        ru: 'Переменная окружения процесса: в отличие от TX её видит приложение за WAF, а не только правила',
+      },
+    },
+  }),
+
+  ...actionGroup('Lives between requests', 'Живёт между запросами', {
+    ip: {
+      label: { en: 'IP — by client address', ru: 'IP — по адресу клиента' },
+      note: {
+        en: 'Keyed by the client address; needs initcol:ip and SecDataDir — without them the counter starts from zero on every request',
+        ru: 'Ключ — адрес клиента; нужны initcol:ip и SecDataDir — без них счётчик на каждом запросе начинается с нуля',
+      },
+    },
+    session: {
+      label: { en: 'SESSION — by session', ru: 'SESSION — по сессии' },
+      note: {
+        en: 'Keyed by whatever setsid was given — usually the session cookie; without setsid the collection is empty',
+        ru: 'Ключ — то, что передали в setsid, обычно cookie сессии; без setsid коллекция пуста',
+      },
+    },
+    user: {
+      label: { en: 'USER — by user', ru: 'USER — по пользователю' },
+      note: {
+        en: 'Keyed by setuid: survives a change of session and of address, so this is where per-account counters live',
+        ru: 'Ключ задаёт setuid: переживает смену сессии и адреса, поэтому здесь держат счётчики на учётную запись',
+      },
+    },
+    global: {
+      label: { en: 'GLOBAL — one for everybody', ru: 'GLOBAL — одна на всех' },
+      note: {
+        en: 'Shared by every request and every address: fits a set-wide switch, not a per-client counter',
+        ru: 'Общая на все запросы и все адреса: годится для переключателя на весь набор, а не для счётчика по клиенту',
+      },
+    },
+    resource: {
+      label: { en: 'RESOURCE — by resource', ru: 'RESOURCE — по ресурсу' },
+      note: {
+        en: 'Keyed by setrsc, usually the requested path: counts hits on one page rather than by one client',
+        ru: 'Ключ задаёт setrsc, обычно путь запроса: считает обращения к одной странице, а не по одному клиенту',
+      },
+    },
+  }),
+};
+
+export function setvarCollectionMeta(name: string): ActionMeta | null {
+  return SETVAR_COLLECTION_META[name] ?? null;
+}
+
+/**
+ * Что запись делает с переменной: задаёт, прибавляет, вычитает, удаляет.
+ *
+ * Название варианта начинается с того, как это пишется, — `=`, `=+`, `=-`,
+ * `!`, — потому что различаются четыре записи одним символом, а стоит он не
+ * в одном месте: знак прибавления пишется в начале значения, а удаление —
+ * перед именем, в другом конце строки. Разница между `tx.score=1` и
+ * `tx.score=+1` при этом не в оттенке: первое затирает накопленный счёт.
+ */
+export const SETVAR_OP_META: Record<string, ActionMeta> = {
+  ...actionGroup('Assignment', 'Присваивание', {
+    set: {
+      label: { en: '= set', ru: '= задать' },
+      note: {
+        en: 'Puts the value over the previous one — an accumulated score is wiped by this, not added to',
+        ru: 'Кладёт значение поверх прежнего — накопленный счёт этим затирается, а не увеличивается',
+      },
+    },
+    add: {
+      label: { en: '=+ add', ru: '=+ прибавить' },
+      note: {
+        en: 'Adds to what has been accumulated; a variable that does not exist yet counts as zero — this is how the CRS anomaly score works',
+        ru: 'Прибавляет к накопленному; ещё не существующая переменная считается нулём — так работает счёт аномалий CRS',
+      },
+    },
+    sub: {
+      label: { en: '=- subtract', ru: '=- вычесть' },
+      note: {
+        en: 'Subtracts from what has been accumulated: written where an exception gives back the weight of a hit',
+        ru: 'Вычитает из накопленного: так пишут там, где исключение возвращает вес срабатывания',
+      },
+    },
+  }),
+
+  ...actionGroup('Removal', 'Удаление', {
+    delete: {
+      label: { en: '! delete', ru: '! удалить' },
+      note: {
+        en: 'Takes the variable out of the collection — that is not the same as writing a zero: in a persistent collection the record stops taking up storage',
+        ru: 'Убирает переменную из коллекции — это не то же, что записать нуль: в долгоживущей коллекции запись перестаёт занимать место в хранилище',
+      },
+    },
+  }),
+};
+
+/** Виды записи в порядке от частого к редкому. */
+export const SETVAR_OPS = Object.keys(SETVAR_OP_META);
+
+export function setvarOpMeta(name: string): ActionMeta | null {
+  return SETVAR_OP_META[name] ?? null;
+}

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { byLine } from '../modsec/compile';
-import { inspectDocument, inspectSlices } from '../modsec/inspect';
-import type { CompileResult } from '../modsec/compile';
+import { inspectSlices, inspectWorkspace } from '../modsec/inspect';
+import { LONE_FILE, blockRef } from '../modsec/workspace';
 import type { Diagnostic } from '../modsec/diagnostics';
+import type { ExclusionIndex } from '../modsec/exclusions';
 import type { VisualBlock } from '../modsec/model';
-import type { ParsedDocument, ParsedStatement } from '../modsec/types';
+import type { WorkspaceUnit } from '../modsec/workspace';
 
 /**
  * Смысловой проход как часть жизни приложения: когда его вести и чем платить.
@@ -47,9 +48,15 @@ const IDLE_DELAY_MS = 120;
  */
 const SLICE_BUDGET_MS = 6;
 
-/** Разбор документа целиком: структура сразу, смысл — как получится. */
+/** Разбор набора целиком: структура сразу, смысл — как получится. */
 export interface Analysis {
-  /** Структурные и смысловые замечания вместе, в порядке строк файла. */
+  /**
+   * Структурные и смысловые замечания вместе, в порядке набора.
+   *
+   * Всех файлов, а не только открытого: исключение, которое ни до чего не
+   * дотянулось, и номер, занятый дважды, — замечания о наборе, и увидеть их
+   * можно только глядя на него целиком.
+   */
   diagnostics: Diagnostic[];
   errorCount: number;
   warningCount: number;
@@ -63,11 +70,10 @@ export interface Analysis {
    * должен различать.
    */
   inspecting: boolean;
-  /** Замечания по правилам: ключ блока модели → его список. */
+  /** Замечания по правилам: {@link blockRef} правила → его список. */
   byRule: Map<string, Diagnostic[]>;
 }
 
-const NO_STATEMENTS: ParsedStatement[] = [];
 const NO_DIAGNOSTICS: Diagnostic[] = [];
 
 function isExecutable(block: VisualBlock): boolean {
@@ -102,23 +108,34 @@ function schedule(task: () => void): () => void {
   return () => window.clearTimeout(id);
 }
 
-/** Ход отложенного прохода. `source` — блоки, о которых он рассказывает. */
+/** Ход отложенного прохода. `source` — набор, о котором он рассказывает. */
 interface Progress {
-  source: VisualBlock[];
+  source: readonly WorkspaceUnit[];
   diagnostics: Diagnostic[];
   done: boolean;
 }
 
-export function useInspection(compiled: CompileResult, parsed: ParsedDocument | null): Analysis {
-  const blocks = compiled.blocks;
-  const exclusions = compiled.exclusions;
-  const statements = parsed?.statements ?? NO_STATEMENTS;
-
-  const deferred = useMemo(() => blocks.filter(isExecutable).length > SYNC_LIMIT, [blocks]);
+/**
+ * Смысловой проход по набору файлов.
+ *
+ * `structural` — замечания компиляции всех файлов: они уже готовы, считать их
+ * заново незачем. `order` — порядок включения: по нему список замечаний
+ * складывается в один читаемый сверху вниз, а не прыгает между файлами.
+ */
+export function useInspection(
+  units: readonly WorkspaceUnit[],
+  structural: readonly Diagnostic[],
+  exclusions: ExclusionIndex,
+  order: ReadonlyMap<string, number>,
+): Analysis {
+  const deferred = useMemo(
+    () => units.reduce((sum, unit) => sum + unit.blocks.filter(isExecutable).length, 0) > SYNC_LIMIT,
+    [units],
+  );
 
   const immediate = useMemo(
-    () => (deferred ? null : inspectDocument(blocks, statements, exclusions)),
-    [deferred, blocks, statements, exclusions],
+    () => (deferred ? null : inspectWorkspace(units, exclusions)),
+    [deferred, units, exclusions],
   );
 
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -130,7 +147,7 @@ export function useInspection(compiled: CompileResult, parsed: ParsedDocument | 
     let cancelSlice: (() => void) | null = null;
 
     const start = window.setTimeout(() => {
-      const slices = inspectSlices(blocks, statements, exclusions);
+      const slices = inspectSlices(units, exclusions);
       const found: Diagnostic[] = [];
 
       const step = () => {
@@ -150,7 +167,7 @@ export function useInspection(compiled: CompileResult, parsed: ParsedDocument | 
 
         // Копия, а не сам накопитель: следующий присест допишет в него, и
         // React не заметил бы изменения в том же массиве.
-        setProgress({ source: blocks, diagnostics: [...found], done });
+        setProgress({ source: units, diagnostics: [...found], done });
         if (!done) cancelSlice = schedule(step);
       };
 
@@ -162,16 +179,16 @@ export function useInspection(compiled: CompileResult, parsed: ParsedDocument | 
       window.clearTimeout(start);
       cancelSlice?.();
     };
-  }, [deferred, blocks, statements, exclusions]);
+  }, [deferred, units, exclusions]);
 
-  // Ход прохода годится только для тех блоков, по которым он шёл: правка
+  // Ход прохода годится только для того набора, по которому он шёл: правка
   // текста делает прежние замечания рассказом о другом документе.
-  const current = progress !== null && progress.source === blocks ? progress : null;
+  const current = progress !== null && progress.source === units ? progress : null;
   const semantic = immediate ?? current?.diagnostics ?? NO_DIAGNOSTICS;
   const inspecting = deferred && !(current?.done ?? false);
 
   return useMemo(() => {
-    const diagnostics = byLine([...compiled.diagnostics, ...semantic]);
+    const diagnostics = byLine([...structural, ...semantic], order);
 
     // Раскладка по правилам считается здесь один раз. Раньше каждая карточка
     // фильтровала весь список сама: тысяча карточек на три тысячи сообщений —
@@ -188,11 +205,14 @@ export function useInspection(compiled: CompileResult, parsed: ParsedDocument | 
 
       const key = diagnostic.anchor?.ruleKey;
       if (key === undefined) continue;
-      const list = byRule.get(key);
-      if (list === undefined) byRule.set(key, [diagnostic]);
+      // Ключ правила считается внутри файла, поэтому в раскладке он идёт с
+      // файлом: `rule-0` есть в каждом файле набора.
+      const ref = blockRef(diagnostic.file ?? LONE_FILE, key);
+      const list = byRule.get(ref);
+      if (list === undefined) byRule.set(ref, [diagnostic]);
       else list.push(diagnostic);
     }
 
     return { diagnostics, errorCount, warningCount, adviceCount, inspecting, byRule };
-  }, [compiled.diagnostics, semantic, inspecting]);
+  }, [structural, semantic, inspecting, order]);
 }

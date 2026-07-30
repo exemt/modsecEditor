@@ -50,6 +50,7 @@ import {
   exclusionSignature,
   isExclusionCtl,
 } from './exclusions';
+import { LONE_FILE, blockRef, fileMark } from './workspace';
 import type { Diagnostics } from './diagnostics';
 import type { DirectiveStatement } from './types';
 import type { ExclusionIndex, ExclusionMatch } from './exclusions';
@@ -65,17 +66,18 @@ import type { VisualActions, VisualCondition, VisualOperator, VisualTarget } fro
 const KNOWN_ACTIONS = new Set<string>(ACTIONS);
 
 /* ------------------------------------------------------------------ */
-/* Контекст файла                                                      */
+/* Контекст набора                                                     */
 /* ------------------------------------------------------------------ */
 
 /**
- * То, что о правиле известно только по остальному файлу.
+ * То, что о правиле известно только по остальному набору файлов.
  *
- * Собирается одним проходом в `compile.ts`. Флаги трёхзначные: `null` —
- * директивы в файле нет. Отсутствие и явное `Off` — разные вещи: набор
- * правил обычно живёт отдельно от основного конфига, и молчание про
- * `SecRequestBodyAccess` ничего не значит, а явное `Off` рядом с проверкой
- * тела запроса означает, что проверять будет нечего.
+ * Собирается одним проходом в `inspect.ts` по всем файлам в порядке
+ * включения. Флаги трёхзначные: `null` — директивы нет ни в одном файле.
+ * Отсутствие и явное `Off` — разные вещи: набор правил обычно живёт отдельно
+ * от основного конфига, и молчание про `SecRequestBodyAccess` ничего не
+ * значит, а явное `Off` рядом с проверкой тела запроса означает, что
+ * проверять будет нечего.
  */
 export interface DocumentContext {
   /** Значение `SecRuleEngine`: `On`, `DetectionOnly`, `Off` или `null`. */
@@ -84,12 +86,14 @@ export interface DocumentContext {
   responseBodyAccess: boolean | null;
   /** Метки `SecMarker`, на которые можно перейти по `skipAfter`. */
   markers: Set<string>;
-  /** Переменные `tx.*`, которые файл выставляет через `setvar`. */
+  /** Переменные `tx.*`, которые набор выставляет через `setvar`. */
   transactionVars: Set<string>;
-  /** В файле есть `ctl:requestBodyProcessor=XML`. */
+  /** В наборе есть `ctl:requestBodyProcessor=XML`. */
   xmlProcessor: boolean;
-  /** Хотя бы одно правило файла пытается заблокировать запрос. */
+  /** Хотя бы одно правило набора пытается заблокировать запрос. */
   hasBlockingRule: boolean;
+  /** Файл, в котором стоит `SecRuleEngine`: сказать о ней надо там же. */
+  engineFile?: string;
   /** Строка директивы `SecRuleEngine`, если она есть. */
   engineLine?: number;
 }
@@ -116,7 +120,7 @@ export interface ConditionContext {
 /** Что известно про правило, когда проверяется оно целиком. */
 export interface RuleContext {
   document: DocumentContext;
-  /** Сколько правил файла стоит после этого — для проверки `skip:N`. */
+  /** Сколько правил набора стоит после этого — для проверки `skip:N`. */
   rulesAfter: number;
   /** Идентификатор правила выше, которое проверяет ровно то же самое. */
   twinId?: string;
@@ -1049,15 +1053,17 @@ export function checkRule(
 /* ------------------------------------------------------------------ */
 
 /**
- * Проверяет то, что относится к файлу целиком, а не к отдельному правилу.
+ * Проверяет то, что относится к набору целиком, а не к отдельному правилу.
  *
  * Сообщение здесь одно, но важное: если движок переведён в режим
- * наблюдения, все `deny` файла — не более чем запись в журнале.
+ * наблюдения, все `deny` набора — не более чем запись в журнале. Стоит оно у
+ * самой директивы, пусть та и в другом файле: правят режим там, а не у
+ * правила, которое из-за него молчит.
  */
 export function checkDocument(context: DocumentContext, diag: Diagnostics): void {
   const engine = context.engine?.toLowerCase();
   if (context.hasBlockingRule && (engine === 'detectiononly' || engine === 'off')) {
-    diag.at(context.engineLine);
+    diag.inFile(fileMark(context.engineFile ?? LONE_FILE)).at(context.engineLine);
     diag.report('engineNotEnforcing', { mode: context.engine as string });
   }
 }
@@ -1085,7 +1091,7 @@ function allRemovedBy(index: ExclusionIndex, matches: ExclusionMatch[]): number 
 
   for (const match of matches) {
     const ref = index.byRule
-      .get(match.key)
+      .get(blockRef(match.file, match.key))
       ?.removedBy.find((removal) => removal.source === 'directive');
     if (ref === undefined) return null;
     line ??= ref.line;
@@ -1120,6 +1126,7 @@ export function checkExclusions(index: ExclusionIndex, diag: Diagnostics): void 
   const seen = new Map<string, number>();
 
   for (const { directive, matches, carrier } of exclusionList(index)) {
+    diag.inFile(fileMark(directive.place.file));
     diag.at(
       directive.line,
       carrier === undefined ? undefined : { ruleKey: carrier.key, slot: 'actions' },
@@ -1218,13 +1225,26 @@ export function checkExclusions(index: ExclusionIndex, diag: Diagnostics): void 
 
     if (matches.length === 0) {
       // Промах выборки — совет, а не предупреждение: правило законно живёт в
-      // другом файле. А в файле, где своих правил нет вовсе, это и вовсе
-      // обычное дело — надстройка над чужим набором, и молчать здесь честнее.
-      if (index.fileHasIds && !directive.incomplete) {
+      // файле, которого здесь нет. А в наборе, где своих правил нет вовсе, это
+      // и вовсе обычное дело — надстройка над чужим набором, и молчать здесь
+      // честнее.
+      if (index.hasIds && !directive.incomplete) {
         diag.report('exclusionNoMatch', { name: directive.name, target });
       }
     } else if (applied.length === 0 && directive.source === 'directive') {
-      diag.report('exclusionBeforeRule', { name: directive.name, id: matches[0].id });
+      // «Стоит выше правила» и «стоит в файле, который читают раньше» — один
+      // промах, но чинят их по-разному: строку переносят, файл переставляют в
+      // наборе. Поэтому сообщений два, и второе называет чужой файл.
+      const first = matches[0];
+      if (first.file === directive.place.file) {
+        diag.report('exclusionBeforeRule', { name: directive.name, id: first.id });
+      } else {
+        diag.report('exclusionInEarlierFile', {
+          name: directive.name,
+          id: first.id,
+          file: index.names.get(first.file) ?? '',
+        });
+      }
     } else if (applied.length === 0 && carrier !== undefined) {
       diag.report('exclusionCtlAfterRule', {
         name: directive.name,

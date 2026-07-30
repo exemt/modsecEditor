@@ -1,13 +1,28 @@
 import { modsecExamples } from '../data/modsecExamples';
 import { parseModsec } from './parser';
 import { analyzeDocument, compileDocument } from './compile';
-import { inspectDocument, inspectSlices } from './inspect';
+import { inspectDocument, inspectSlices, inspectWorkspace, readWorkspaceContext } from './inspect';
+import { indexWorkspaceExclusions } from './exclusions';
+import { loneUnit } from './workspace';
 import type { Diagnostic } from './diagnostics';
+import type { WorkspaceUnit } from './workspace';
 
 /** Смысловые замечания документа: то, что даёт отложенный проход. */
 function semantic(source: string): Diagnostic[] {
   const doc = parseModsec(source);
   return inspectDocument(compileDocument(doc).blocks, doc.statements);
+}
+
+/** Файл набора: имя нужно для замечаний, называющих чужой файл. */
+function unit(name: string, source: string): WorkspaceUnit {
+  const doc = parseModsec(source);
+  return { id: name, name, blocks: compileDocument(doc, name).blocks, statements: doc.statements };
+}
+
+/** Замечания по набору файлов, читаемому в этом порядке. */
+function workspace(...sources: [string, string][]): Diagnostic[] {
+  const units = sources.map(([name, source]) => unit(name, source));
+  return inspectWorkspace(units, indexWorkspaceExclusions(units));
 }
 
 const CLEAN = "id:1001,phase:2,deny,msg:'x'";
@@ -71,7 +86,7 @@ describe('проход по частям', () => {
     const blocks = compileDocument(doc).blocks;
 
     const sliced: Diagnostic[] = [];
-    for (const slice of inspectSlices(blocks, doc.statements)) sliced.push(...slice);
+    for (const slice of inspectSlices([loneUnit(blocks, doc.statements)])) sliced.push(...slice);
 
     expect(sliced).toEqual(inspectDocument(blocks, doc.statements));
   });
@@ -81,7 +96,7 @@ describe('проход по частям', () => {
     const blocks = compileDocument(doc).blocks;
     const executable = blocks.filter((b) => b.kind === 'rule' || b.kind === 'action').length;
 
-    expect([...inspectSlices(blocks, doc.statements)]).toHaveLength(executable + 1);
+    expect([...inspectSlices([loneUnit(blocks, doc.statements)])]).toHaveLength(executable + 1);
   });
 
   /**
@@ -93,7 +108,7 @@ describe('проход по частям', () => {
    */
   it('оставляет замечания о файле на последнюю выдачу', () => {
     const doc = parseModsec(source);
-    const slices = [...inspectSlices(compileDocument(doc).blocks, doc.statements)];
+    const slices = [...inspectSlices([loneUnit(compileDocument(doc).blocks, doc.statements)])];
 
     const last = slices[slices.length - 1].map((d) => d.code);
     expect(last).toContain('engineNotEnforcing');
@@ -108,8 +123,8 @@ describe('проход по частям', () => {
     const doc = parseModsec(
       [`SecRule ARGS "@rx x" "${CLEAN}"`, 'SecRuleRemoveById 999999'].join('\n'),
     );
-    const compiled = compileDocument(doc);
-    const slices = [...inspectSlices(compiled.blocks, doc.statements, compiled.exclusions)];
+    const only = loneUnit(compileDocument(doc).blocks, doc.statements);
+    const slices = [...inspectSlices([only], indexWorkspaceExclusions([only]))];
 
     expect(slices[slices.length - 1].map((d) => d.code)).toContain('exclusionNoMatch');
   });
@@ -126,7 +141,7 @@ describe('проход по частям', () => {
 
   it('прерванный проход не выдумывает того, чего не проверил', () => {
     const doc = parseModsec(source);
-    const slices = inspectSlices(compileDocument(doc).blocks, doc.statements);
+    const slices = inspectSlices([loneUnit(compileDocument(doc).blocks, doc.statements)]);
 
     // Взяли одну выдачу и бросили: сообщения только про первое правило.
     const first = slices.next();
@@ -134,6 +149,105 @@ describe('проход по частям', () => {
     for (const diagnostic of first.value ?? []) {
       expect(diagnostic.anchor?.ruleKey ?? 'rule-1').toBe('rule-1');
     }
+  });
+});
+
+describe('проход по набору файлов', () => {
+  it('не ругается на метку из другого файла', () => {
+    const codes = workspace(
+      ['rules.conf', 'SecAction "id:1,phase:2,pass,nolog,skipAfter:END_OF_BLOCK"'],
+      ['tail.conf', 'SecMarker END_OF_BLOCK'],
+    ).map((d) => d.code);
+
+    expect(codes).not.toContain('missingMarker');
+  });
+
+  it('видит переменную, выставленную в файле, читаемом позже', () => {
+    const codes = workspace(
+      ['rules.conf', 'SecRule TX:score "@gt 5" "id:1,phase:2,deny,msg:\'x\'"'],
+      ['setup.conf', 'SecAction "id:2,phase:1,pass,nolog,setvar:tx.score=0"'],
+    ).map((d) => d.code);
+
+    expect(codes).not.toContain('txNeverSet');
+  });
+
+  it('считает движок по настроечному файлу и называет его', () => {
+    const found = workspace(
+      ['setup.conf', 'SecRuleEngine DetectionOnly'],
+      ['rules.conf', `SecRule ARGS "@rx x" "${CLEAN}"`],
+    ).find((d) => d.code === 'engineNotEnforcing');
+
+    expect(found?.file).toBe('setup.conf');
+    expect(found?.line).toBe(1);
+  });
+
+  it('ловит один номер, занятый в двух файлах, и называет первый', () => {
+    const found = workspace(
+      ['first.conf', `SecRule ARGS "@rx a" "${CLEAN}"`],
+      ['second.conf', `SecRule ARGS "@rx b" "${CLEAN}"`],
+    ).find((d) => d.code === 'duplicateIdCrossFile');
+
+    expect(found?.file).toBe('second.conf');
+    expect(found?.params).toMatchObject({ id: '1001', file: 'first.conf' });
+  });
+
+  it('тот же номер в одном файле межфайловым повтором не считает', () => {
+    const codes = workspace(
+      ['one.conf', [`SecRule ARGS "@rx a" "${CLEAN}"`, `SecRule ARGS "@rx b" "${CLEAN}"`].join('\n')],
+    ).map((d) => d.code);
+
+    expect(codes).not.toContain('duplicateIdCrossFile');
+  });
+
+  it('отсчитывает skip по набору, а не по файлу', () => {
+    const codes = workspace(
+      ['rules.conf', 'SecAction "id:1,phase:2,pass,nolog,skip:2"'],
+      ['more.conf', [`SecRule ARGS "@rx a" "id:2,phase:2,deny,msg:'x'"`, `SecRule ARGS "@rx b" "id:3,phase:2,deny,msg:'y'"`].join('\n')],
+    ).map((d) => d.code);
+
+    expect(codes).not.toContain('skipBeyondEnd');
+  });
+
+  /**
+   * Промах через границу файлов — отдельное замечание.
+   *
+   * «Стоит выше правила» здесь не про строку: строка у директивы может быть
+   * любой, а читается её файл всё равно раньше — и чинят это перестановкой
+   * файлов, а не переносом строки.
+   */
+  it('отличает исключение в файле, читаемом раньше, от промаха по строке', () => {
+    const found = workspace(
+      ['exclusions.conf', 'SecRuleRemoveById 942100'],
+      ['rules.conf', `SecRule ARGS "@rx x" "id:942100,phase:2,deny,msg:'x'"`],
+    ).find((d) => d.code === 'exclusionInEarlierFile');
+
+    expect(found?.file).toBe('exclusions.conf');
+    expect(found?.params).toMatchObject({ id: '942100', file: 'rules.conf' });
+  });
+
+  it('внутри одного файла говорит о строке, а не о порядке файлов', () => {
+    const codes = workspace([
+      'one.conf',
+      ['SecRuleRemoveById 942100', `SecRule ARGS "@rx x" "id:942100,phase:2,deny,msg:'x'"`].join(
+        '\n',
+      ),
+    ]).map((d) => d.code);
+
+    expect(codes).toContain('exclusionBeforeRule');
+    expect(codes).not.toContain('exclusionInEarlierFile');
+  });
+
+  it('собирает контекст по всем файлам в порядке включения', () => {
+    const context = readWorkspaceContext([
+      unit('setup.conf', 'SecRuleEngine On'),
+      unit('later.conf', 'SecRuleEngine DetectionOnly\nSecMarker HERE'),
+    ]);
+
+    // У переключателя побеждает последний прочитанный — так его читает и сам
+    // ModSecurity.
+    expect(context.engine).toBe('DetectionOnly');
+    expect(context.engineFile).toBe('later.conf');
+    expect(context.markers.has('HERE')).toBe(true);
   });
 });
 

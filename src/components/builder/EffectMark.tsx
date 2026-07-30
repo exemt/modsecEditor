@@ -1,5 +1,6 @@
 import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
+import { useForeignFile } from '../../context/useForeignFile';
 import { useI18n } from '../../i18n/useI18n';
 import type { TranslationKey } from '../../i18n/translations';
 import type { ExclusionRef, ExclusionSource } from '../../modsec/exclusions';
@@ -36,9 +37,13 @@ export function EffectMark({ mark, removed }: { mark: ExclusionRef; removed: boo
   const { t } = useI18n();
   const [label, hint] = EFFECT_MARKS[removed ? 'removed' : 'changed'][mark.source];
   const strong = removed && mark.source === 'directive';
+  // Правит правило и файл, включённый позже: тогда строка называется вместе с
+  // файлом — иначе она отсылает к строке того файла, который открыт.
+  const foreign = useForeignFile(mark.file);
+  const where = t(hint, { name: mark.name, line: String(mark.line) });
 
   return (
-    <Tooltip title={t(hint, { name: mark.name, line: String(mark.line) })}>
+    <Tooltip title={foreign === '' ? where : `${where} · ${t('builder.markFile', { file: foreign })}`}>
       <Chip
         size="small"
         color={strong ? 'warning' : undefined}

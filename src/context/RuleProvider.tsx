@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { applyRuleSource, undo as undoAction, redo as redoAction } from '../store/ruleSlice';
-import { loadDraft, saveDraft } from '../store/draft';
-import { compileDocument } from '../modsec/compile';
+import { applyRuleSource, undo as undoAction, redo as redoAction } from '../store/filesSlice';
 import {
   applyRule,
   appendAction,
@@ -20,57 +18,32 @@ import { formatDocument } from '../modsec/format';
 import type { ParsedDocument } from '../modsec/types';
 import type { VisualRule } from '../modsec/model';
 import { RuleContext } from './ruleContext';
-import { useInspection } from './useInspection';
+import { useWorkspace } from './workspaceContext';
+import { selectActive } from '../store/filesSlice';
 import type { RuleContextValue } from './ruleContext';
 
 interface RuleProviderProps {
-  /** Текст правила, которым инициализируется хранилище при монтировании. */
-  initialSource?: string;
-  /**
-   * Помнить документ между сессиями.
-   *
-   * Включается только приложением. Тесты и истории рендерят провайдер без
-   * этого флага и не трогают хранилище браузера — иначе один прогон
-   * подкладывал бы текст следующему.
-   */
-  persist?: boolean;
   children: ReactNode;
 }
 
-/** Пауза перед записью черновика: набор текста не должен идти в хранилище посимвольно. */
-const DRAFT_DEBOUNCE_MS = 400;
-
 /**
- * Оборачивает редактор и предоставляет контекст правила. Состояние живёт в
- * Redux; провайдер проецирует его в контекст, один раз засеивает начальным
- * значением и держит закешированный результат компиляции.
+ * Активный файл набора: его текст, его модель, его правки.
+ *
+ * Это проекция, а не второе состояние: набор живёт в Redux и в
+ * `WorkspaceProvider`, а здесь из него выбран один файл — тот, который правят.
+ * Потребителям поэтому не пришлось узнавать о наборе: правка адресуется файлу,
+ * который открыт, и `useRule()` про остальные ничего не обещает.
  */
-export function RuleProvider({ initialSource, persist, children }: RuleProviderProps) {
+export function RuleProvider({ children }: RuleProviderProps) {
   const dispatch = useAppDispatch();
-  const source = useAppSelector((s) => s.rule.source);
-  const parsed = useAppSelector((s) => s.rule.parsed);
-  const parseError = useAppSelector((s) => s.rule.parseError);
-  const canUndo = useAppSelector((s) => s.rule.past.length > 0);
-  const canRedo = useAppSelector((s) => s.rule.future.length > 0);
+  const { activeCompiled: compiled, analysis } = useWorkspace();
+  const file = useAppSelector((s) => selectActive(s.files));
 
-  const seeded = useRef(false);
-  useEffect(() => {
-    if (seeded.current || initialSource === undefined) return;
-    seeded.current = true;
-    // Работа прошлой сессии важнее примера: пример человек всегда откроет
-    // сам, а свой текст восстановить будет неоткуда.
-    const restored = persist ? loadDraft() : null;
-    dispatch(applyRuleSource(restored ?? initialSource, 'skip'));
-  }, [dispatch, initialSource, persist]);
-
-  useEffect(() => {
-    if (!persist || !seeded.current) return;
-    const timer = setTimeout(() => saveDraft(source), DRAFT_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [persist, source]);
-
-  const compiled = useMemo(() => compileDocument(parsed), [parsed]);
-  const analysis = useInspection(compiled, parsed);
+  const source = file?.source ?? '';
+  const parsed = file?.parsed ?? null;
+  const parseError = file?.parseError ?? null;
+  const canUndo = (file?.past.length ?? 0) > 0;
+  const canRedo = (file?.future.length ?? 0) > 0;
 
   // Актуальная модель для колбэков без пересоздания на каждый рендер.
   const parsedRef = useRef<ParsedDocument | null>(parsed);

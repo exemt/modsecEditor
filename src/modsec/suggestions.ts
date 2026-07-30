@@ -898,6 +898,84 @@ export const SETVAR_SUGGESTIONS = [
   ]),
 ];
 
+/**
+ * Имена переменных, которые в наборах уже что-то значат.
+ *
+ * Своё имя автор придумает сам, а вот попасть в чужое надо точно: правило,
+ * прибавляющее к `tx.anomaly_scores` вместо `tx.anomaly_score`, работает,
+ * ничего не ломает и не блокирует — просто накопленное им никто не читает.
+ * Опечатку такого рода не видно ни в диагностике движка, ни в логах.
+ */
+const COLLECTION_VAR_NAMES: Record<string, Suggestion[]> = {
+  tx: [
+    ...group('Anomaly score (CRS)', 'Счёт аномалий (CRS)', [
+      s('anomaly_score', 'Score accumulated by inbound rules', 'Счёт, накопленный входящими правилами'),
+      s('inbound_anomaly_score', 'Total for the request', 'Итог по запросу'),
+      s('outbound_anomaly_score', 'Total for the response', 'Итог по ответу'),
+      s(
+        'inbound_anomaly_score_threshold',
+        'Blocking threshold — set it in the setup file',
+        'Порог блокировки — задают в файле настройки',
+      ),
+      s('critical_anomaly_score', 'Weight of a critical hit', 'Вес критического срабатывания'),
+      s('error_anomaly_score', 'Weight of an error-level hit', 'Вес срабатывания уровня «ошибка»'),
+      s('warning_anomaly_score', 'Weight of a warning', 'Вес предупреждения'),
+      s('notice_anomaly_score', 'Weight of a notice', 'Вес замечания'),
+    ]),
+    ...group('Set-wide settings', 'Настройки набора', [
+      s('paranoia_level', 'Which rule families are on', 'Какие семейства правил включены'),
+      s('crs_setup_version', 'Marks the setup file as loaded', 'Признак того, что файл настройки прочитан'),
+      s('blocking_paranoia_level', 'Level at which rules block', 'Уровень, на котором правила блокируют'),
+    ]),
+    ...group('Carried between rules', 'Передача между правилами', [
+      s('msg', 'Message for the rule downstream', 'Сообщение для правила ниже'),
+      s('matched_var', 'Value the previous link matched', 'Значение, совпавшее в предыдущем звене'),
+    ]),
+  ],
+  ip: group('Counters', 'Счётчики', [
+    s('dos_counter', 'Requests from this address', 'Запросы с этого адреса'),
+    s('dos_block', 'The address is blocked', 'Адрес заблокирован'),
+    s('dos_block_counter', 'How many times it was blocked', 'Сколько раз блокировали'),
+    s('reput_block_flag', 'Reputation block', 'Блокировка по репутации'),
+  ]),
+  session: group('Session', 'Сессия', [
+    s('score', 'Score of the session', 'Счёт сессии'),
+    s('block', 'The session is blocked', 'Сессия заблокирована'),
+  ]),
+  user: group('User', 'Пользователь', [
+    s('score', 'Score of the account', 'Счёт учётной записи'),
+    s('block', 'The account is blocked', 'Учётная запись заблокирована'),
+  ]),
+};
+
+const USED_GROUP: Label = { en: 'Already in the set', ru: 'Уже есть в наборе' };
+
+const USED_HINT: Label = {
+  en: 'Another rule of the set already writes or reads it',
+  ru: 'Другое правило набора её уже пишет или читает',
+};
+
+/**
+ * Имена переменных коллекции: сначала занятые в наборе, потом известные.
+ *
+ * Порядок здесь и есть подсказка. Своё имя в наборе — не пример из
+ * документации, а то самое, к чему присваивание, скорее всего, и относится:
+ * счётчик заводят там же, где его потом читают. Известные имена CRS идут
+ * ниже: они нужны тому, кто дописывает своё правило к чужому набору.
+ */
+export function setvarNameSuggestions(
+  collection: string,
+  used: readonly string[],
+): Suggestion[] {
+  const known = COLLECTION_VAR_NAMES[collection.toLowerCase()] ?? [];
+  const listed = new Set(known.map((item) => item.value));
+  const own = used
+    .filter((name) => !listed.has(name))
+    .map((name) => ({ value: name, hint: USED_HINT, group: USED_GROUP }));
+
+  return [...own, ...known];
+}
+
 /** Метки правила — то, по чему потом ищут срабатывания в логах. */
 export const TAG_SUGGESTIONS = [
   ...group('Attack type', 'Тип атаки', [
