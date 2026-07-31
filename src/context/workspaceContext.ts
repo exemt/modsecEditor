@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { CompileResult } from '../modsec/compile';
 import type { ExclusionIndex } from '../modsec/exclusions';
-import type { RuleSnippet } from '../modsec/snippet';
+import type { RuleLocation, RuleSnippet } from '../modsec/snippet';
 import type { VariableIndex } from '../modsec/variables';
 import type { NewFile } from '../store/filesSlice';
 import type { Analysis } from './useInspection';
@@ -75,6 +75,13 @@ export interface WorkspaceContextValue {
    * и чужой ключ в открытом файле нашёлся бы не тем правилом.
    */
   snippetOf: (file: string, key: string) => RuleSnippet | null;
+  /**
+   * Место правила по его `id` в наборе.
+   *
+   * Список превью передаёт одни номера — откуда правило, диалог узнаёт здесь,
+   * а не из структуры исключения, которой у него быть не должно.
+   */
+  ruleOf: (id: string) => RuleLocation | null;
 
   /* --- Набор --- */
   selectFile: (id: string) => void;

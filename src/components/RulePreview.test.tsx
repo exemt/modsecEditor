@@ -90,22 +90,70 @@ describe('RulePreview', () => {
     });
   });
 
-  it('по клику на иконку в шапке превью открывает строку в текстовом редакторе', async () => {
+  it('из шапки превью файл ведёт в начало, строки — на фрагмент', async () => {
     const user = userEvent.setup();
-    renderPreview();
+    // Две строки: клик по имени файла должен открыть строку 1, а не голову правила.
+    store.dispatch(
+      applyRuleSource(
+        ['# header', 'SecRule ARGS "@rx attack" "id:1001,phase:2,deny"', ''].join('\n'),
+        'skip',
+      ),
+    );
+    const file = store.getState().files.activeId;
+    render(
+      <Provider store={store}>
+        <I18nProvider initialLocale="ru">
+          <ThemeProvider theme={theme}>
+            <WorkspaceProvider>
+              <EditorViewProvider>
+                <BuilderViewProvider>
+                  <RulePreview id="1001" file={file} ruleKey="rule-1" />
+                  <Probe />
+                </BuilderViewProvider>
+              </EditorViewProvider>
+            </WorkspaceProvider>
+          </ThemeProvider>
+        </I18nProvider>
+      </Provider>,
+    );
 
     await user.hover(screen.getByRole('button', { name: 'Показать правило 1001' }));
-    const opens = await screen.findAllByRole('button', {
-      name: 'Показать правило 1001 в текстовом редакторе',
-    });
-    // На чипе одна, в шапке превью — вторая; жмём ту, что в шапке.
-    const inPane = opens.find((el) => el.closest('.mini-editor') !== null);
-    expect(inPane).toBeDefined();
-    await user.click(inPane!);
+    await user.click(await screen.findByRole('button', { name: /Показать начало/ }));
 
     await waitFor(() => {
       expect(screen.getByTestId('tab')).toHaveTextContent('text');
       expect(screen.getByTestId('line')).toHaveTextContent('1');
+    });
+  });
+
+  it('без preview — только переход, без подсказки', async () => {
+    const user = userEvent.setup();
+    store.dispatch(applyRuleSource(SOURCE, 'skip'));
+    const file = store.getState().files.activeId;
+    render(
+      <Provider store={store}>
+        <I18nProvider initialLocale="ru">
+          <ThemeProvider theme={theme}>
+            <WorkspaceProvider>
+              <EditorViewProvider>
+                <BuilderViewProvider>
+                  <RulePreview id="1001" file={file} ruleKey="rule-0" preview={false} />
+                  <Probe />
+                </BuilderViewProvider>
+              </EditorViewProvider>
+            </WorkspaceProvider>
+          </ThemeProvider>
+        </I18nProvider>
+      </Provider>,
+    );
+
+    const chip = screen.getByRole('button', { name: 'Показать правило 1001' });
+    await user.hover(chip);
+    expect(document.querySelector('.mini-editor')).toBeNull();
+
+    await user.click(chip);
+    await waitFor(() => {
+      expect(screen.getByTestId('tab')).toHaveTextContent('visual');
     });
   });
 

@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import { RuleMatchesDialog } from '../RuleMatchesDialog';
 import { RulePreview } from '../RulePreview';
 import { useI18n } from '../../i18n/useI18n';
 import type { ExclusionEntry } from '../../modsec/exclusions';
@@ -10,7 +12,7 @@ import type { ExclusionEntry } from '../../modsec/exclusions';
  *
  * `SecRuleRemoveByTag` снимает сотни правил, и списком это не читается; шесть
  * номеров позволяют узнать, о том ли наборе речь, а число рядом честнее, чем
- * оборванный список без предупреждения.
+ * оборванный список без предупреждения. Полный перечень — за «посмотреть все».
  */
 const SHOWN_RULES = 6;
 
@@ -43,6 +45,7 @@ interface ExclusionMarksProps {
 export function ExclusionMarks({ entry, named = false }: ExclusionMarksProps) {
   const { t } = useI18n();
   const { directive, matches } = entry;
+  const [listOpen, setListOpen] = useState(false);
 
   const shown = matches.slice(0, SHOWN_RULES);
   const inactive = matches.length > 0 && matches.every((match) => !match.applies);
@@ -84,11 +87,25 @@ export function ExclusionMarks({ entry, named = false }: ExclusionMarksProps) {
             />
           ))}
 
+          {/* Число — размер всей выборки, не «хвоста»: иначе «+40» обещало бы
+              сорок правил в окне, а в окне лежали бы все сорок шесть.
+              Чип, как у номеров рядом: иначе подпись выглядела бы подписью
+              к россыпи, а не тем же действием — открыть полный список. */}
           {matches.length > shown.length && (
-            <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-              {`+${matches.length - shown.length}`}
-            </Typography>
+            <Chip
+              size="small"
+              component="button"
+              label={t('builder.rulePreviewViewAll', { count: String(matches.length) })}
+              onClick={() => setListOpen(true)}
+              sx={{ flexShrink: 0 }}
+            />
           )}
+
+          <RuleMatchesDialog
+            open={listOpen}
+            onClose={() => setListOpen(false)}
+            ids={matches.map((match) => match.id)}
+          />
         </>
       )}
 

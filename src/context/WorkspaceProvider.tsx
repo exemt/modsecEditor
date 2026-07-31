@@ -14,10 +14,10 @@ import {
 import { loadDraft, saveDraft } from '../store/draft';
 import { compileDocument } from '../modsec/compile';
 import { readExclusions, indexWorkspaceExclusions } from '../modsec/exclusions';
-import { ruleSnippet } from '../modsec/snippet';
+import { indexRulesById, ruleSnippet } from '../modsec/snippet';
 import { indexWorkspaceVariables } from '../modsec/variables';
 import { fileOrder } from '../modsec/workspace';
-import type { RuleSnippet } from '../modsec/snippet';
+import type { RuleLocation, RuleSnippet } from '../modsec/snippet';
 import { RuleProvider } from './RuleProvider';
 import { WorkspaceContext } from './workspaceContext';
 import { useInspection } from './useInspection';
@@ -195,6 +195,13 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
     },
     [built],
   );
+  // Индекс по id считается вместе с units: диалог списка спрашивает место
+  // правила десятки раз, и каждый раз обходить набор заново незачем.
+  const rulesById = useMemo(() => indexRulesById(units), [units]);
+  const ruleOf = useCallback(
+    (id: string): RuleLocation | null => rulesById.get(id) ?? null,
+    [rulesById],
+  );
 
   const selectFile = useCallback((id: string) => dispatch(selectAction(id)), [dispatch]);
   const openFiles = useCallback((added: NewFile[]) => dispatch(addFiles(added)), [dispatch]);
@@ -235,6 +242,7 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
       nameOf,
       textOf,
       snippetOf,
+      ruleOf,
       selectFile,
       openFiles,
       newFile,
@@ -253,6 +261,7 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
       nameOf,
       textOf,
       snippetOf,
+      ruleOf,
       selectFile,
       openFiles,
       newFile,

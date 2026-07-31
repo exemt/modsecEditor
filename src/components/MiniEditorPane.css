@@ -45,6 +45,20 @@
   min-width: 0;
 }
 
+.mini-editor__head--clickable {
+  cursor: pointer;
+}
+
+.mini-editor__head--clickable:hover {
+  background: #2a2d2e;
+}
+
+.mini-editor__leading {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
 .mini-editor__where {
   flex: 1 1 auto;
   min-width: 0;
@@ -52,6 +66,24 @@
   align-items: baseline;
   gap: 8px;
   overflow: hidden;
+}
+
+/* Свёрнутая строка списка — одна шапка, без тела редактора.
+   Высота навязана: виртуализация списка считает шаг умножением, и измерить
+   её по DOM значило бы дать серии из тысячи строк уехать на пиксель. */
+.mini-editor--row {
+  box-sizing: border-box;
+  height: 33px;
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid #3c3c3c;
+}
+
+.mini-editor--row .mini-editor__head {
+  height: 100%;
+  border-bottom: none;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .mini-editor__file {
@@ -66,11 +98,49 @@
   color: #6e7681;
 }
 
+/* Имя файла и строки — отдельные переходы: в начало файла и на фрагмент. */
+.mini-editor__link {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-editor__link:hover {
+  text-decoration: underline;
+  color: #d4d4d4;
+}
+
+.mini-editor__file.mini-editor__link:hover {
+  color: #b8e0ff;
+}
+
 .mini-editor__actions {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
+}
+
+/* Чип правила в тёмной шапке — чуть плотнее, чтобы не раздувать строку. */
+.mini-editor__actions .MuiChip-root {
+  height: 22px;
+  background: #3c3c3c;
+  color: #d4d4d4;
+}
+
+.mini-editor__actions .MuiChip-label {
+  padding-left: 8px;
+  padding-right: 8px;
+  font-size: 12px;
 }
 
 .mini-editor__action {

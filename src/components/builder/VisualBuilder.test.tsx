@@ -454,7 +454,6 @@ describe('VisualBuilder — правки уходят в текст правил
     renderBuilder(BAD_BOT);
 
     await openActions(user);
-    await user.click(screen.getByRole('button', { name: 'Ещё' }));
     await user.type(
       screen.getByRole('textbox', { name: 'Версия набора' }),
       'OWASP_CRS/4.0.0',

@@ -1,8 +1,5 @@
-import { useState } from 'react';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
-import Collapse from '@mui/material/Collapse';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
@@ -16,6 +13,7 @@ import { CtlExclusionList } from './CtlExclusionList';
 import { LongTextField } from './LongTextField';
 import { Section, SECTION_PADDING } from './Section';
 import { SetvarSection } from './SetvarSection';
+import { SideTitle } from './SideTitle';
 import { SuggestField } from './SuggestField';
 import { ruleActionCount, ruleActionSummary } from './summary';
 import { FLAG_COLUMN, PHASE_COLUMN, REACTION_COLUMN, STATUS_COLUMN } from './layout';
@@ -91,10 +89,6 @@ export function ActionsPanel({
   exclusions = [],
 }: ActionsPanelProps) {
   const { t } = useI18n();
-  // Показаны ли редкие поля — журналы, теги, `setvar`. Это не сворачивание
-  // блока целиком, а его вторая половина: у большинства правил эти поля
-  // пусты, и на виду они прячут за собой те, что заполняют всегда.
-  const [moreShown, setMoreShown] = useState(false);
 
   const statusRelevant =
     actions.disruptive === 'deny' || actions.disruptive === 'redirect';
@@ -190,35 +184,6 @@ export function ActionsPanel({
         />
       </Stack>
 
-      {/* Действия, для которых поля нет: `initcol`, `expirevar`, `exec`,
-          настройки движка вроде `ctl:requestBodyAccess=Off`. Каждое меняет
-          поведение правила, а форма о них молчала — узнать о таком соседе
-          можно было только из панели замечаний. Поэтому они стоят здесь, на
-          виду и прежней записью, но правятся текстом: строка `ctl` — это своя
-          грамматика, и поле, понимающее её наполовину, хуже её отсутствия.
-          За «Ещё» их не спрятать: соседнее поле правят, уже зная о них. */}
-      {settings.length > 0 && (
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{ flexWrap: 'wrap', gap: 1, alignItems: 'center' }}
-        >
-          <Typography variant="body2" color="text.secondary">
-            {t('builder.otherActions')}
-          </Typography>
-          {settings.map((item, index) => (
-            <Tooltip key={index} title={t('builder.readOnly')}>
-              <Chip
-                size="small"
-                variant="outlined"
-                label={serializeAction(item)}
-                sx={{ fontFamily: 'ui-monospace, Consolas, monospace' }}
-              />
-            </Tooltip>
-          ))}
-        </Stack>
-      )}
-
       {/* Исключения, которые ставит сам блок. Запись `ctl:ruleRemoveById=942100`
           среди прочих действий выглядела настройкой движка, а на деле это
           исключение — и работает оно так же, как `SecRuleRemoveById`: до кого-то
@@ -226,9 +191,7 @@ export function ActionsPanel({
           разобрана на поля и стоит со своими отметками. */}
       {hasCtl && (
         <Stack spacing={0.75}>
-          <Typography variant="body2" color="text.secondary">
-            {t('builder.setsExclusions')}
-          </Typography>
+          <SideTitle label={t('builder.setsExclusions')} />
           <CtlExclusionList
             actions={actions.extra}
             entries={exclusions}
@@ -239,134 +202,151 @@ export function ActionsPanel({
         </Stack>
       )}
 
-      {!alwaysExpanded && (
-        <Box>
-          <Button size="small" onClick={() => setMoreShown((v) => !v)}>
-            {moreShown ? t('builder.less') : t('builder.more')}
-          </Button>
+      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+        <Box sx={{ width: 200 }}>
+          <ChoiceField
+            prefix="severity:"
+            label={t('builder.severity')}
+            emptyLabel={t('builder.unset')}
+            choices={severityChoices(actions.severity)}
+            value={actions.severity}
+            onChange={(severity) => onChange({ ...actions, severity })}
+          />
         </Box>
-      )}
 
-      <Collapse in={alwaysExpanded || moreShown} unmountOnExit>
-        <Stack spacing={1.5}>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-            <Box sx={{ width: 200 }}>
-              <ChoiceField
-                prefix="severity:"
-                label={t('builder.severity')}
-                emptyLabel={t('builder.unset')}
-                choices={severityChoices(actions.severity)}
-                value={actions.severity}
-                onChange={(severity) => onChange({ ...actions, severity })}
-              />
-            </Box>
+        <Box sx={{ width: FLAG_COLUMN }}>
+          <ChoiceField
+            label={t('builder.log')}
+            emptyLabel={t('builder.unset')}
+            choices={logFlagChoices(LOG_FLAGS, log)}
+            value={log}
+            onChange={(name) => onChange({ ...actions, log: parseFlag(name, LOG_FLAGS) })}
+          />
+        </Box>
 
-            <Box sx={{ width: FLAG_COLUMN }}>
-              <ChoiceField
-                label={t('builder.log')}
-                emptyLabel={t('builder.unset')}
-                choices={logFlagChoices(LOG_FLAGS, log)}
-                value={log}
-                onChange={(name) => onChange({ ...actions, log: parseFlag(name, LOG_FLAGS) })}
-              />
-            </Box>
+        <Box sx={{ width: FLAG_COLUMN }}>
+          <ChoiceField
+            label={t('builder.auditlog')}
+            emptyLabel={t('builder.unset')}
+            choices={logFlagChoices(AUDIT_FLAGS, auditlog)}
+            value={auditlog}
+            onChange={(name) =>
+              onChange({ ...actions, auditlog: parseFlag(name, AUDIT_FLAGS) })
+            }
+          />
+        </Box>
 
-            <Box sx={{ width: FLAG_COLUMN }}>
-              <ChoiceField
-                label={t('builder.auditlog')}
-                emptyLabel={t('builder.unset')}
-                choices={logFlagChoices(AUDIT_FLAGS, auditlog)}
-                value={auditlog}
-                onChange={(name) =>
-                  onChange({ ...actions, auditlog: parseFlag(name, AUDIT_FLAGS) })
-                }
-              />
-            </Box>
-
-            <FormControlLabel
-              control={
-                <Switch
-                  size="small"
-                  checked={actions.capture}
-                  onChange={(event) =>
-                    onChange({ ...actions, capture: event.target.checked })
-                  }
-                />
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={actions.capture}
+              onChange={(event) =>
+                onChange({ ...actions, capture: event.target.checked })
               }
-              label={<Typography variant="body2">{t('builder.capture')}</Typography>}
             />
+          }
+          label={<Typography variant="body2">{t('builder.capture')}</Typography>}
+        />
+      </Stack>
+
+      {/* Паспорт правила. Движок эти поля не читает, но набор правил без
+          них не собрать: по `ver` и `rev` разбор логов отличает версию
+          правила, по `maturity` и `accuracy` набор собирают под уровень
+          паранойи. Стоят они рядом с критичностью, потому что заполняют
+          их из одного соображения — насколько правилу можно доверять. */}
+      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+        <CommitField
+          size="small"
+          label={t('builder.ver')}
+          placeholder="OWASP_CRS/4.0.0"
+          value={actions.ver}
+          onCommit={(ver) => onChange({ ...actions, ver })}
+          sx={{ flex: '1 1 220px' }}
+        />
+        <CommitField
+          size="small"
+          label={t('builder.rev')}
+          value={actions.rev}
+          onCommit={(rev) => onChange({ ...actions, rev })}
+          sx={{ width: 110 }}
+        />
+        <CommitField
+          size="small"
+          label={t('builder.maturity')}
+          placeholder="1–9"
+          value={actions.maturity}
+          onCommit={(maturity) => onChange({ ...actions, maturity })}
+          sx={{ width: 120 }}
+        />
+        <CommitField
+          size="small"
+          label={t('builder.accuracy')}
+          placeholder="1–9"
+          value={actions.accuracy}
+          onCommit={(accuracy) => onChange({ ...actions, accuracy })}
+          sx={{ width: 120 }}
+        />
+      </Stack>
+
+      <LongTextField
+        fullWidth
+        label={t('builder.logdata')}
+        dialogTitle={t('builder.logdata')}
+        suggestions={MACRO_SUGGESTIONS}
+        value={actions.logdata}
+        onCommit={(logdata) => onChange({ ...actions, logdata })}
+      />
+
+      <ChipInput
+        fullWidth
+        label={t('builder.tags')}
+        placeholder={t('builder.addTag')}
+        dialogTitle={t('builder.tags')}
+        separators={[',']}
+        suggestions={TAG_SUGGESTIONS}
+        values={actions.tags}
+        onChange={(tags) => onChange({ ...actions, tags })}
+      />
+
+      {/* Список стоит и пустым — иначе завести первое присваивание было бы
+          негде, а ради него `SecAction` и пишут. Заготовка при этом
+          обязана быть готовой записью: пустой `setvar` не переживает
+          обхода через текст — компиляция отбрасывает действие без
+          значения, — а ряд, исчезающий сам, хуже его отсутствия. */}
+      <SetvarSection
+        values={actions.setvar}
+        onChange={(setvar) => onChange({ ...actions, setvar })}
+      />
+
+      {/* Действия, для которых поля нет: `initcol`, `expirevar`, `exec`,
+          настройки движка вроде `ctl:requestBodyAccess=Off`. Каждое меняет
+          поведение правила, а форма о них молчала — узнать о таком соседе
+          можно было только из панели замечаний. Поэтому они стоят здесь,
+          прежней записью, но правятся текстом: строка `ctl` — это своя
+          грамматика, и поле, понимающее её наполовину, хуже её отсутствия.
+          Список — как у переменных: подпись, черта, а под ней сами записи. */}
+      {settings.length > 0 && (
+        <Stack spacing={0.75}>
+          <SideTitle label={t('builder.otherActions')} />
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ flexWrap: 'wrap', gap: 1, alignItems: 'center' }}
+          >
+            {settings.map((item, index) => (
+              <Tooltip key={index} title={t('builder.readOnly')}>
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={serializeAction(item)}
+                  sx={{ fontFamily: 'ui-monospace, Consolas, monospace' }}
+                />
+              </Tooltip>
+            ))}
           </Stack>
-
-          {/* Паспорт правила. Движок эти поля не читает, но набор правил без
-              них не собрать: по `ver` и `rev` разбор логов отличает версию
-              правила, по `maturity` и `accuracy` набор собирают под уровень
-              паранойи. Стоят они рядом с критичностью, потому что заполняют
-              их из одного соображения — насколько правилу можно доверять. */}
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-            <CommitField
-              size="small"
-              label={t('builder.ver')}
-              placeholder="OWASP_CRS/4.0.0"
-              value={actions.ver}
-              onCommit={(ver) => onChange({ ...actions, ver })}
-              sx={{ flex: '1 1 220px' }}
-            />
-            <CommitField
-              size="small"
-              label={t('builder.rev')}
-              value={actions.rev}
-              onCommit={(rev) => onChange({ ...actions, rev })}
-              sx={{ width: 110 }}
-            />
-            <CommitField
-              size="small"
-              label={t('builder.maturity')}
-              placeholder="1–9"
-              value={actions.maturity}
-              onCommit={(maturity) => onChange({ ...actions, maturity })}
-              sx={{ width: 120 }}
-            />
-            <CommitField
-              size="small"
-              label={t('builder.accuracy')}
-              placeholder="1–9"
-              value={actions.accuracy}
-              onCommit={(accuracy) => onChange({ ...actions, accuracy })}
-              sx={{ width: 120 }}
-            />
-          </Stack>
-
-          <LongTextField
-            fullWidth
-            label={t('builder.logdata')}
-            dialogTitle={t('builder.logdata')}
-            suggestions={MACRO_SUGGESTIONS}
-            value={actions.logdata}
-            onCommit={(logdata) => onChange({ ...actions, logdata })}
-          />
-
-          <ChipInput
-            fullWidth
-            label={t('builder.tags')}
-            placeholder={t('builder.addTag')}
-            dialogTitle={t('builder.tags')}
-            separators={[',']}
-            suggestions={TAG_SUGGESTIONS}
-            values={actions.tags}
-            onChange={(tags) => onChange({ ...actions, tags })}
-          />
-
-          {/* Список стоит и пустым — иначе завести первое присваивание было бы
-              негде, а ради него `SecAction` и пишут. Заготовка при этом
-              обязана быть готовой записью: пустой `setvar` не переживает
-              обхода через текст — компиляция отбрасывает действие без
-              значения, — а ряд, исчезающий сам, хуже его отсутствия. */}
-          <SetvarSection
-            values={actions.setvar}
-            onChange={(setvar) => onChange({ ...actions, setvar })}
-          />
         </Stack>
-      </Collapse>
+      )}
     </Stack>
   );
 

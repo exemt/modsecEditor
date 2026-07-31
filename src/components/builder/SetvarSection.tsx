@@ -3,11 +3,11 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
-import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import { ChoiceField } from './ChoiceField';
 import { LongTextField } from './LongTextField';
+import { SideTitle } from './SideTitle';
 import { SuggestField } from './SuggestField';
 import { VariableMark } from './VariableMark';
 import { COLLECTION_COLUMN, ICON_COLUMN, SETVAR_OP_COLUMN } from './layout';
@@ -101,9 +101,7 @@ export function SetvarSection({ values, onChange }: SetvarSectionProps) {
 
   return (
     <Stack spacing={0.75}>
-      <Typography variant="body2" color="text.secondary">
-        {t('builder.setvar')}
-      </Typography>
+      <SideTitle label={t('builder.setvar')} />
 
       {values.map((raw, index) => {
         const assignment = readSetvar(raw);
