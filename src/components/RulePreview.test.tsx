@@ -51,6 +51,16 @@ function renderPreview() {
 }
 
 describe('RulePreview', () => {
+  it('до наведения не монтирует превью и подсказку', () => {
+    renderPreview();
+
+    expect(document.querySelector('.mini-editor')).toBeNull();
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Показать правило 1001 в текстовом редакторе' }),
+    ).toBeInTheDocument();
+  });
+
   it('на наведении показывает исходник правила', async () => {
     const user = userEvent.setup();
     renderPreview();
@@ -65,7 +75,8 @@ describe('RulePreview', () => {
   });
 
   it('по клику на номер открывает правило в конструкторе', async () => {
-    const user = userEvent.setup();
+    // Без hover: иначе успеет подняться Tooltip и клик уйдёт в его ссылки.
+    const user = userEvent.setup({ skipHover: true });
     renderPreview();
 
     await user.click(screen.getByRole('button', { name: 'Показать правило 1001' }));
@@ -76,9 +87,11 @@ describe('RulePreview', () => {
     });
   });
 
-  it('по клику на иконку текста на чипе открывает строку в текстовом редакторе', async () => {
-    const user = userEvent.setup();
+  it('по клику на иконку текста без hover открывает строку в текстовом редакторе', async () => {
+    const user = userEvent.setup({ skipHover: true });
     renderPreview();
+
+    expect(document.querySelector('.mini-editor')).toBeNull();
 
     await user.click(
       screen.getByRole('button', { name: 'Показать правило 1001 в текстовом редакторе' }),

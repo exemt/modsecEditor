@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
@@ -12,6 +12,9 @@ import { useBuilderView } from '../context/builderViewContext';
 import { useEditorView } from '../context/editorViewContext';
 import { useWorkspace } from '../context/workspaceContext';
 import { useI18n } from '../i18n/useI18n';
+
+/** Пауза до монтирования Tooltip — клик по чипу успевает пройти без remount. */
+const ARM_DELAY_MS = 200;
 
 interface RulePreviewProps {
   /** Значение `id` правила — то, что написано на чипе. */
@@ -49,6 +52,10 @@ interface RulePreviewProps {
 /**
  * Номер правила как переход: наведение показывает исходник, нажатие — карточку.
  *
+ * Пока курсор не задержался, в дереве только чип или иконки: Tooltip, исходник
+ * и Dialog поднимаются после короткой паузы — иначе каждый видимый чип в списке
+ * тащил бы Popper, а клик ломался бы remount'ом обёртки.
+ *
  * Компактное превью обрезает длинные строки: в подсказке горизонтальный скролл
  * только мешает. Подробности — отдельным окном из шапки превью; оттуда же
  * можно уйти в текстовую вкладку на эту строку.
@@ -66,16 +73,26 @@ export function RulePreview({
   const { revealRule } = useBuilderView();
   const { revealLine } = useEditorView();
   const { activeId, nameOf, snippetOf } = useWorkspace();
+  /** Tooltip уже монтировали — повторный hover без пересоздания обёртки. */
+  const [armed, setArmed] = useState(false);
   const [tipOpen, setTipOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const wantsPreview = preview || mode === 'icons';
-  const snippet = wantsPreview ? snippetOf(file, ruleKey) : null;
   const foreign = file !== activeId ? nameOf(file) : '';
   const label = id === '' ? t('builder.unset') : id;
   const caption =
     preText === undefined || preText === '' ? label : `${preText} : ${label}`;
   const fileName = nameOf(file);
+
+  // Исходник нужен только открытому превью или модалке — не каждому чипу в списке.
+  const snippet = tipOpen || modalOpen ? snippetOf(file, ruleKey) : null;
+
+  useEffect(() => {
+    return () => {
+      if (armTimer.current !== null) clearTimeout(armTimer.current);
+    };
+  }, []);
 
   const revealHint =
     foreign === ''
@@ -92,7 +109,28 @@ export function RulePreview({
       ? t('builder.rulePreviewText', { id: label })
       : t('builder.rulePreviewTextIn', { id: label, file: foreign });
 
+  const clearArmTimer = () => {
+    if (armTimer.current === null) return;
+    clearTimeout(armTimer.current);
+    armTimer.current = null;
+  };
+
+  const armAndOpenTip = () => {
+    setArmed(true);
+    if (!modalOpen) setTipOpen(true);
+  };
+
+  /** Первое наведение: Tooltip не монтируем сразу — даём клику дойти до чипа. */
+  const scheduleArm = () => {
+    if (armed || armTimer.current !== null) return;
+    armTimer.current = setTimeout(() => {
+      armTimer.current = null;
+      armAndOpenTip();
+    }, ARM_DELAY_MS);
+  };
+
   const goVisual = () => {
+    clearArmTimer();
     onNavigate?.();
     revealRule(ruleKey, file);
   };
@@ -103,10 +141,13 @@ export function RulePreview({
   };
 
   const openText = () => {
-    if (snippet === null) return;
+    clearArmTimer();
+    // Без предварительного hover: исходник берём здесь, а не из состояния tip.
+    const found = snippetOf(file, ruleKey);
+    if (found === null) return;
     leavePreview();
     onNavigate?.();
-    revealLine(snippet.startLine, file);
+    revealLine(found.startLine, file);
   };
 
   const openFile = () => {
@@ -132,10 +173,50 @@ export function RulePreview({
             to: String(snippet.endLine),
           });
 
+  const textControl = (
+    <IconButton
+      component="span"
+      size="small"
+      aria-label={textHint}
+      // span, а не button: Chip уже кнопка, и кнопка в кнопке —
+      // невалидная разметка, на которую ругается и a11y, и клики.
+      role="button"
+      tabIndex={0}
+      onClick={(event) => {
+        event.stopPropagation();
+        event.preventDefault();
+        openText();
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.stopPropagation();
+        event.preventDefault();
+        openText();
+      }}
+      sx={{
+        p: 0.15,
+        ml: 0.25,
+        color: 'inherit',
+        '& .MuiSvgIcon-root': { fontSize: 14 },
+      }}
+    >
+      <NotesOutlinedIcon />
+    </IconButton>
+  );
+
+  const idleHoverProps =
+    preview && !armed
+      ? {
+          onMouseEnter: scheduleArm,
+          onMouseLeave: clearArmTimer,
+        }
+      : {};
+
   const chip = (
     <Chip
       size="small"
       component="button"
+      {...idleHoverProps}
       label={
         preview ? (
           <Box
@@ -143,36 +224,7 @@ export function RulePreview({
             sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}
           >
             {caption}
-            {snippet !== null && (
-              <IconButton
-                component="span"
-                size="small"
-                aria-label={textHint}
-                // span, а не button: Chip уже кнопка, и кнопка в кнопке —
-                // невалидная разметка, на которую ругается и a11y, и клики.
-                role="button"
-                tabIndex={0}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  event.preventDefault();
-                  openText();
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter' && event.key !== ' ') return;
-                  event.stopPropagation();
-                  event.preventDefault();
-                  openText();
-                }}
-                sx={{
-                  p: 0.15,
-                  ml: 0.25,
-                  color: 'inherit',
-                  '& .MuiSvgIcon-root': { fontSize: 14 },
-                }}
-              >
-                <NotesOutlinedIcon />
-              </IconButton>
-            )}
+            {textControl}
           </Box>
         ) : (
           caption
@@ -186,56 +238,62 @@ export function RulePreview({
 
   if (!preview && mode === 'chip') return chip;
 
-  const tip =
-    snippet === null ? (
-      peekHint
-    ) : (
-      <MiniEditorPane
-        variant="compact"
-        text={snippet.text}
-        startLine={snippet.startLine}
-        fileName={fileName}
-        openFileLabel={openFileLabel}
-        onOpenFile={openFile}
-        openLinesLabel={openLinesLabel}
-        onOpenLines={openText}
-        expandLabel={t('builder.rulePreviewExpand')}
-        onExpand={openModal}
-        closeLabel={t('app.close')}
-        onClose={() => setTipOpen(false)}
-      />
-    );
+  const tipTitle =
+    !tipOpen
+      ? ''
+      : snippet === null
+        ? peekHint
+        : (
+            <MiniEditorPane
+              variant="compact"
+              text={snippet.text}
+              startLine={snippet.startLine}
+              fileName={fileName}
+              openFileLabel={openFileLabel}
+              onOpenFile={openFile}
+              openLinesLabel={openLinesLabel}
+              onOpenLines={openText}
+              expandLabel={t('builder.rulePreviewExpand')}
+              onExpand={openModal}
+              closeLabel={t('app.close')}
+              onClose={() => setTipOpen(false)}
+            />
+          );
 
-  const withTip = (trigger: ReactElement) => (
-    <Tooltip
-      title={tip}
-      placement="top"
-      open={tipOpen}
-      onOpen={() => {
-        if (!modalOpen) setTipOpen(true);
-      }}
-      onClose={() => setTipOpen(false)}
-      // Иначе курсор с чипа на кнопки в шапке тултип закрыл бы по дороге.
-      disableInteractive={false}
-      slotProps={{
-        tooltip: {
-          sx: {
-            bgcolor: 'transparent',
-            p: 0,
-            maxWidth: 'none',
-            boxShadow: 'none',
+  const withTip = (trigger: ReactElement) => {
+    if (!armed) return trigger;
+
+    return (
+      <Tooltip
+        title={tipTitle}
+        placement="top"
+        open={tipOpen}
+        onOpen={() => {
+          if (!modalOpen) setTipOpen(true);
+        }}
+        onClose={() => setTipOpen(false)}
+        // Иначе курсор с чипа на кнопки в шапке тултип закрыл бы по дороге.
+        disableInteractive={false}
+        slotProps={{
+          tooltip: {
+            sx: {
+              bgcolor: 'transparent',
+              p: 0,
+              maxWidth: 'none',
+              boxShadow: 'none',
+            },
           },
-        },
-      }}
-    >
-      {trigger}
-    </Tooltip>
-  );
+        }}
+      >
+        {trigger}
+      </Tooltip>
+    );
+  };
 
   const modal =
-    snippet === null ? null : (
+    !modalOpen || snippet === null ? null : (
       <Dialog
-        open={modalOpen}
+        open
         onClose={() => setModalOpen(false)}
         fullWidth
         maxWidth="lg"
@@ -292,21 +350,21 @@ export function RulePreview({
             <IconButton
               size="small"
               aria-label={peekHint}
+              onMouseEnter={!armed ? scheduleArm : undefined}
+              onMouseLeave={!armed ? clearArmTimer : undefined}
               sx={{ p: 0.25, '& .MuiSvgIcon-root': { fontSize: 18 } }}
             >
               <VisibilityOutlinedIcon />
             </IconButton>,
           )}
-          {snippet !== null && (
-            <IconButton
-              size="small"
-              aria-label={textHint}
-              onClick={openText}
-              sx={{ p: 0.25, '& .MuiSvgIcon-root': { fontSize: 18 } }}
-            >
-              <NotesOutlinedIcon />
-            </IconButton>
-          )}
+          <IconButton
+            size="small"
+            aria-label={textHint}
+            onClick={openText}
+            sx={{ p: 0.25, '& .MuiSvgIcon-root': { fontSize: 18 } }}
+          >
+            <NotesOutlinedIcon />
+          </IconButton>
         </Box>
         {modal}
       </>
