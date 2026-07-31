@@ -14,8 +14,10 @@ import {
 import { loadDraft, saveDraft } from '../store/draft';
 import { compileDocument } from '../modsec/compile';
 import { readExclusions, indexWorkspaceExclusions } from '../modsec/exclusions';
+import { ruleSnippet } from '../modsec/snippet';
 import { indexWorkspaceVariables } from '../modsec/variables';
 import { fileOrder } from '../modsec/workspace';
+import type { RuleSnippet } from '../modsec/snippet';
 import { RuleProvider } from './RuleProvider';
 import { WorkspaceContext } from './workspaceContext';
 import { useInspection } from './useInspection';
@@ -185,6 +187,14 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
     (id: string) => files.find((file) => file.id === id)?.source ?? '',
     [files],
   );
+  const snippetOf = useCallback(
+    (file: string, key: string): RuleSnippet | null => {
+      const unit = built.entries.get(file)?.unit;
+      if (unit === undefined) return null;
+      return ruleSnippet(unit.blocks, unit.statements, key);
+    },
+    [built],
+  );
 
   const selectFile = useCallback((id: string) => dispatch(selectAction(id)), [dispatch]);
   const openFiles = useCallback((added: NewFile[]) => dispatch(addFiles(added)), [dispatch]);
@@ -224,6 +234,7 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
       activeCompiled,
       nameOf,
       textOf,
+      snippetOf,
       selectFile,
       openFiles,
       newFile,
@@ -241,6 +252,7 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
       activeCompiled,
       nameOf,
       textOf,
+      snippetOf,
       selectFile,
       openFiles,
       newFile,

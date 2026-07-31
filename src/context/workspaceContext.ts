@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { CompileResult } from '../modsec/compile';
 import type { ExclusionIndex } from '../modsec/exclusions';
+import type { RuleSnippet } from '../modsec/snippet';
 import type { VariableIndex } from '../modsec/variables';
 import type { NewFile } from '../store/filesSlice';
 import type { Analysis } from './useInspection';
@@ -67,6 +68,13 @@ export interface WorkspaceContextValue {
   nameOf: (id: string) => string;
   /** Текст файла набора: его выгружают, не открывая. */
   textOf: (id: string) => string;
+  /**
+   * Исходник блока по файлу и ключу — для превью правила в подсказке.
+   *
+   * `null`, когда файла или блока в наборе нет: ключ считается внутри файла,
+   * и чужой ключ в открытом файле нашёлся бы не тем правилом.
+   */
+  snippetOf: (file: string, key: string) => RuleSnippet | null;
 
   /* --- Набор --- */
   selectFile: (id: string) => void;
