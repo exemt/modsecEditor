@@ -291,6 +291,7 @@ const en = {
 
   'builder.secAction': 'Unconditional action',
   'builder.marker': 'Marker',
+  'builder.saveMarker': 'Save marker',
   'builder.directive': 'Directive',
   'builder.readOnly': 'Editable in the text tab only',
   'builder.deleteBlock': 'Delete the block',
@@ -313,6 +314,8 @@ const en = {
   'builder.exclusionRevealIn': 'Show rule {id} in {file}',
   'builder.rulePreviewText': 'Show rule {id} in the text editor',
   'builder.rulePreviewTextIn': 'Show rule {id} in the text editor («{file}»)',
+  'builder.rulePreviewPeek': 'Preview rule {id}',
+  'builder.rulePreviewPeekIn': 'Preview rule {id} («{file}»)',
   'builder.rulePreviewExpand': 'Open a larger preview',
   'builder.rulePreviewViewAll': 'View all · {count}',
   'builder.rulePreviewListTitle': 'Matching rules · {count}',
@@ -1017,6 +1020,7 @@ const ru: Record<TranslationKey, string> = {
 
   'builder.secAction': 'Безусловное действие',
   'builder.marker': 'Метка',
+  'builder.saveMarker': 'Сохранить метку',
   'builder.directive': 'Директива',
   'builder.readOnly': 'Редактируется только в текстовой вкладке',
   'builder.deleteBlock': 'Удалить блок',
@@ -1039,6 +1043,8 @@ const ru: Record<TranslationKey, string> = {
   'builder.exclusionRevealIn': 'Показать правило {id} в «{file}»',
   'builder.rulePreviewText': 'Показать правило {id} в текстовом редакторе',
   'builder.rulePreviewTextIn': 'Показать правило {id} в текстовом редакторе («{file}»)',
+  'builder.rulePreviewPeek': 'Показать исходник правила {id}',
+  'builder.rulePreviewPeekIn': 'Показать исходник правила {id} («{file}»)',
   'builder.rulePreviewExpand': 'Открыть подробнее',
   'builder.rulePreviewViewAll': 'Посмотреть все · {count}',
   'builder.rulePreviewListTitle': 'Связанные правила · {count}',

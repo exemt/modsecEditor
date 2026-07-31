@@ -55,14 +55,15 @@ function manyRules(count: number): string {
 /**
  * Карточка правила с этим номером — по номеру в её заголовке.
  *
- * Раскрытая держит его полем, свёрнутая — написанным: правят номер там, где
- * видно всё правило целиком.
+ * Раскрытая держит его полем, свёрнутая — чипом с превью: правят номер там,
+ * где видно всё правило целиком.
  */
 function cardOf(id: string): HTMLElement {
   const field = screen
     .queryAllByRole('textbox', { name: 'ID правила' })
     .find((input) => (input as HTMLInputElement).value === id);
-  const title = field ?? screen.queryByText(`Правило ${id}`);
+  const title =
+    field ?? screen.queryByRole('button', { name: `Показать правило ${id}` });
   if (title === null || title === undefined) throw new Error(`нет карточки правила ${id}`);
   return title.closest('.MuiPaper-root') as HTMLElement;
 }
@@ -1053,6 +1054,24 @@ describe('VisualBuilder — исключения', () => {
     );
   });
 
+  // «Прочие действия» — не пустая подпись: skipAfter в форме поля нет, но
+  // чип должен остаться видимым после разнесения по компонентам.
+  it('показывает skipAfter в прочих действиях', async () => {
+    const user = userEvent.setup();
+    renderBuilder(
+      [
+        `SecRule REQUEST_URI "@beginsWith /health" "id:1000,phase:1,pass,nolog,skipAfter:END"`,
+        'SecMarker END',
+        '',
+      ].join('\n'),
+    );
+
+    await openActions(user);
+    const card = within(cardOf('1000'));
+    expect(card.getByText('Прочие действия')).toBeInTheDocument();
+    expect(card.getByText('skipAfter:END')).toBeInTheDocument();
+  });
+
   // Цель в записи `ctl` ровно одна, поэтому вторая снятая цель — это вторая
   // запись. Разворачивает строку формы в них редактор: набранное руками
   // `ARGS:comment|ARGS:note` ModSecurity прочитал бы одним параметром и не
@@ -1172,9 +1191,24 @@ describe('VisualBuilder — строки без формы', () => {
 
     const field = screen.getByRole('textbox', { name: 'Метка' });
     expect(field).toHaveValue('SecMarker END-BLOCKING');
+    expect(screen.getByRole('button', { name: 'Сохранить метку' })).toBeDisabled();
 
     await user.clear(field);
-    await user.type(field, 'SecMarker END-REQUEST{Enter}');
+    await user.type(field, 'SecMark');
+    expect(screen.getByRole('button', { name: 'Сохранить метку' })).toBeDisabled();
+    expect(source()).toContain('SecMarker END-BLOCKING');
+
+    // Непарная кавычка — ошибка загрузки; толерантный разбор её «съест»,
+    // но кнопка смотрит на компиляцию, а не на разбор.
+    await user.clear(field);
+    await user.type(field, 'SecMarker "END-REQUEST');
+    expect(screen.getByRole('button', { name: 'Сохранить метку' })).toBeDisabled();
+
+    await user.clear(field);
+    await user.type(field, 'SecMarker END-REQUEST');
+    expect(screen.getByRole('button', { name: 'Сохранить метку' })).toBeEnabled();
+
+    await user.click(screen.getByRole('button', { name: 'Сохранить метку' }));
 
     await waitFor(() => expect(source()).toContain('SecMarker END-REQUEST'));
     expect(source()).toContain('# Конец блокировок');

@@ -7,18 +7,20 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { ActionsPanel } from './ActionsPanel';
 import { BlockActions } from './BlockActions';
-import { BlockHeader, BlockTitle } from './BlockHeader';
+import { BlockHeader } from './BlockHeader';
 import { ConditionsPanel } from './ConditionsPanel';
 import { CommitField } from './CommitField';
 import { EffectMark } from './EffectMark';
 import { ExclusionsSection } from './ExclusionsSection';
 import { NotesPanel } from './NotesPanel';
 import { conditionSummary } from './summary';
+import { RulePreview } from '../RulePreview';
 import {
   ruleLevelDiagnostics,
   useRuleDiagnostics,
   useRuleEffect,
 } from '../diagnostics/useDiagnostics';
+import { useWorkspace } from '../../context/workspaceContext';
 import { useI18n } from '../../i18n/useI18n';
 import type { TranslationKey } from '../../i18n/translations';
 import type { ExclusionRef } from '../../modsec/exclusions';
@@ -87,12 +89,12 @@ function unconditionalFirst(refs: ExclusionRef[] | undefined): ExclusionRef | un
  * Свёрнутая карточка не прячет замечания: их число остаётся в заголовке,
  * иначе проблему можно было бы закрыть от себя нажатием.
  *
- * Свёрнутая — это строка списка, а не форма в одну строку: номер и описание
- * стоят в ней написанными, как имя у директивы и выжимка у метки. Правят их в
- * раскрытой карточке. Два поля посреди списка обещали бы правку, до которой
- * нельзя дотянуться остальным блокам, а номер правила — не подпись: сменить
- * его значит переадресовать все исключения, которые на него ссылаются, и
- * решают такое, видя правило целиком.
+ * Свёрнутая — это строка списка, а не форма в одну строку: номер — чип с
+ * превью исходника, описание — выжимка. Правят номер в раскрытой карточке,
+ * где рядом с полем стоят глаз и переход в текст. Два поля посреди списка
+ * обещали бы правку, до которой нельзя дотянуться остальным блокам, а номер
+ * правила — не подпись: сменить его значит переадресовать все исключения,
+ * которые на него ссылаются, и решают такое, видя правило целиком.
  *
  * Свёрнутое содержимое размонтировано, а не спрятано. Разница видна только на
  * большом файле, зато решающая: одна развёрнутая карточка — около четырёхсот
@@ -110,6 +112,7 @@ export function RuleCard({
   onMoveDown,
 }: RuleCardProps) {
   const { t } = useI18n();
+  const { activeId } = useWorkspace();
   const description = rule.comments.join(' ');
   const diagnostics = useRuleDiagnostics(rule.key);
   const notes = ruleLevelDiagnostics(diagnostics);
@@ -131,8 +134,6 @@ export function RuleCard({
       ? 'warning'
       : 'info';
 
-  const number = rule.actions.id === '' ? t('builder.unset') : rule.actions.id;
-
   return (
     <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
       <BlockHeader
@@ -153,22 +154,40 @@ export function RuleCard({
               sx={{
                 minWidth: 0,
                 '& .MuiInputBase-adornedStart .MuiInputBase-input': { pl: 0 },
+                '& .MuiInputBase-adornedEnd .MuiInputBase-input': { pr: 0.5 },
               }}
               slotProps={{
                 input: {
                   startAdornment: (
                     <InputAdornment position="start">{t('builder.rule')}</InputAdornment>
                   ),
+                  // Глаз и текст — те же действия, что у чипа на свёрнутой
+                  // строке; чип здесь не дублируем.
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <RulePreview
+                        mode="icons"
+                        id={rule.actions.id}
+                        file={activeId}
+                        ruleKey={rule.key}
+                      />
+                    </InputAdornment>
+                  ),
                 },
                 htmlInput: { 'aria-label': t('builder.ruleId'), inputMode: 'numeric' },
               }}
             />
           ) : (
-            // Номер без правила — название блока, а не поле; почему так,
-            // сказано у самой карточки. Пустой он у документа, который не
-            // компилируется: карточка досталась от последней удачной сборки,
-            // и «не задано» честнее пустого места в колонке названий.
-            <BlockTitle>{`${t('builder.rule')} ${number}`}</BlockTitle>
+            // Чип вместо «Правило N»: превью исходника и переход в текст —
+            // без раскрытия. Пустой id у документа, который не компилируется:
+            // карточка от последней удачной сборки, и «не задано» на чипе
+            // честнее пустого места в колонке названий.
+            <RulePreview
+              preText={t('builder.rule')}
+              id={rule.actions.id}
+              file={activeId}
+              ruleKey={rule.key}
+            />
           )
         }
         marks={

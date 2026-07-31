@@ -126,6 +126,36 @@ describe('RulePreview', () => {
     });
   });
 
+  it('с preText пишет подпись перед номером', () => {
+    store.dispatch(applyRuleSource(SOURCE, 'skip'));
+    const file = store.getState().files.activeId;
+    render(
+      <Provider store={store}>
+        <I18nProvider initialLocale="ru">
+          <ThemeProvider theme={theme}>
+            <WorkspaceProvider>
+              <EditorViewProvider>
+                <BuilderViewProvider>
+                  <RulePreview
+                    preText="Правило"
+                    id="1001"
+                    file={file}
+                    ruleKey="rule-0"
+                    preview={false}
+                  />
+                </BuilderViewProvider>
+              </EditorViewProvider>
+            </WorkspaceProvider>
+          </ThemeProvider>
+        </I18nProvider>
+      </Provider>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Показать правило 1001' })).toHaveTextContent(
+      'Правило : 1001',
+    );
+  });
+
   it('без preview — только переход, без подсказки', async () => {
     const user = userEvent.setup();
     store.dispatch(applyRuleSource(SOURCE, 'skip'));
@@ -154,6 +184,39 @@ describe('RulePreview', () => {
     await user.click(chip);
     await waitFor(() => {
       expect(screen.getByTestId('tab')).toHaveTextContent('visual');
+    });
+  });
+
+  it('в режиме icons глаз показывает исходник, текст ведёт во вкладку', async () => {
+    const user = userEvent.setup();
+    store.dispatch(applyRuleSource(SOURCE, 'skip'));
+    const file = store.getState().files.activeId;
+    render(
+      <Provider store={store}>
+        <I18nProvider initialLocale="ru">
+          <ThemeProvider theme={theme}>
+            <WorkspaceProvider>
+              <EditorViewProvider>
+                <BuilderViewProvider>
+                  <RulePreview id="1001" file={file} ruleKey="rule-0" mode="icons" />
+                  <Probe />
+                </BuilderViewProvider>
+              </EditorViewProvider>
+            </WorkspaceProvider>
+          </ThemeProvider>
+        </I18nProvider>
+      </Provider>,
+    );
+
+    await user.hover(screen.getByRole('button', { name: 'Показать исходник правила 1001' }));
+    expect(await screen.findByText('SecRule')).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Показать правило 1001 в текстовом редакторе' }),
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('tab')).toHaveTextContent('text');
+      expect(screen.getByTestId('line')).toHaveTextContent('1');
     });
   });
 

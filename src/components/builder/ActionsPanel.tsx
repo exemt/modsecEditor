@@ -1,9 +1,7 @@
 import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { ChipInput } from './ChipInput';
 import { ChoiceField } from './ChoiceField';
@@ -15,10 +13,10 @@ import { Section, SECTION_PADDING } from './Section';
 import { SetvarSection } from './SetvarSection';
 import { SideTitle } from './SideTitle';
 import { SuggestField } from './SuggestField';
+import { OtherActionsSection } from './extra/OtherActionsSection';
 import { ruleActionCount, ruleActionSummary } from './summary';
 import { FLAG_COLUMN, PHASE_COLUMN, REACTION_COLUMN, STATUS_COLUMN } from './layout';
 import { useI18n } from '../../i18n/useI18n';
-import { serializeAction } from '../../modsec/serialize';
 import { isExclusionCtl } from '../../modsec/exclusions';
 import { AUDIT_FLAGS, LOG_FLAGS, takesDestination } from '../../modsec/semantics';
 import {
@@ -319,34 +317,8 @@ export function ActionsPanel({
         onChange={(setvar) => onChange({ ...actions, setvar })}
       />
 
-      {/* Действия, для которых поля нет: `initcol`, `expirevar`, `exec`,
-          настройки движка вроде `ctl:requestBodyAccess=Off`. Каждое меняет
-          поведение правила, а форма о них молчала — узнать о таком соседе
-          можно было только из панели замечаний. Поэтому они стоят здесь,
-          прежней записью, но правятся текстом: строка `ctl` — это своя
-          грамматика, и поле, понимающее её наполовину, хуже её отсутствия.
-          Список — как у переменных: подпись, черта, а под ней сами записи. */}
-      {settings.length > 0 && (
-        <Stack spacing={0.75}>
-          <SideTitle label={t('builder.otherActions')} />
-          <Stack
-            direction="row"
-            spacing={1}
-            sx={{ flexWrap: 'wrap', gap: 1, alignItems: 'center' }}
-          >
-            {settings.map((item, index) => (
-              <Tooltip key={index} title={t('builder.readOnly')}>
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label={serializeAction(item)}
-                  sx={{ fontFamily: 'ui-monospace, Consolas, monospace' }}
-                />
-              </Tooltip>
-            ))}
-          </Stack>
-        </Stack>
-      )}
+      {/* Действия без поля — каждый вид своим компонентом в `extra/`. */}
+      <OtherActionsSection items={settings} />
     </Stack>
   );
 

@@ -3,6 +3,7 @@ import Stack from '@mui/material/Stack';
 import { BlockActions } from './BlockActions';
 import { BlockHeader, BlockTitle } from './BlockHeader';
 import { CommitField } from './CommitField';
+import { MarkerField } from './MarkerField';
 import { useI18n } from '../../i18n/useI18n';
 import type { ReactElement, ReactNode } from 'react';
 import type { TranslationKey } from '../../i18n/translations';
@@ -28,7 +29,9 @@ interface StatementRowProps {
  * Блок в одну строку, правящийся текстом: метка и директива без формы.
  *
  * Метка стоит здесь навсегда: содержимого у неё ровно одно — имя, и поле с
- * именем ничем не отличалось бы от поля со строкой целиком.
+ * именем ничем не отличалось бы от поля со строкой целиком. Правка у неё
+ * отдельная — {@link MarkerField}: в файл уходит только по кнопке, и только
+ * когда строка снова разбирается как метка.
  *
  * Директива попадает сюда, когда разбор не сошёлся: незнакомое имя, лишний
  * аргумент, макрос `%{...}` в значении. Форма показала бы меньше, чем есть в
@@ -95,19 +98,27 @@ export function StatementRow({
           />
         }
       >
-        <CommitField
-          fullWidth
-          value={text}
-          // Пустая строка — это пустая строка, а не отказ от правки: что
-          // набрано, то и уходит в файл, а строка без содержимого перестаёт
-          // быть блоком и уходит из списка. Удаление рядом, и угадывать за
-          // человека, которое из двух он имел в виду, незачем.
-          onCommit={(next) => onCommit(next.trim())}
-          sx={{
-            '& .MuiInputBase-input': { fontFamily: 'ui-monospace, Consolas, monospace' },
-          }}
-          slotProps={{ htmlInput: { 'aria-label': t(kind), spellCheck: false } }}
-        />
+        {kind === 'builder.marker' ? (
+          <MarkerField
+            value={text}
+            onCommit={onCommit}
+            aria-label={t(kind)}
+          />
+        ) : (
+          <CommitField
+            fullWidth
+            value={text}
+            // Пустая строка — это пустая строка, а не отказ от правки: что
+            // набрано, то и уходит в файл, а строка без содержимого перестаёт
+            // быть блоком и уходит из списка. Удаление рядом, и угадывать за
+            // человека, которое из двух он имел в виду, незачем.
+            onCommit={(next) => onCommit(next.trim())}
+            sx={{
+              '& .MuiInputBase-input': { fontFamily: 'ui-monospace, Consolas, monospace' },
+            }}
+            slotProps={{ htmlInput: { 'aria-label': t(kind), spellCheck: false } }}
+          />
+        )}
       </BlockHeader>
     </Paper>
   );

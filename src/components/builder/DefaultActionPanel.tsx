@@ -1,21 +1,16 @@
 import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
-import Tooltip from '@mui/material/Tooltip';
-import Typography from '@mui/material/Typography';
 import { ChoiceField } from './ChoiceField';
 import { CommitField } from './CommitField';
 import { SuggestField } from './SuggestField';
+import { OtherActionsSection } from './extra/OtherActionsSection';
 import { FLAG_COLUMN, PHASE_COLUMN, REACTION_COLUMN, STATUS_COLUMN } from './layout';
 import { useI18n } from '../../i18n/useI18n';
 import { disruptiveChoices, logFlagChoices, phaseChoices } from '../../modsec/choices';
 import { readDefaultAction, writeDefaultAction } from '../../modsec/directives';
 import { AUDIT_FLAGS, LOG_FLAGS, takesDestination } from '../../modsec/semantics';
-import { serializeAction } from '../../modsec/serialize';
 import { STATUS_SUGGESTIONS } from '../../modsec/suggestions';
 import type { DefaultActionForm, DirectiveForm } from '../../modsec/directives';
-
-const MONO = 'ui-monospace, Consolas, monospace';
 
 interface DefaultActionPanelProps {
   form: Extract<DirectiveForm, { arg: 'actions' }>;
@@ -127,27 +122,7 @@ export function DefaultActionPanel({ form, onChange }: DefaultActionPanelProps) 
         </Box>
       </Stack>
 
-      {value.extra.length > 0 && (
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{ flexWrap: 'wrap', gap: 1, alignItems: 'center' }}
-        >
-          <Typography variant="body2" color="text.secondary">
-            {t('builder.otherActions')}
-          </Typography>
-          {value.extra.map((item, index) => (
-            <Tooltip key={index} title={t('builder.readOnly')}>
-              <Chip
-                size="small"
-                variant="outlined"
-                label={serializeAction(item)}
-                sx={{ fontFamily: MONO }}
-              />
-            </Tooltip>
-          ))}
-        </Stack>
-      )}
+      <OtherActionsSection items={value.extra} />
     </Stack>
   );
 }

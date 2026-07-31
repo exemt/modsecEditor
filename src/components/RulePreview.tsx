@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactElement } from 'react';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
@@ -6,6 +6,7 @@ import DialogContent from '@mui/material/DialogContent';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import NotesOutlinedIcon from '@mui/icons-material/NotesOutlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import { MiniEditorPane } from './MiniEditorPane';
 import { useBuilderView } from '../context/builderViewContext';
 import { useEditorView } from '../context/editorViewContext';
@@ -20,12 +21,27 @@ interface RulePreviewProps {
   /** Ключ блока модели — по нему конструктор находит карточку. */
   ruleKey: string;
   /**
+   * Текст перед номером на чипе: «Правило : 942100».
+   *
+   * В списке исключений номер сам за себя, а в общем списке блоков без слова
+   * «Правило» чип не отличить от соседних меток и директив.
+   */
+  preText?: string;
+  /**
    * Показывать ли превью по наведению.
    *
    * `false` — чистый переход: номер ведёт в конструктор, без подсказки,
    * модалки и иконки текста. Так чип ставят в шапке, где исходник уже виден.
    */
   preview?: boolean;
+  /**
+   * Как показать управление.
+   *
+   * `chip` — номер со ссылкой и (при превью) иконкой текста.
+   * `icons` — глаз с той же подсказкой и переход в текстовый редактор;
+   * так ставят в поле id раскрытой карточки, где номер уже набран.
+   */
+  mode?: 'chip' | 'icons';
   /** Перед переходом — закрыть родительское окно или подсказку. */
   onNavigate?: () => void;
 }
@@ -41,7 +57,9 @@ export function RulePreview({
   id,
   file,
   ruleKey,
+  preText,
   preview = true,
+  mode = 'chip',
   onNavigate,
 }: RulePreviewProps) {
   const { t } = useI18n();
@@ -51,15 +69,23 @@ export function RulePreview({
   const [tipOpen, setTipOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
 
-  const snippet = preview ? snippetOf(file, ruleKey) : null;
+  const wantsPreview = preview || mode === 'icons';
+  const snippet = wantsPreview ? snippetOf(file, ruleKey) : null;
   const foreign = file !== activeId ? nameOf(file) : '';
   const label = id === '' ? t('builder.unset') : id;
+  const caption =
+    preText === undefined || preText === '' ? label : `${preText} : ${label}`;
   const fileName = nameOf(file);
 
   const revealHint =
     foreign === ''
       ? t('builder.exclusionReveal', { id: label })
       : t('builder.exclusionRevealIn', { id: label, file: foreign });
+
+  const peekHint =
+    foreign === ''
+      ? t('builder.rulePreviewPeek', { id: label })
+      : t('builder.rulePreviewPeekIn', { id: label, file: foreign });
 
   const textHint =
     foreign === ''
@@ -116,7 +142,7 @@ export function RulePreview({
             component="span"
             sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}
           >
-            {label}
+            {caption}
             {snippet !== null && (
               <IconButton
                 component="span"
@@ -149,7 +175,7 @@ export function RulePreview({
             )}
           </Box>
         ) : (
-          label
+          caption
         )
       }
       onClick={goVisual}
@@ -158,11 +184,11 @@ export function RulePreview({
     />
   );
 
-  if (!preview) return chip;
+  if (!preview && mode === 'chip') return chip;
 
   const tip =
     snippet === null ? (
-      revealHint
+      peekHint
     ) : (
       <MiniEditorPane
         variant="compact"
@@ -180,82 +206,117 @@ export function RulePreview({
       />
     );
 
-  return (
-    <>
-      <Tooltip
-        title={tip}
-        placement="top"
-        open={tipOpen}
-        onOpen={() => {
-          if (!modalOpen) setTipOpen(true);
-        }}
-        onClose={() => setTipOpen(false)}
-        // Иначе курсор с чипа на кнопки в шапке тултип закрыл бы по дороге.
-        disableInteractive={false}
+  const withTip = (trigger: ReactElement) => (
+    <Tooltip
+      title={tip}
+      placement="top"
+      open={tipOpen}
+      onOpen={() => {
+        if (!modalOpen) setTipOpen(true);
+      }}
+      onClose={() => setTipOpen(false)}
+      // Иначе курсор с чипа на кнопки в шапке тултип закрыл бы по дороге.
+      disableInteractive={false}
+      slotProps={{
+        tooltip: {
+          sx: {
+            bgcolor: 'transparent',
+            p: 0,
+            maxWidth: 'none',
+            boxShadow: 'none',
+          },
+        },
+      }}
+    >
+      {trigger}
+    </Tooltip>
+  );
+
+  const modal =
+    snippet === null ? null : (
+      <Dialog
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        fullWidth
+        maxWidth="lg"
         slotProps={{
-          tooltip: {
+          paper: {
             sx: {
-              bgcolor: 'transparent',
-              p: 0,
-              maxWidth: 'none',
-              boxShadow: 'none',
+              height: '80vh',
+              bgcolor: '#1e1e1e',
+              backgroundImage: 'none',
             },
           },
         }}
       >
-        {chip}
-      </Tooltip>
-
-      {snippet !== null && (
-        <Dialog
-          open={modalOpen}
-          onClose={() => setModalOpen(false)}
-          fullWidth
-          maxWidth="lg"
-          slotProps={{
-            paper: {
-              sx: {
-                height: '80vh',
-                bgcolor: '#1e1e1e',
-                backgroundImage: 'none',
-              },
-            },
+        <DialogContent
+          sx={{
+            p: 0,
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            '&.MuiDialogContent-root': { pt: 0 },
           }}
         >
-          <DialogContent
-            sx={{
-              p: 0,
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-              '&.MuiDialogContent-root': { pt: 0 },
-            }}
-          >
-            <MiniEditorPane
-              variant="expanded"
-              text={snippet.text}
-              startLine={snippet.startLine}
-              fileName={fileName}
-              ruleAction={
-                <RulePreview
-                  id={id}
-                  file={file}
-                  ruleKey={ruleKey}
-                  preview={false}
-                  onNavigate={() => setModalOpen(false)}
-                />
-              }
-              openFileLabel={openFileLabel}
-              onOpenFile={openFile}
-              openLinesLabel={openLinesLabel}
-              onOpenLines={openText}
-              closeLabel={t('app.close')}
-              onClose={() => setModalOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
+          <MiniEditorPane
+            variant="expanded"
+            text={snippet.text}
+            startLine={snippet.startLine}
+            fileName={fileName}
+            ruleAction={
+              <RulePreview
+                id={id}
+                file={file}
+                ruleKey={ruleKey}
+                preview={false}
+                onNavigate={() => setModalOpen(false)}
+              />
+            }
+            openFileLabel={openFileLabel}
+            onOpenFile={openFile}
+            openLinesLabel={openLinesLabel}
+            onOpenLines={openText}
+            closeLabel={t('app.close')}
+            onClose={() => setModalOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
+    );
+
+  if (mode === 'icons') {
+    return (
+      <>
+        <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
+          {withTip(
+            <IconButton
+              size="small"
+              aria-label={peekHint}
+              sx={{ p: 0.25, '& .MuiSvgIcon-root': { fontSize: 18 } }}
+            >
+              <VisibilityOutlinedIcon />
+            </IconButton>,
+          )}
+          {snippet !== null && (
+            <IconButton
+              size="small"
+              aria-label={textHint}
+              onClick={openText}
+              sx={{ p: 0.25, '& .MuiSvgIcon-root': { fontSize: 18 } }}
+            >
+              <NotesOutlinedIcon />
+            </IconButton>
+          )}
+        </Box>
+        {modal}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {withTip(chip)}
+      {modal}
     </>
   );
 }
