@@ -11,8 +11,13 @@ import type { TranslationKey } from '../../i18n/translations';
 interface StatementRowProps {
   /** Разряд строки — он же имя поля для чтения с экрана. */
   kind: TranslationKey;
-  /** Название блока: разряд строки или, у исключения, его действие. */
-  title: string;
+  /**
+   * Название блока: разряд строки, действие исключения или чип превью.
+   *
+   * Строка оборачивается в {@link BlockTitle}; узел (чип метки) ставится как
+   * есть — как номер у свёрнутой карточки правила.
+   */
+  title: ReactNode;
   /** Значок названия: по нему разряд узнаётся раньше, чем прочитан текст. */
   icon?: ReactElement;
   text: string;
@@ -71,20 +76,24 @@ export function StatementRow({
         // блоком пустой.
         toggle={null}
         title={
-          <Stack
-            direction="row"
-            spacing={0.5}
-            sx={{
-              alignItems: 'center',
-              minWidth: 0,
-              // Значок стоит рядом с текстом, а не внутри чипа, и меру ему
-              // задавать некому: без неё он приходит крупнее самой подписи.
-              '& .MuiSvgIcon-root': { fontSize: 18, color: 'text.secondary' },
-            }}
-          >
-            {icon}
-            <BlockTitle>{title}</BlockTitle>
-          </Stack>
+          typeof title === 'string' || icon !== undefined ? (
+            <Stack
+              direction="row"
+              spacing={0.5}
+              sx={{
+                alignItems: 'center',
+                minWidth: 0,
+                // Значок стоит рядом с текстом, а не внутри чипа, и меру ему
+                // задавать некому: без неё он приходит крупнее самой подписи.
+                '& .MuiSvgIcon-root': { fontSize: 18, color: 'text.secondary' },
+              }}
+            >
+              {icon}
+              {typeof title === 'string' ? <BlockTitle>{title}</BlockTitle> : title}
+            </Stack>
+          ) : (
+            title
+          )
         }
         marks={marks}
         actions={

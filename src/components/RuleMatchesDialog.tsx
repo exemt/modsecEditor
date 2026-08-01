@@ -26,10 +26,12 @@ import {
   lineRangeLabel,
 } from './MiniEditorPane';
 import { RulePreview } from './RulePreview';
+import { VariableUseMarks } from './builder/VariableUseMarks';
 import { segmentsOf, visibleRange } from './builder/blockRuns';
 import { useEditorView } from '../context/editorViewContext';
 import { useWorkspace } from '../context/workspaceContext';
 import { useI18n } from '../i18n/useI18n';
+import type { VariableUse } from '../modsec/variables';
 import './MiniEditorPane.css';
 
 /**
@@ -53,6 +55,21 @@ interface RuleMatchesDialogProps {
    * нечего делать со структурой исключения или ключом блока.
    */
   ids: readonly string[];
+  /**
+   * Имя слева от счётчика — `tx.score · Связанные правила · N`.
+   *
+   * У переменной без имени окно из поля `setvar` читалось бы как тот же
+   * список, что у снятия по метке. Счётчик считает отфильтрованный список,
+   * как у исключений: иначе заголовок врал бы после набора в поле id.
+   */
+  heading?: string;
+  /**
+   * Виды использования переменной по номеру правила.
+   *
+   * Только у списка из отметки `setvar`: исключению читать/писать нечего, и
+   * значков перед чипом нет. У одного номера видов бывает несколько.
+   */
+  usesById?: ReadonlyMap<string, readonly VariableUse[]>;
 }
 
 /**
@@ -185,7 +202,13 @@ const filterFieldSx = {
   '& .MuiSvgIcon-root': { color: '#9aa0a6' },
 } as const;
 
-export function RuleMatchesDialog({ open, onClose, ids }: RuleMatchesDialogProps) {
+export function RuleMatchesDialog({
+  open,
+  onClose,
+  ids,
+  heading,
+  usesById,
+}: RuleMatchesDialogProps) {
   const { t } = useI18n();
   const { revealLine } = useEditorView();
   const { nameOf, snippetOf, ruleOf } = useWorkspace();
@@ -288,7 +311,12 @@ export function RuleMatchesDialog({ open, onClose, ids }: RuleMatchesDialogProps
           noWrap
           sx={{ flex: 1, minWidth: 0, fontSize: 16 }}
         >
-          {t('builder.rulePreviewListTitle', { count: String(filtered.length) })}
+          {heading === undefined || heading === ''
+            ? t('builder.rulePreviewListTitle', { count: String(filtered.length) })
+            : t('builder.variableSitesTitle', {
+                name: heading,
+                count: String(filtered.length),
+              })}
         </Typography>
         <TextField
           size="small"
@@ -394,6 +422,7 @@ export function RuleMatchesDialog({ open, onClose, ids }: RuleMatchesDialogProps
                   <MatchRow
                     id={filtered[segment.index]}
                     open
+                    uses={usesById?.get(filtered[segment.index])}
                     onExpand={() => setExpanded(segment.index)}
                     onCollapse={() => setExpanded(null)}
                     onCloseDialog={onClose}
@@ -415,6 +444,7 @@ export function RuleMatchesDialog({ open, onClose, ids }: RuleMatchesDialogProps
                     <MatchRow
                       id={filtered[index]}
                       open={false}
+                      uses={usesById?.get(filtered[index])}
                       onExpand={() => setExpanded(index)}
                       onCollapse={() => setExpanded(null)}
                       onCloseDialog={onClose}
@@ -438,6 +468,8 @@ export function RuleMatchesDialog({ open, onClose, ids }: RuleMatchesDialogProps
 interface MatchRowProps {
   id: string;
   open: boolean;
+  /** Виды использования переменной этим правилом — значки перед чипом. */
+  uses?: readonly VariableUse[];
   onExpand: () => void;
   onCollapse: () => void;
   onCloseDialog: () => void;
@@ -457,6 +489,7 @@ interface MatchRowProps {
 function MatchRow({
   id,
   open,
+  uses,
   onExpand,
   onCollapse,
   onCloseDialog,
@@ -496,15 +529,19 @@ function MatchRow({
     revealLine(1, located.file);
   };
 
+  // Значки слева от чипа: сначала «что сделано», потом «какое правило».
   const ruleChip =
     located === null ? undefined : (
-      <RulePreview
-        id={id}
-        file={located.file}
-        ruleKey={located.key}
-        preview={false}
-        onNavigate={onCloseDialog}
-      />
+      <>
+        {uses !== undefined && uses.length > 0 && <VariableUseMarks uses={uses} />}
+        <RulePreview
+          id={id}
+          file={located.file}
+          ruleKey={located.key}
+          preview={false}
+          onNavigate={onCloseDialog}
+        />
+      </>
     );
 
   if (!open) {

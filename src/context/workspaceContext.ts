@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { CompileResult } from '../modsec/compile';
 import type { ExclusionIndex } from '../modsec/exclusions';
-import type { RuleLocation, RuleSnippet } from '../modsec/snippet';
+import type { BlockSnippet, MarkerLocation, RuleLocation } from '../modsec/snippet';
 import type { VariableIndex } from '../modsec/variables';
 import type { NewFile } from '../store/filesSlice';
 import type { Analysis } from './useInspection';
@@ -69,12 +69,12 @@ export interface WorkspaceContextValue {
   /** Текст файла набора: его выгружают, не открывая. */
   textOf: (id: string) => string;
   /**
-   * Исходник блока по файлу и ключу — для превью правила в подсказке.
+   * Исходник блока по файлу и ключу — для превью в подсказке.
    *
    * `null`, когда файла или блока в наборе нет: ключ считается внутри файла,
-   * и чужой ключ в открытом файле нашёлся бы не тем правилом.
+   * и чужой ключ в открытом файле нашёлся бы не тем блоком.
    */
-  snippetOf: (file: string, key: string) => RuleSnippet | null;
+  snippetOf: (file: string, key: string) => BlockSnippet | null;
   /**
    * Место правила по его `id` в наборе.
    *
@@ -82,6 +82,13 @@ export interface WorkspaceContextValue {
    * а не из структуры исключения, которой у него быть не должно.
    */
   ruleOf: (id: string) => RuleLocation | null;
+  /**
+   * Место метки по имени в наборе.
+   *
+   * `skipAfter` передаёт одно имя — откуда метка, превью узнаёт здесь,
+   * а не из структуры действия, которой у чипа быть не должно.
+   */
+  markerOf: (label: string) => MarkerLocation | null;
 
   /* --- Набор --- */
   selectFile: (id: string) => void;

@@ -3,17 +3,21 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Collapse from '@mui/material/Collapse';
 import Divider from '@mui/material/Divider';
+import InputAdornment from '@mui/material/InputAdornment';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { ActionsPanel } from './ActionsPanel';
 import { BlockActions } from './BlockActions';
-import { BlockHeader, BlockTitle } from './BlockHeader';
+import { BlockHeader } from './BlockHeader';
 import { BlockList } from './BlockList';
+import { CommitField } from './CommitField';
 import { DirectiveRow } from './DirectiveRow';
 import { ExclusionMarks } from './ExclusionMarks';
 import { exclusionIcon, exclusionOpKey } from './exclusionLabels';
 import { RuleCard } from './RuleCard';
 import { StatementRow } from './StatementRow';
+import { MarkerPreview } from '../MarkerPreview';
+import { RulePreview } from '../RulePreview';
 import { actionSummary } from './summary';
 import { useRuleExclusions } from '../diagnostics/useDiagnostics';
 import { useRule } from '../../context/ruleContext';
@@ -56,6 +60,7 @@ function ActionCard({
   onDelete: () => void;
 }) {
   const { t } = useI18n();
+  const { activeId } = useWorkspace();
   // `SecAction` — обычный носитель `ctl`: у безусловного действия исключение
   // применяется на каждом запросе, и именно так пишут файлы-надстройки.
   const exclusions = useRuleExclusions(block.statementIndex, block.statementIndex);
@@ -69,10 +74,47 @@ function ActionCard({
           collapseLabel: 'builder.collapseBlock',
           expandLabel: 'builder.expandBlock',
         }}
-        // Названо словом, а не написанием `SecAction`: у безусловного
-        // действия имя директивы — единственное, что в строке стоит до
-        // самих действий, и повторять его выжимкой справа незачем.
-        title={<BlockTitle>{t('builder.secAction')}</BlockTitle>}
+        // Чип как у правила: «Безусловное действие : N» со превью исходника.
+        // Написанием `SecAction` не зовут — имя директивы и так видно в тексте.
+        title={
+          expanded ? (
+            <CommitField
+              fullWidth
+              value={block.actions.id}
+              onCommit={(id) => onChange({ ...block.actions, id })}
+              sx={{
+                minWidth: 0,
+                '& .MuiInputBase-adornedStart .MuiInputBase-input': { pl: 0 },
+                '& .MuiInputBase-adornedEnd .MuiInputBase-input': { pr: 0.5 },
+              }}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">{t('builder.secAction')}</InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <RulePreview
+                        mode="icons"
+                        id={block.actions.id}
+                        file={activeId}
+                        ruleKey={block.key}
+                      />
+                    </InputAdornment>
+                  ),
+                },
+                htmlInput: { 'aria-label': t('builder.ruleId'), inputMode: 'numeric' },
+              }}
+            />
+          ) : (
+            <RulePreview
+              preText={t('builder.secAction')}
+              id={block.actions.id}
+              file={activeId}
+              ruleKey={block.key}
+            />
+          )
+        }
         actions={
           <BlockActions
             onMoveUp={onMoveUp}
@@ -97,6 +139,7 @@ function ActionCard({
         <Divider />
         <ActionsPanel
           alwaysExpanded
+          hideId
           actions={block.actions}
           exclusions={exclusions}
           onChange={onChange}
@@ -233,7 +276,16 @@ export function VisualBuilder() {
           <StatementRow
             key={block.key}
             kind="builder.marker"
-            title={t('builder.marker')}
+            // Чип как у правила: «Метка : NAME» с превью исходника. Поле
+            // справа правит строку целиком — чип только называет и связывает.
+            title={
+              <MarkerPreview
+                preText={t('builder.marker')}
+                label={block.label}
+                file={activeId}
+                blockKey={block.key}
+              />
+            }
             text={block.text}
             onCommit={(text) => commitStatement(block.statementIndex, text)}
             onMoveUp={swapWith(index, -1)}

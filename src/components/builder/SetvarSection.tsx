@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
 import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
 import AddIcon from '@mui/icons-material/Add';
@@ -26,12 +27,16 @@ import { MACRO_SUGGESTIONS, SETVAR_SUGGESTIONS, setvarNameSuggestions } from '..
 import type { SetvarOp } from '../../modsec/setvar';
 
 /**
- * Колонки ряда присваивания: коллекция, имя, вид записи, значение и две кнопки.
+ * Колонки ряда присваивания: коллекция, имя, вид записи, значение и крестик.
  *
  * Сеткой, а не рядом полей: рядов у правила бывает десяток, и просматривают их
  * сверху вниз по одной колонке — «что здесь вообще выставляется». Колонка,
  * гуляющая от ряда к ряду вслед за длиной имени, превращает один список в
  * несколько, положенных друг под друга.
+ *
+ * Отметка переменной стоит в обойме поля имени, а не отдельной колонкой:
+ * иначе ряд держал бы две иконочные клетки подряд — сведения и удаление, —
+ * и взгляд искал бы крестик заново на каждом присваивании.
  */
 const ROW_COLUMNS = [
   `${COLLECTION_COLUMN}px`,
@@ -42,7 +47,6 @@ const ROW_COLUMNS = [
   'minmax(160px, 1.5fr)',
   `${SETVAR_OP_COLUMN}px`,
   'minmax(120px, 1fr)',
-  `${ICON_COLUMN}px`,
   `${ICON_COLUMN}px`,
 ].join(' ');
 
@@ -125,15 +129,15 @@ export function SetvarSection({ values, onChange }: SetvarSectionProps) {
                     suggestions={SETVAR_SUGGESTIONS}
                     value={raw}
                     onCommit={(value) => replace(index, value)}
+                    actions={
+                      target === null ? undefined : (
+                        <VariableMark collection={target.collection} name={target.name} />
+                      )
+                    }
                   />
                 </Box>
               </Tooltip>
 
-              <Box>
-                {target !== null && (
-                  <VariableMark collection={target.collection} name={target.name} />
-                )}
-              </Box>
               <RemoveButton onRemove={() => remove(index)} />
             </Box>
           );
@@ -160,6 +164,11 @@ export function SetvarSection({ values, onChange }: SetvarSectionProps) {
               value={name}
               error={name === '' ? t('builder.setvarNameRequired') : undefined}
               onCommit={(next) => commit({ name: next })}
+              endAdornment={
+                <InputAdornment position="end">
+                  <VariableMark collection={collection} name={name} />
+                </InputAdornment>
+              }
             />
 
             <ChoiceField
@@ -196,9 +205,6 @@ export function SetvarSection({ values, onChange }: SetvarSectionProps) {
               </Box>
             </Tooltip>
 
-            <Box>
-              <VariableMark collection={collection} name={name} />
-            </Box>
             <RemoveButton onRemove={() => remove(index)} />
           </Box>
         );

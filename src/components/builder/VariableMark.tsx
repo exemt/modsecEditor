@@ -1,26 +1,30 @@
-import Box from '@mui/material/Box';
+import { useState } from 'react';
+import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
-import Link from '@mui/material/Link';
-import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
-import Typography from '@mui/material/Typography';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { useBuilderView } from '../../context/builderViewContext';
+import { RuleMatchesDialog } from '../RuleMatchesDialog';
+import { RulePreview } from '../RulePreview';
+import { tokenize } from '../syntax/modsecHighlight';
+import { useEditorView } from '../../context/editorViewContext';
 import { useWorkspace } from '../../context/workspaceContext';
 import { useI18n } from '../../i18n/useI18n';
 import { useLabel } from './useLabel';
+import { usesByRuleId } from './VariableUseMarks';
 import { lookupVariable, readBeforeSet } from '../../modsec/variables';
 import { setvarCollectionMeta } from '../../modsec/semantics';
 import type { VariableSite } from '../../modsec/variables';
+import '../RuleEditor.css';
+import './VariableMark.css';
 
 /**
- * Сколько мест названо строками, прежде чем остаток назван числом.
+ * Сколько мест названо карточками, прежде чем остаток — числом.
  *
- * `tx.anomaly_score` в наборе CRS прибавляют сотни правил, и списком это не
- * читается: шесть строк отвечают на вопрос «кто вообще» и дают перейти к
- * ближайшему, а число рядом честнее оборванного списка.
+ * Карточка выше строки текста: шесть штук в каждой секции уже не читаются
+ * без прокрутки. Три отвечают на вопрос «кто вообще», а «+N» и подвал
+ * ведут в полное окно исходников — то же, что у исключений.
  */
-const SHOWN_SITES = 6;
+const SHOWN_SITES = 3;
 
 /** Коллекции, которым нужно хранилище: без него запись не переживёт запрос. */
 const PERSISTENT = new Set(['ip', 'session', 'user', 'global', 'resource']);
@@ -38,20 +42,21 @@ interface VariableMarkProps {
  * ни того, дойдёт ли дело до чтения: читающее правило может стоять в первой
  * фазе, а выставляющее — во второй, и тогда флаг не сработает ни разу. Оба
  * ответа лежат в других строках, а часто и в других файлах, — поэтому они
- * собраны здесь, у самого поля, а не в отдельной сводке.
+ * собраны здесь, у самого поля имени, а не в отдельной сводке.
  *
- * Отметка — значок, а не строка с числом: место в ряду полей у неё размером с
- * кнопку удаления, а сказать надо не «сколько», а «где именно». Цветом же она
+ * Отметка — значок в обойме поля. Наведение даёт краткий список карточками;
+ * нажатие и «посмотреть все» открывают то же окно исходников, что у
+ * исключений. Адрес в карточке — как шапка мини-редактора: номер ведёт в
+ * конструктор, имя файла и строка — в текстовую вкладку. Цветом же отметка
  * отвечает на единственный вопрос, ответ на который виден сразу и без
- * раскрытия: читает ли эту переменную хоть кто-нибудь. Выставленная и никем
- * не читаемая переменная — не ошибка конфигурации, правило с ней загрузится и
- * будет работать; просто накопленное ею никто не проверяет.
+ * раскрытия: читает ли эту переменную хоть кто-нибудь.
  */
 export function VariableMark({ collection, name }: VariableMarkProps) {
   const { t } = useI18n();
   const label = useLabel();
-  const { revealRule } = useBuilderView();
-  const { variables, activeId, nameOf } = useWorkspace();
+  const { revealLine } = useEditorView();
+  const { variables, nameOf } = useWorkspace();
+  const [listOpen, setListOpen] = useState(false);
 
   const entry = lookupVariable(variables, collection, name);
   const reads = entry?.reads ?? [];
@@ -65,82 +70,202 @@ export function VariableMark({ collection, name }: VariableMarkProps) {
   const early = entry !== null && readBeforeSet(entry);
   const homeless = !unnamed && PERSISTENT.has(collection.toLowerCase()) && inits.length === 0;
 
-  /** Место записи: сама запись и то, где она стоит. */
-  const site = (item: VariableSite, index: number) => {
-    const where =
-      item.file === activeId
-        ? t('builder.variableLine', { line: String(item.line) })
-        : t('builder.variableLineIn', { file: nameOf(item.file), line: String(item.line) });
+  const sites = [...writes, ...reads];
+  const ruleIds = uniqueRuleIds(sites);
+  const usesById = usesByRuleId(sites);
+  const variableName = unnamed ? collection : `${collection}.${name}`;
+  const truncated = writes.length > SHOWN_SITES || reads.length > SHOWN_SITES;
+
+  const openList = () => {
+    if (ruleIds.length > 0) setListOpen(true);
+  };
+
+  const siteCard = (item: VariableSite, index: number) => {
+    const fileName = nameOf(item.file);
+    const lineLabel = String(item.line);
+    const tokens = tokenize(item.text);
+
+    const openFile = () => revealLine(1, item.file);
+    const openLine = () => revealLine(item.line, item.file);
 
     return (
-      <Box key={`${item.file}-${item.key}-${item.text}-${index}`} sx={{ mt: 0.25 }}>
-        <Box component="span" sx={{ fontFamily: 'ui-monospace, Consolas, monospace' }}>
-          {item.text}
-        </Box>
-        {' — '}
-        {/* Ссылка, а не текст: место названо затем, чтобы к нему перейти, а
-            правило может лежать и в другом файле — тогда переход сначала
-            сменит активный, потому что ключ блока считается внутри файла. */}
-        <Link
-          component="button"
-          type="button"
-          underline="hover"
-          color="inherit"
-          onClick={() => revealRule(item.key, item.file)}
-        >
-          {item.id === '' ? where : t('builder.variableRule', { id: item.id, where })}
-        </Link>
-      </Box>
+      <div
+        key={`${item.file}-${item.key}-${item.text}-${index}`}
+        className="variable-mark-tip__site"
+      >
+        {/* Слева адрес, справа номер: файл и строка — те же переходы, что у
+            шапки мини-редактора; чип «Правило : id» ведёт в конструктор.
+            Без вложенной подсказки: здесь исходник уже виден строкой ниже. */}
+        <div className="variable-mark-tip__where">
+          <div className="variable-mark-tip__addr">
+            <button
+              type="button"
+              className="variable-mark-tip__file variable-mark-tip__link"
+              aria-label={t('builder.rulePreviewOpenFile', { file: fileName })}
+              title={fileName}
+              onClick={openFile}
+            >
+              {fileName}
+            </button>
+            <button
+              type="button"
+              className="variable-mark-tip__line variable-mark-tip__link"
+              aria-label={t('builder.rulePreviewOpenLines', { line: lineLabel })}
+              onClick={openLine}
+            >
+              {lineLabel}
+            </button>
+          </div>
+          <RulePreview
+            id={item.id}
+            file={item.file}
+            ruleKey={item.key}
+            preText={t('builder.rule')}
+            preview={false}
+          />
+        </div>
+        <code className="variable-mark-tip__code" title={item.text}>
+          {tokens.map((token, i) => (
+            <span key={i} className={`tok-${token.type}`}>
+              {token.value}
+            </span>
+          ))}
+        </code>
+      </div>
     );
   };
 
-  const list = (heading: string, sites: VariableSite[], empty: string) => (
-    <Box sx={{ mt: 0.5 }}>
-      <Typography variant="caption" color="inherit" sx={{ fontWeight: 600 }}>
-        {heading}
-      </Typography>
-      {sites.length === 0 ? (
-        <Box sx={{ mt: 0.25 }}>{empty}</Box>
-      ) : (
-        <>
-          {sites.slice(0, SHOWN_SITES).map(site)}
-          {sites.length > SHOWN_SITES && (
-            <Box sx={{ mt: 0.25 }}>{`+${sites.length - SHOWN_SITES}`}</Box>
+  const section = (heading: string, sites: VariableSite[], empty: string) => {
+    const hidden = Math.max(0, sites.length - SHOWN_SITES);
+    return (
+      <section className="variable-mark-tip__section">
+        <div className="variable-mark-tip__head">
+          <h4 className="variable-mark-tip__title">{heading}</h4>
+          {sites.length > 0 && (
+            <span className="variable-mark-tip__count">{sites.length}</span>
           )}
-        </>
-      )}
-    </Box>
-  );
+        </div>
+        {sites.length === 0 ? (
+          <div className="variable-mark-tip__empty">{empty}</div>
+        ) : (
+          <>
+            <div className="variable-mark-tip__sites">
+              {sites.slice(0, SHOWN_SITES).map(siteCard)}
+            </div>
+            {/* Число — размер хвоста секции, не всей выборки: «+3» рядом с
+                «выставляется» обещает три места, а не три правила в окне.
+                Открывает то же окно, что значок и подвал. */}
+            {hidden > 0 && (
+              <button
+                type="button"
+                className="variable-mark-tip__more"
+                onClick={openList}
+              >
+                <span className="variable-mark-tip__more-count">
+                  {t('builder.variableMore', { count: String(hidden) })}
+                </span>
+                <span className="variable-mark-tip__more-hint">
+                  {t('builder.variableBrowseHint')}
+                </span>
+              </button>
+            )}
+          </>
+        )}
+      </section>
+    );
+  };
 
-  const title = (
-    <Box>
-      <Box sx={{ fontFamily: 'ui-monospace, Consolas, monospace', fontWeight: 600 }}>
-        {unnamed ? collection : `${collection}.${name}`}
-      </Box>
-      <Box>{label(setvarCollectionMeta(collection.toLowerCase())?.note, '')}</Box>
+  const tip = (
+    <div className="variable-mark-tip">
+      <div className="variable-mark-tip__name">{variableName}</div>
+      <div className="variable-mark-tip__note">
+        {label(setvarCollectionMeta(collection.toLowerCase())?.note, '')}
+      </div>
 
       {!unnamed && (
         <>
-          {list(t('builder.variableSetIn'), writes, t('builder.variableNeverSet'))}
-          {list(t('builder.variableReadIn'), reads, t('builder.variableNeverRead'))}
+          {section(t('builder.variableSetIn'), writes, t('builder.variableNeverSet'))}
+          {section(t('builder.variableReadIn'), reads, t('builder.variableNeverRead'))}
           {/* Порядок исполнения — не порядок файла: фаза идёт первой, и
               прочитанное до первой записи всегда пусто. */}
-          {early && <Box sx={{ mt: 0.5 }}>{t('builder.variableEarlyRead')}</Box>}
-          {homeless && <Box sx={{ mt: 0.5 }}>{t('builder.variableNoStorage')}</Box>}
+          {early && (
+            <div className="variable-mark-tip__warn">{t('builder.variableEarlyRead')}</div>
+          )}
+          {homeless && (
+            <div className="variable-mark-tip__warn">{t('builder.variableNoStorage')}</div>
+          )}
         </>
       )}
-    </Box>
+
+      {!unnamed && ruleIds.length > 0 && (
+        <div className="variable-mark-tip__footer">
+          {/* Число — размер всей выборки: иначе «+40» у секции обещало бы
+              сорок правил в окне, а в окне лежали бы все. */}
+          {(truncated || ruleIds.length > SHOWN_SITES) && (
+            <Chip
+              size="small"
+              component="button"
+              label={t('builder.rulePreviewViewAll', { count: String(ruleIds.length) })}
+              onClick={openList}
+            />
+          )}
+          <div className="variable-mark-tip__footer-hint">{t('builder.variableIconHint')}</div>
+        </div>
+      )}
+    </div>
   );
 
   return (
-    <Tooltip title={<Stack>{title}</Stack>} placement="top-end">
-      <IconButton
-        size="small"
-        aria-label={t('builder.variableInfo')}
-        color={unread || homeless ? 'warning' : 'default'}
+    <>
+      <Tooltip
+        title={tip}
+        placement="top-end"
+        // Подсказка интерактивная: в ней ссылки, прокрутка и кнопки.
+        disableInteractive={false}
+        slotProps={{
+          tooltip: {
+            sx: {
+              // Свой фон и поля у содержимого: умолчания MUI режут ширину
+              // на 300px и красят попап в серый поверх нашей панели.
+              bgcolor: 'transparent',
+              p: 0,
+              maxWidth: 'none',
+            },
+          },
+        }}
       >
-        <InfoOutlinedIcon fontSize="small" />
-      </IconButton>
-    </Tooltip>
+        <IconButton
+          size="small"
+          aria-label={t('builder.variableInfo')}
+          color={unread || homeless ? 'warning' : 'default'}
+          // Не забирать фокус у поля: иначе список подсказок имени открылся
+          // бы от клика по соседней иконке, а значение ещё и ушло бы наружу.
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={openList}
+        >
+          <InfoOutlinedIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+
+      <RuleMatchesDialog
+        open={listOpen}
+        onClose={() => setListOpen(false)}
+        ids={ruleIds}
+        heading={variableName}
+        usesById={usesById}
+      />
+    </>
   );
+}
+
+/** Номера правил без пустых и без повторов, в порядке первого появления. */
+function uniqueRuleIds(sites: VariableSite[]): string[] {
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (const site of sites) {
+    if (site.id === '' || seen.has(site.id)) continue;
+    seen.add(site.id);
+    ids.push(site.id);
+  }
+  return ids;
 }

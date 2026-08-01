@@ -656,8 +656,12 @@ describe('VisualBuilder — установка переменных', () => {
     await user.hover(screen.getAllByRole('button', { name: 'Что набор знает о переменной' })[0]);
 
     expect(await screen.findByText('Читается')).toBeInTheDocument();
-    // Ссылкой, а не текстом: место названо затем, чтобы к нему перейти.
-    expect(screen.getByRole('button', { name: 'правило 1002, строка 3' })).toBeInTheDocument();
+    // Слева файл и строка — в текстовую вкладку, справа чип номера — в
+    // конструктор. Ищем в подсказке: тот же номер уже стоит на карточке.
+    const tip = screen.getByRole('tooltip');
+    expect(within(tip).getByRole('button', { name: 'Показать правило 1002' })).toBeInTheDocument();
+    expect(within(tip).getByRole('button', { name: 'Показать строку 3' })).toBeInTheDocument();
+    expect(within(tip).getByText('Правило : 1002')).toBeInTheDocument();
   });
 
   // Выставленная и никем не читаемая переменная — не ошибка конфигурации:
@@ -672,6 +676,29 @@ describe('VisualBuilder — установка переменных', () => {
     expect(
       await screen.findByText('нигде — накопленное этой записью никто не проверяет'),
     ).toBeInTheDocument();
+  });
+
+  // Сотни правил CRS списком ссылок в подсказке не читаются — нажатие
+  // открывает то же окно исходников, что у исключений.
+  it('открывает список связанных правил из отметки переменной', async () => {
+    const user = userEvent.setup();
+    renderBuilder(
+      [
+        'SecAction "id:1001,phase:1,pass,nolog,setvar:tx.flag=1"',
+        '',
+        'SecRule TX:flag "@eq 1" "id:1002,phase:2,deny,msg:\'flag\'"',
+        '',
+      ].join('\n'),
+    );
+
+    await user.click(screen.getAllByRole('button', { name: 'Что набор знает о переменной' })[0]);
+
+    const dialog = await screen.findByRole('dialog', {
+      name: /tx\.flag · связанные правила · 2/,
+    });
+    // Значки перед чипом: какое правило пишет, какое читает.
+    expect(within(dialog).getByLabelText('Задаёт переменную')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Читает переменную')).toBeInTheDocument();
   });
 });
 
@@ -903,7 +930,9 @@ describe('VisualBuilder — исключения', () => {
     // Переходов два, и они в разные места: запись ведёт к своему блоку, номер
     // строки — к строке в тексте, где видно, что стоит вокруг исключения.
     expect(
-      card.getByRole('button', { name: 'Показать исключение в конструкторе' }),
+      card.getByRole('button', {
+        name: 'Показать «SecRuleUpdateTargetById 942100 "!ARGS:comment"» в конструкторе',
+      }),
     ).toBeInTheDocument();
     expect(card.getByRole('button', { name: 'Показать строку 2' })).toHaveTextContent('строка 2');
   });
@@ -1396,7 +1425,10 @@ describe('VisualBuilder — меню «Добавить»', () => {
     // Заготовка ничего не запрещает: условий у `SecAction` нет, и `deny` в
     // ней закрыл бы все запросы сразу.
     await waitFor(() => expect(source()).toContain('"id:942101,phase:1,pass,nolog"'));
+    // Новое действие раскрывают сразу — в шапке поле id с подписью разряда,
+    // как у правила; свёрнутый чип «Безусловное действие : N» — когда закрыто.
     expect(screen.getByText('Безусловное действие')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('942101')).toBeInTheDocument();
     // Замечаний заготовка не получает: иначе о ней сообщали бы в тот же миг,
     // когда её завели.
     expect(screen.queryByText(/заблокирован/)).toBeNull();
@@ -1411,6 +1443,26 @@ describe('VisualBuilder — меню «Добавить»', () => {
     await waitFor(() => expect(source()).toContain('SecMarker MARKER-2'));
     // Имя правят в самой строке: у метки это всё её содержимое.
     expect(screen.getAllByRole('textbox', { name: 'Метка' })).toHaveLength(2);
+    // В колонке названий — чип с превью, как у правила, а не голое слово.
+    expect(screen.getByRole('button', { name: 'Показать метку MARKER' })).toHaveTextContent(
+      'Метка : MARKER',
+    );
+    expect(screen.getByRole('button', { name: 'Показать метку MARKER-2' })).toHaveTextContent(
+      'Метка : MARKER-2',
+    );
+  });
+
+  it('свёрнутое безусловное действие показывает чип с номером', async () => {
+    const user = userEvent.setup();
+    renderBuilder('SecAction "id:1000,phase:1,pass,nolog"\n');
+
+    // Первые блоки файла раскрыты по умолчанию — сворачиваем, чтобы увидеть
+    // чип списка, как у правила.
+    await user.click(screen.getByRole('button', { name: 'Свернуть блок' }));
+
+    expect(
+      screen.getByRole('button', { name: 'Показать правило 1000' }),
+    ).toHaveTextContent('Безусловное действие : 1000');
   });
 });
 
@@ -1469,7 +1521,11 @@ describe('VisualBuilder — чужой файл набора', () => {
     expect(await screen.findByText('«exclusions.conf», строка 1')).toBeInTheDocument();
 
     // Переход к самой записи открывает её файл: правят там, где она написана.
-    await user.click(screen.getByRole('button', { name: 'Показать исключение в конструкторе' }));
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Показать «SecRuleRemoveById 942100» в «exclusions.conf»',
+      }),
+    );
     await waitFor(() => expect(activeName()).toBe('exclusions.conf'));
   });
 });

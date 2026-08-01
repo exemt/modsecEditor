@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -30,6 +30,13 @@ interface LongTextFieldProps {
   regex?: boolean;
   /** Готовые варианты значения; пустой список оставляет поле обычным. */
   suggestions?: Suggestion[];
+  /**
+   * Кнопки слева от карандаша — внутри той же обоймы.
+   *
+   * Карандаш уводит правку в окно и потому замыкает ряд. Сосед слева — про
+   * значение, а не про выход из поля: отметка переменной у сырого `setvar`.
+   */
+  actions?: ReactNode;
   monospace?: boolean;
   fullWidth?: boolean;
   sx?: Record<string, unknown>;
@@ -69,6 +76,7 @@ export function LongTextField({
   dialogTitle,
   regex = false,
   suggestions = [],
+  actions,
   monospace = false,
   fullWidth,
   sx,
@@ -108,6 +116,7 @@ export function LongTextField({
         sx={sx}
         endAdornment={
           <InputAdornment position="end">
+            {actions}
             <Tooltip title={t('builder.editInWindow')}>
               <span>
                 <IconButton

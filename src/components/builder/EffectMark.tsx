@@ -1,5 +1,6 @@
 import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
+import { BlockPreview } from '../BlockPreview';
 import { useForeignFile } from '../../context/useForeignFile';
 import { useI18n } from '../../i18n/useI18n';
 import type { TranslationKey } from '../../i18n/translations';
@@ -32,6 +33,9 @@ const EFFECT_MARKS = {
  * снятом правиле свёрнутой карточке, и читать её приходится без наведения. В
  * списке исключений отметки нет вовсе, потому что рядом там стоит сама запись:
  * `SecRuleUpdateTargetById` говорит «изменено» лучше, чем слово «изменено».
+ *
+ * Нажатие и превью ведут к блоку исключения: директиве или правилу-носителю
+ * `ctl`. Адрес уже в {@link ExclusionRef} — искать по имени незачем.
  */
 export function EffectMark({ mark, removed }: { mark: ExclusionRef; removed: boolean }) {
   const { t } = useI18n();
@@ -41,16 +45,43 @@ export function EffectMark({ mark, removed }: { mark: ExclusionRef; removed: boo
   // файлом — иначе она отсылает к строке того файла, который открыт.
   const foreign = useForeignFile(mark.file);
   const where = t(hint, { name: mark.name, line: String(mark.line) });
+  const caption = t(label);
+  const tip =
+    foreign === '' ? where : `${where} · ${t('builder.markFile', { file: foreign })}`;
+
+  if (mark.key === '') {
+    return (
+      <Tooltip title={tip}>
+        <Chip
+          size="small"
+          color={strong ? 'warning' : undefined}
+          variant="outlined"
+          label={caption}
+          sx={{ flexShrink: 0 }}
+        />
+      </Tooltip>
+    );
+  }
+
+  // На чипе одно слово («выключено») — подробности, кто и где снял, идут в
+  // aria-label, как раньше в Tooltip: свёрнутой карточке иначе нечего читать.
+  const peek =
+    foreign === ''
+      ? t('builder.directivePreviewPeek', { name: mark.name })
+      : t('builder.directivePreviewPeekIn', { name: mark.name, file: foreign });
+  const text =
+    foreign === ''
+      ? t('builder.directivePreviewText', { name: mark.name })
+      : t('builder.directivePreviewTextIn', { name: mark.name, file: foreign });
 
   return (
-    <Tooltip title={foreign === '' ? where : `${where} · ${t('builder.markFile', { file: foreign })}`}>
-      <Chip
-        size="small"
-        color={strong ? 'warning' : undefined}
-        variant="outlined"
-        label={t(label)}
-        sx={{ flexShrink: 0 }}
-      />
-    </Tooltip>
+    <BlockPreview
+      file={mark.file}
+      blockKey={mark.key}
+      caption={caption}
+      hints={{ reveal: tip, peek, text }}
+      chipColor={strong ? 'warning' : undefined}
+      chipVariant="outlined"
+    />
   );
 }

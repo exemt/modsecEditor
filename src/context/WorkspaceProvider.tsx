@@ -14,10 +14,10 @@ import {
 import { loadDraft, saveDraft } from '../store/draft';
 import { compileDocument } from '../modsec/compile';
 import { readExclusions, indexWorkspaceExclusions } from '../modsec/exclusions';
-import { indexRulesById, ruleSnippet } from '../modsec/snippet';
+import { indexMarkersByLabel, indexRulesById, blockSnippet } from '../modsec/snippet';
 import { indexWorkspaceVariables } from '../modsec/variables';
 import { fileOrder } from '../modsec/workspace';
-import type { RuleLocation, RuleSnippet } from '../modsec/snippet';
+import type { BlockSnippet, MarkerLocation, RuleLocation } from '../modsec/snippet';
 import { RuleProvider } from './RuleProvider';
 import { WorkspaceContext } from './workspaceContext';
 import { useInspection } from './useInspection';
@@ -188,10 +188,10 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
     [files],
   );
   const snippetOf = useCallback(
-    (file: string, key: string): RuleSnippet | null => {
+    (file: string, key: string): BlockSnippet | null => {
       const unit = built.entries.get(file)?.unit;
       if (unit === undefined) return null;
-      return ruleSnippet(unit.blocks, unit.statements, key);
+      return blockSnippet(unit.blocks, unit.statements, key);
     },
     [built],
   );
@@ -201,6 +201,11 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
   const ruleOf = useCallback(
     (id: string): RuleLocation | null => rulesById.get(id) ?? null,
     [rulesById],
+  );
+  const markersByLabel = useMemo(() => indexMarkersByLabel(units), [units]);
+  const markerOf = useCallback(
+    (label: string): MarkerLocation | null => markersByLabel.get(label) ?? null,
+    [markersByLabel],
   );
 
   const selectFile = useCallback((id: string) => dispatch(selectAction(id)), [dispatch]);
@@ -243,6 +248,7 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
       textOf,
       snippetOf,
       ruleOf,
+      markerOf,
       selectFile,
       openFiles,
       newFile,
@@ -262,6 +268,7 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
       textOf,
       snippetOf,
       ruleOf,
+      markerOf,
       selectFile,
       openFiles,
       newFile,

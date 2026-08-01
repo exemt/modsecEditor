@@ -11,8 +11,8 @@ import { CtlExclusionList } from './CtlExclusionList';
 import { ExcludeTargetDialog } from './ExcludeTargetDialog';
 import { Section } from './Section';
 import { SideTitle } from './SideTitle';
+import { DirectivePreview } from '../DirectivePreview';
 import { useRuleEffect, useRuleExclusions } from '../diagnostics/useDiagnostics';
-import { useBuilderView } from '../../context/builderViewContext';
 import { useEditorView } from '../../context/editorViewContext';
 import { useRule } from '../../context/ruleContext';
 import { useWorkspace } from '../../context/workspaceContext';
@@ -66,7 +66,6 @@ export function ExclusionsSection({
 }) {
   const { t } = useI18n();
   const { insertLines } = useRule();
-  const { revealRule } = useBuilderView();
   const { revealLine } = useEditorView();
   const { activeId, nameOf } = useWorkspace();
   const effect = useRuleEffect(rule.key);
@@ -302,7 +301,8 @@ export function ExclusionsSection({
                 {/* Запись — сама себе переход: она стоит в файле блоком, и
                     нажатие ведёт к нему, а не к её копии здесь. Файл при этом
                     может быть другим — исключения набора правят через границу
-                    файлов, — и тогда переход сначала открывает его. */}
+                    файлов, — и тогда переход сначала открывает его. Превью
+                    показывает исходник того же блока. */}
                 {ref.key === '' ? (
                   <Chip
                     size="small"
@@ -311,15 +311,13 @@ export function ExclusionsSection({
                     sx={{ fontFamily: MONOSPACE }}
                   />
                 ) : (
-                  <Tooltip title={t('builder.exclusionRevealBlock')}>
-                    <Chip
-                      size="small"
-                      variant="outlined"
-                      label={ref.text}
-                      onClick={() => revealRule(ref.key, ref.file)}
-                      sx={{ fontFamily: MONOSPACE }}
-                    />
-                  </Tooltip>
+                  <DirectivePreview
+                    file={ref.file}
+                    blockKey={ref.key}
+                    caption={ref.text}
+                    chipVariant="outlined"
+                    chipSx={{ fontFamily: MONOSPACE }}
+                  />
                 )}
 
                 {/* Номер строки у правого края — там же, где счётчики полос:

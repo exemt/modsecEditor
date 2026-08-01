@@ -1,6 +1,6 @@
 import { compileDocument } from './compile';
 import { parseModsec } from './parser';
-import { locateRule, ruleSnippet } from './snippet';
+import { blockSnippet, locateMarker, locateRule } from './snippet';
 
 function compiled(source: string) {
   const doc = parseModsec(source);
@@ -16,13 +16,13 @@ function unit(name: string, source: string) {
   };
 }
 
-describe('ruleSnippet', () => {
+describe('blockSnippet', () => {
   it('отдаёт текст и строки одного правила', () => {
     const { blocks, statements } = compiled(
       'SecRule ARGS "@rx foo" "id:1001,phase:2,deny"',
     );
 
-    expect(ruleSnippet(blocks, statements, 'rule-0')).toEqual({
+    expect(blockSnippet(blocks, statements, 'rule-0')).toEqual({
       text: 'SecRule ARGS "@rx foo" "id:1001,phase:2,deny"',
       startLine: 1,
       endLine: 1,
@@ -37,10 +37,20 @@ describe('ruleSnippet', () => {
     ].join('\n');
     const { blocks, statements } = compiled(source);
 
-    expect(ruleSnippet(blocks, statements, 'rule-1')).toEqual({
+    expect(blockSnippet(blocks, statements, 'rule-1')).toEqual({
       text: source,
       startLine: 1,
       endLine: 3,
+    });
+  });
+
+  it('отдаёт исходник метки', () => {
+    const { blocks, statements } = compiled('SecMarker END_STRICT');
+
+    expect(blockSnippet(blocks, statements, 'marker-0')).toEqual({
+      text: 'SecMarker END_STRICT',
+      startLine: 1,
+      endLine: 1,
     });
   });
 
@@ -49,7 +59,7 @@ describe('ruleSnippet', () => {
       'SecRule ARGS "@rx foo" "id:1001,phase:2,deny"',
     );
 
-    expect(ruleSnippet(blocks, statements, 'rule-99')).toBeNull();
+    expect(blockSnippet(blocks, statements, 'rule-99')).toBeNull();
   });
 });
 
@@ -76,3 +86,34 @@ describe('locateRule', () => {
   });
 });
 
+describe('locateMarker', () => {
+  it('находит метку по имени в наборе', () => {
+    expect(
+      locateMarker([unit('rules.conf', 'SecMarker END_STRICT')], 'END_STRICT'),
+    ).toEqual({
+      file: 'rules.conf',
+      key: 'marker-0',
+      label: 'END_STRICT',
+      startLine: 1,
+      endLine: 1,
+    });
+  });
+
+  it('при дубликате берёт первую по порядку набора', () => {
+    const units = [
+      unit('a.conf', 'SecMarker END\nSecRule ARGS "@rx x" "id:1,phase:1,pass"'),
+      unit('b.conf', 'SecMarker END'),
+    ];
+    expect(locateMarker(units, 'END')).toMatchObject({
+      file: 'a.conf',
+      key: 'marker-0',
+      label: 'END',
+    });
+  });
+
+  it('для неизвестного и пустого имени отвечает null', () => {
+    const units = [unit('rules.conf', 'SecMarker END_STRICT')];
+    expect(locateMarker(units, 'MISSING')).toBeNull();
+    expect(locateMarker(units, '')).toBeNull();
+  });
+});
