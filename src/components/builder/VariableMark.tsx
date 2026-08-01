@@ -15,7 +15,7 @@ import { lookupVariable, readBeforeSet } from '../../modsec/variables';
 import { setvarCollectionMeta } from '../../modsec/semantics';
 import type { VariableSite } from '../../modsec/variables';
 import '../RuleEditor.css';
-import './VariableMark.css';
+import './MarkTip.css';
 
 /**
  * Сколько мест названо карточками, прежде чем остаток — числом.
@@ -91,16 +91,16 @@ export function VariableMark({ collection, name }: VariableMarkProps) {
     return (
       <div
         key={`${item.file}-${item.key}-${item.text}-${index}`}
-        className="variable-mark-tip__site"
+        className="mark-tip__site"
       >
         {/* Слева адрес, справа номер: файл и строка — те же переходы, что у
             шапки мини-редактора; чип «Правило : id» ведёт в конструктор.
             Без вложенной подсказки: здесь исходник уже виден строкой ниже. */}
-        <div className="variable-mark-tip__where">
-          <div className="variable-mark-tip__addr">
+        <div className="mark-tip__where">
+          <div className="mark-tip__addr">
             <button
               type="button"
-              className="variable-mark-tip__file variable-mark-tip__link"
+              className="mark-tip__file mark-tip__link"
               aria-label={t('builder.rulePreviewOpenFile', { file: fileName })}
               title={fileName}
               onClick={openFile}
@@ -109,7 +109,7 @@ export function VariableMark({ collection, name }: VariableMarkProps) {
             </button>
             <button
               type="button"
-              className="variable-mark-tip__line variable-mark-tip__link"
+              className="mark-tip__line mark-tip__link"
               aria-label={t('builder.rulePreviewOpenLines', { line: lineLabel })}
               onClick={openLine}
             >
@@ -124,7 +124,7 @@ export function VariableMark({ collection, name }: VariableMarkProps) {
             preview={false}
           />
         </div>
-        <code className="variable-mark-tip__code" title={item.text}>
+        <code className="mark-tip__code" title={item.text}>
           {tokens.map((token, i) => (
             <span key={i} className={`tok-${token.type}`}>
               {token.value}
@@ -138,18 +138,18 @@ export function VariableMark({ collection, name }: VariableMarkProps) {
   const section = (heading: string, sites: VariableSite[], empty: string) => {
     const hidden = Math.max(0, sites.length - SHOWN_SITES);
     return (
-      <section className="variable-mark-tip__section">
-        <div className="variable-mark-tip__head">
-          <h4 className="variable-mark-tip__title">{heading}</h4>
+      <section className="mark-tip__section">
+        <div className="mark-tip__head">
+          <h4 className="mark-tip__title">{heading}</h4>
           {sites.length > 0 && (
-            <span className="variable-mark-tip__count">{sites.length}</span>
+            <span className="mark-tip__count">{sites.length}</span>
           )}
         </div>
         {sites.length === 0 ? (
-          <div className="variable-mark-tip__empty">{empty}</div>
+          <div className="mark-tip__empty">{empty}</div>
         ) : (
           <>
-            <div className="variable-mark-tip__sites">
+            <div className="mark-tip__sites">
               {sites.slice(0, SHOWN_SITES).map(siteCard)}
             </div>
             {/* Число — размер хвоста секции, не всей выборки: «+3» рядом с
@@ -158,13 +158,13 @@ export function VariableMark({ collection, name }: VariableMarkProps) {
             {hidden > 0 && (
               <button
                 type="button"
-                className="variable-mark-tip__more"
+                className="mark-tip__more"
                 onClick={openList}
               >
-                <span className="variable-mark-tip__more-count">
+                <span className="mark-tip__more-count">
                   {t('builder.variableMore', { count: String(hidden) })}
                 </span>
-                <span className="variable-mark-tip__more-hint">
+                <span className="mark-tip__more-hint">
                   {t('builder.variableBrowseHint')}
                 </span>
               </button>
@@ -176,9 +176,9 @@ export function VariableMark({ collection, name }: VariableMarkProps) {
   };
 
   const tip = (
-    <div className="variable-mark-tip">
-      <div className="variable-mark-tip__name">{variableName}</div>
-      <div className="variable-mark-tip__note">
+    <div className="mark-tip">
+      <div className="mark-tip__name">{variableName}</div>
+      <div className="mark-tip__note">
         {label(setvarCollectionMeta(collection.toLowerCase())?.note, '')}
       </div>
 
@@ -189,16 +189,16 @@ export function VariableMark({ collection, name }: VariableMarkProps) {
           {/* Порядок исполнения — не порядок файла: фаза идёт первой, и
               прочитанное до первой записи всегда пусто. */}
           {early && (
-            <div className="variable-mark-tip__warn">{t('builder.variableEarlyRead')}</div>
+            <div className="mark-tip__warn">{t('builder.variableEarlyRead')}</div>
           )}
           {homeless && (
-            <div className="variable-mark-tip__warn">{t('builder.variableNoStorage')}</div>
+            <div className="mark-tip__warn">{t('builder.variableNoStorage')}</div>
           )}
         </>
       )}
 
       {!unnamed && ruleIds.length > 0 && (
-        <div className="variable-mark-tip__footer">
+        <div className="mark-tip__footer">
           {/* Число — размер всей выборки: иначе «+40» у секции обещало бы
               сорок правил в окне, а в окне лежали бы все. */}
           {(truncated || ruleIds.length > SHOWN_SITES) && (
@@ -209,7 +209,7 @@ export function VariableMark({ collection, name }: VariableMarkProps) {
               onClick={openList}
             />
           )}
-          <div className="variable-mark-tip__footer-hint">{t('builder.variableIconHint')}</div>
+          <div className="mark-tip__footer-hint">{t('builder.variableIconHint')}</div>
         </div>
       )}
     </div>

@@ -2,6 +2,8 @@ import { createContext, useContext } from 'react';
 import type { CompileResult } from '../modsec/compile';
 import type { ExclusionIndex } from '../modsec/exclusions';
 import type { BlockSnippet, MarkerLocation, RuleLocation } from '../modsec/snippet';
+import type { MarkerRefIndex } from '../modsec/markers';
+import type { TagIndex } from '../modsec/tags';
 import type { VariableIndex } from '../modsec/variables';
 import type { NewFile } from '../store/filesSlice';
 import type { Analysis } from './useInspection';
@@ -56,6 +58,22 @@ export interface WorkspaceContextValue {
    * переменной не должна появляться через паузу после самого поля.
    */
   variables: VariableIndex;
+  /**
+   * Кто в наборе прыгает на метку через `skipAfter`.
+   *
+   * Рядом с переменными и по той же причине: смысл `SecMarker END` лежит не
+   * в ней самой, а в том, есть ли `skipAfter:END` и в каком файле. Считается
+   * по набору сразу, вместе с моделью.
+   */
+  markerRefs: MarkerRefIndex;
+  /**
+   * Где теги набора стоят и кто выбирает правила по ним.
+   *
+   * Рядом с переменными и метками: смысл `tag:'OWASP_CRS'` лежит не в нём
+   * самом, а в том, сколько правил носят тот же ярлык и снимает ли их
+   * `SecRuleRemoveByTag`. Считается по набору сразу, вместе с исключениями.
+   */
+  tags: TagIndex;
   /**
    * Компиляция активного файла.
    *

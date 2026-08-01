@@ -18,6 +18,7 @@ import { RuleCard } from './RuleCard';
 import { StatementRow } from './StatementRow';
 import { MarkerPreview } from '../MarkerPreview';
 import { RulePreview } from '../RulePreview';
+import { MarkerMark } from './MarkerMark';
 import { actionSummary } from './summary';
 import { useRuleExclusions } from '../diagnostics/useDiagnostics';
 import { useRule } from '../../context/ruleContext';
@@ -276,15 +277,19 @@ export function VisualBuilder() {
           <StatementRow
             key={block.key}
             kind="builder.marker"
-            // Чип как у правила: «Метка : NAME» с превью исходника. Поле
-            // справа правит строку целиком — чип только называет и связывает.
+            // Чип — исходник самой метки; значок рядом — кто на неё прыгает.
+            // Два разных вопроса, две разные подсказки: чип уже занят превью
+            // `SecMarker`, а встречный вопрос без отдельной отметки некуда.
             title={
-              <MarkerPreview
-                preText={t('builder.marker')}
-                label={block.label}
-                file={activeId}
-                blockKey={block.key}
-              />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, minWidth: 0 }}>
+                <MarkerPreview
+                  preText={t('builder.marker')}
+                  label={block.label}
+                  file={activeId}
+                  blockKey={block.key}
+                />
+                <MarkerMark label={block.label} />
+              </Box>
             }
             text={block.text}
             onCommit={(text) => commitStatement(block.statementIndex, text)}

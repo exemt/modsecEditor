@@ -702,6 +702,47 @@ describe('VisualBuilder — установка переменных', () => {
   });
 });
 
+describe('VisualBuilder — теги', () => {
+  it('называет другое правило с тем же тегом', async () => {
+    const user = userEvent.setup();
+    renderBuilder(
+      [
+        'SecRule ARGS "@rx a" "id:1001,phase:2,deny,tag:\'OWASP_CRS\'"',
+        'SecRule ARGS "@rx b" "id:1002,phase:2,deny,tag:\'OWASP_CRS\'"',
+        '',
+      ].join('\n'),
+    );
+
+    await openActions(user);
+    await user.hover(screen.getAllByRole('button', { name: 'Что набор знает о теге' })[0]);
+
+    expect(await screen.findByText('На правилах')).toBeInTheDocument();
+    const tip = screen.getByRole('tooltip');
+    expect(within(tip).getByText('Правило : 1002')).toBeInTheDocument();
+  });
+
+  it('называет исключение, которое выбирает по тегу', async () => {
+    const user = userEvent.setup();
+    renderBuilder(
+      [
+        'SecRule ARGS "@rx a" "id:1001,phase:2,deny,tag:\'attack-sqli\'"',
+        'SecRuleRemoveByTag attack-sqli',
+        '',
+      ].join('\n'),
+    );
+
+    await openActions(user);
+    await user.hover(screen.getByRole('button', { name: 'Что набор знает о теге' }));
+
+    expect(await screen.findByText('Выбирают')).toBeInTheDocument();
+    const tip = screen.getByRole('tooltip');
+    // Чип справа, а не токен в строке кода: имя директивы там встречается дважды.
+    expect(
+      within(tip).getByRole('button', { name: 'SecRuleRemoveByTag' }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe('VisualBuilder — большой файл', () => {
   it('раскрывает первое правило, остальные показывает строкой', () => {
     renderBuilder(manyRules(13));
@@ -1241,6 +1282,37 @@ describe('VisualBuilder — строки без формы', () => {
 
     await waitFor(() => expect(source()).toContain('SecMarker END-REQUEST'));
     expect(source()).toContain('# Конец блокировок');
+  });
+
+  // Чип метки — исходник самой метки; значок рядом отвечает на встречный
+  // вопрос: кто прыгает сюда через skipAfter.
+  it('называет правило, которое прыгает на метку', async () => {
+    const user = userEvent.setup();
+    renderBuilder(
+      [
+        'SecRule ARGS "@rx x" "id:1001,phase:1,pass,nolog,skipAfter:END"',
+        'SecMarker END',
+        '',
+      ].join('\n'),
+    );
+
+    await user.hover(screen.getByRole('button', { name: 'Что набор знает о метке' }));
+
+    expect(await screen.findByText('Ссылаются')).toBeInTheDocument();
+    const tip = screen.getByRole('tooltip');
+    expect(within(tip).getByRole('button', { name: 'Показать правило 1001' })).toBeInTheDocument();
+    expect(within(tip).getByText('Правило : 1001')).toBeInTheDocument();
+  });
+
+  it('говорит, что на метку никто не прыгает', async () => {
+    const user = userEvent.setup();
+    renderBuilder(['SecMarker ORPHAN', ''].join('\n'));
+
+    await user.hover(screen.getByRole('button', { name: 'Что набор знает о метке' }));
+
+    expect(
+      await screen.findByText('нигде — ни один skipAfter в загруженных файлах сюда не прыгает'),
+    ).toBeInTheDocument();
   });
 
   // Перестановка для исключения — не удобство, а единственная починка:

@@ -13,6 +13,7 @@ import { Section, SECTION_PADDING } from './Section';
 import { SetvarSection } from './SetvarSection';
 import { SideTitle } from './SideTitle';
 import { SuggestField } from './SuggestField';
+import { TagMark } from './TagMark';
 import { OtherActionsSection } from './extra/OtherActionsSection';
 import { ruleActionCount, ruleActionSummary } from './summary';
 import { FLAG_COLUMN, PHASE_COLUMN, REACTION_COLUMN, STATUS_COLUMN } from './layout';
@@ -305,6 +306,7 @@ export function ActionsPanel({
         suggestions={TAG_SUGGESTIONS}
         values={actions.tags}
         onChange={(tags) => onChange({ ...actions, tags })}
+        chipEnd={(tag) => <TagMark tag={tag} />}
       />
 
       {/* Список стоит и пустым — иначе завести первое присваивание было бы

@@ -15,6 +15,8 @@ import { loadDraft, saveDraft } from '../store/draft';
 import { compileDocument } from '../modsec/compile';
 import { readExclusions, indexWorkspaceExclusions } from '../modsec/exclusions';
 import { indexMarkersByLabel, indexRulesById, blockSnippet } from '../modsec/snippet';
+import { indexWorkspaceMarkerRefs } from '../modsec/markers';
+import { indexWorkspaceTags } from '../modsec/tags';
 import { indexWorkspaceVariables } from '../modsec/variables';
 import { fileOrder } from '../modsec/workspace';
 import type { BlockSnippet, MarkerLocation, RuleLocation } from '../modsec/snippet';
@@ -159,6 +161,8 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
     [units, directives],
   );
   const variables = useMemo(() => indexWorkspaceVariables(units), [units]);
+  const markerRefs = useMemo(() => indexWorkspaceMarkerRefs(units), [units]);
+  const tags = useMemo(() => indexWorkspaceTags(units, exclusions), [units, exclusions]);
   const order = useMemo(() => fileOrder(units), [units]);
   const analysis = useInspection(units, structural, exclusions, order);
 
@@ -243,6 +247,8 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
       analysis,
       exclusions,
       variables,
+      markerRefs,
+      tags,
       activeCompiled,
       nameOf,
       textOf,
@@ -263,6 +269,8 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
       analysis,
       exclusions,
       variables,
+      markerRefs,
+      tags,
       activeCompiled,
       nameOf,
       textOf,

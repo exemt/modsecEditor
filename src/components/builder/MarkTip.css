@@ -1,6 +1,6 @@
-/* Подсказка у отметки переменной. Палитра — как у KeywordTooltip и редактора. */
+/* Подсказка у отметки переменной или метки. Палитра — как у KeywordTooltip. */
 
-.variable-mark-tip {
+.mark-tip {
   box-sizing: border-box;
   /* Шире карточек с адресом: `RESPONSE-980-CORRELATION.conf` рядом с номером
      и строкой иначе режется раньше, чем читается. Мера — как у компактного
@@ -26,33 +26,33 @@
 }
 
 /* Тонкие тёмные полосы вместо системных «белых» — как у .mini-editor__body. */
-.variable-mark-tip::-webkit-scrollbar {
+.mark-tip::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-.variable-mark-tip::-webkit-scrollbar-track {
+.mark-tip::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.variable-mark-tip::-webkit-scrollbar-thumb {
+.mark-tip::-webkit-scrollbar-thumb {
   background: #4a4a4a;
   border-radius: 4px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 
-.variable-mark-tip::-webkit-scrollbar-thumb:hover {
+.mark-tip::-webkit-scrollbar-thumb:hover {
   background: #5a5a5a;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 
-.variable-mark-tip::-webkit-scrollbar-corner {
+.mark-tip::-webkit-scrollbar-corner {
   background: transparent;
 }
 
-.variable-mark-tip__name {
+.mark-tip__name {
   font-family: 'Fira Code', 'Cascadia Code', Menlo, Consolas, monospace;
   font-size: 13px;
   font-weight: 600;
@@ -60,28 +60,28 @@
   overflow-wrap: anywhere;
 }
 
-.variable-mark-tip__note {
+.mark-tip__note {
   margin-top: 4px;
   color: #cccccc;
 }
 
-.variable-mark-tip__section {
+.mark-tip__section {
   margin-top: 10px;
 }
 
-.variable-mark-tip__section + .variable-mark-tip__section {
+.mark-tip__section + .mark-tip__section {
   padding-top: 10px;
   border-top: 1px solid #3c3c3c;
 }
 
-.variable-mark-tip__head {
+.mark-tip__head {
   display: flex;
   align-items: baseline;
   gap: 8px;
   margin-bottom: 6px;
 }
 
-.variable-mark-tip__title {
+.mark-tip__title {
   margin: 0;
   flex: 1 1 auto;
   min-width: 0;
@@ -93,31 +93,31 @@
   color: #8b8b8b;
 }
 
-.variable-mark-tip__count {
+.mark-tip__count {
   flex: 0 0 auto;
   font-variant-numeric: tabular-nums;
   font-size: 11px;
   color: #6e7681;
 }
 
-.variable-mark-tip__empty {
+.mark-tip__empty {
   color: #8b8b8b;
 }
 
-.variable-mark-tip__sites {
+.mark-tip__sites {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.variable-mark-tip__site {
+.mark-tip__site {
   padding: 6px 8px;
   border: 1px solid #333333;
   border-radius: 3px;
   background: #1e1e1e;
 }
 
-.variable-mark-tip__where {
+.mark-tip__where {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -125,7 +125,7 @@
   min-width: 0;
 }
 
-.variable-mark-tip__addr {
+.mark-tip__addr {
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
@@ -134,7 +134,7 @@
   overflow: hidden;
 }
 
-.variable-mark-tip__file {
+.mark-tip__file {
   font-weight: 600;
   color: #9cdcfe;
   overflow: hidden;
@@ -142,14 +142,14 @@
   white-space: nowrap;
 }
 
-.variable-mark-tip__line {
+.mark-tip__line {
   flex-shrink: 0;
   color: #6e7681;
   font-variant-numeric: tabular-nums;
 }
 
 /* Имя файла и строки — отдельные переходы: в начало файла и на строку. */
-.variable-mark-tip__link {
+.mark-tip__link {
   margin: 0;
   padding: 0;
   border: 0;
@@ -165,30 +165,30 @@
   white-space: nowrap;
 }
 
-.variable-mark-tip__link:hover {
+.mark-tip__link:hover {
   text-decoration: underline;
   color: #d4d4d4;
 }
 
-.variable-mark-tip__file.variable-mark-tip__link:hover {
+.mark-tip__file.mark-tip__link:hover {
   color: #b8e0ff;
 }
 
 /* Чип номера на тёмной карточке — чуть плотнее, как в шапке мини-редактора. */
-.variable-mark-tip__where .MuiChip-root {
+.mark-tip__where .MuiChip-root {
   height: 22px;
   background: #3c3c3c;
   color: #d4d4d4;
   flex-shrink: 0;
 }
 
-.variable-mark-tip__where .MuiChip-label {
+.mark-tip__where .MuiChip-label {
   padding-left: 8px;
   padding-right: 8px;
   font-size: 12px;
 }
 
-.variable-mark-tip__code {
+.mark-tip__code {
   display: block;
   margin-top: 4px;
   overflow: hidden;
@@ -201,7 +201,7 @@
   font-variant-ligatures: none;
 }
 
-.variable-mark-tip__more {
+.mark-tip__more {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -217,24 +217,24 @@
   text-align: left;
 }
 
-.variable-mark-tip__more:hover {
+.mark-tip__more:hover {
   color: #cce7ff;
 }
 
-.variable-mark-tip__more-count {
+.mark-tip__more-count {
   font-weight: 600;
 }
 
-.variable-mark-tip__more-hint {
+.mark-tip__more-hint {
   font-size: 11px;
   color: #6e7681;
 }
 
-.variable-mark-tip__more:hover .variable-mark-tip__more-hint {
+.mark-tip__more:hover .mark-tip__more-hint {
   color: #8b8b8b;
 }
 
-.variable-mark-tip__warn {
+.mark-tip__warn {
   margin-top: 10px;
   padding: 6px 8px;
   border: 1px solid #5a4a20;
@@ -244,7 +244,7 @@
   font-size: 12px;
 }
 
-.variable-mark-tip__footer {
+.mark-tip__footer {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -255,18 +255,18 @@
 }
 
 /* Чип «посмотреть все» на тёмной панели, а не в теме конструктора. */
-.variable-mark-tip__footer .MuiChip-root {
+.mark-tip__footer .MuiChip-root {
   height: 22px;
   background: #37373d;
   color: #cccccc;
   border: 1px solid #3c3c3c;
 }
 
-.variable-mark-tip__footer .MuiChip-root:hover {
+.mark-tip__footer .MuiChip-root:hover {
   background: #424242;
 }
 
-.variable-mark-tip__footer-hint {
+.mark-tip__footer-hint {
   font-size: 11px;
   color: #6e7681;
 }

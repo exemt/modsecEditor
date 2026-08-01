@@ -55,6 +55,13 @@ interface ChipInputProps {
   /** Подпись чипа, если она отличается от самого значения. */
   renderLabel?: (value: string) => string;
   /**
+   * Кнопка внутри чипа, перед крестиком удаления.
+   *
+   * У тегов там отметка «кто ещё носит этот ярлык»: смысл тега лежит не в
+   * нём самом, и сказать это надо у самого значения, а не у поля целиком.
+   */
+  chipEnd?: (value: string) => ReactNode;
+  /**
    * Символы, разделяющие значения при вводе и вставке. Пустой список —
    * значение добавляется только по Enter.
    */
@@ -148,6 +155,7 @@ export function ChipInput({
   disabled = false,
   chipColor = 'default',
   renderLabel,
+  chipEnd,
   separators = [],
   suggestions = [],
   isValueValid,
@@ -321,17 +329,52 @@ export function ChipInput({
                 : invalidHint === undefined
                   ? value
                   : `${value} — ${invalidHint}`;
+              const text = renderLabel === undefined ? value : renderLabel(value);
+              const end = chipEnd?.(value);
               return (
                 <Chip
                   key={`${value}-${index}`}
                   size="small"
                   color={valid ? chipColor : 'error'}
                   variant={valid ? 'outlined' : 'filled'}
-                  label={renderLabel === undefined ? value : renderLabel(value)}
+                  label={
+                    end === undefined ? (
+                      text
+                    ) : (
+                      <Box
+                        component="span"
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 0.25,
+                          // Отметка внутри чипа — меньше крестика удаления:
+                          // иначе ряд тегов раздувается выше соседних полей.
+                          '& .MuiIconButton-root': { p: 0.15 },
+                          '& .MuiSvgIcon-root': { fontSize: 14 },
+                        }}
+                      >
+                        <Box
+                          component="span"
+                          sx={
+                            monospace
+                              ? { fontFamily: 'ui-monospace, Consolas, monospace' }
+                              : undefined
+                          }
+                        >
+                          {text}
+                        </Box>
+                        {end}
+                      </Box>
+                    )
+                  }
                   disabled={disabled}
                   onDelete={() => onChange(values.filter((_, i) => i !== index))}
                   title={title}
-                  sx={monospace ? { fontFamily: 'ui-monospace, Consolas, monospace' } : undefined}
+                  sx={
+                    end === undefined && monospace
+                      ? { fontFamily: 'ui-monospace, Consolas, monospace' }
+                      : undefined
+                  }
                 />
               );
             })}
