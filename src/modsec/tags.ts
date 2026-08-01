@@ -124,6 +124,11 @@ export function lookupTag(index: TagIndex, tag: string): TagEntry | null {
   return index.byTag.get(tag) ?? null;
 }
 
+/** Имена тегов, встречающихся в наборе, по алфавиту. */
+export function workspaceTags(index: TagIndex): string[] {
+  return [...index.byTag.keys()].sort((a, b) => a.localeCompare(b));
+}
+
 function ensure(index: TagIndex, tag: string): TagEntry {
   let entry = index.byTag.get(tag);
   if (entry === undefined) {

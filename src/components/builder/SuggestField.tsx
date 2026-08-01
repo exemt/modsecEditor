@@ -28,6 +28,13 @@ interface SuggestFieldProps {
   error?: string;
   /** Кнопка, встающая внутрь поля последней в ряду служебных иконок. */
   endAdornment?: ReactNode;
+  /**
+   * Отметка справа от варианта в списке.
+   *
+   * У имён переменных — чип «N | i» с числом мест и той же подсказкой,
+   * что у выбранного значения в поле.
+   */
+  optionEnd?: (option: Suggestion) => ReactNode;
   /** Оформление самого значения — цвет и начертание. */
   inputSx?: Record<string, unknown>;
   sx?: Record<string, unknown>;
@@ -59,10 +66,13 @@ export function SuggestField({
   required = false,
   error,
   endAdornment,
+  optionEnd,
   inputSx,
   sx,
 }: SuggestFieldProps) {
-  const { slotProps, groupBy, renderGroup, renderOption } = useSuggestionList(suggestions);
+  const { slotProps, groupBy, renderGroup, renderOption } = useSuggestionList(suggestions, {
+    optionEnd,
+  });
   const [draft, setDraft] = useState(value);
   const [open, setOpen] = useState(false);
   // Ввода ещё не было: список показывается целиком, а не сужается до

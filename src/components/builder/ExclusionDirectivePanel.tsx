@@ -8,7 +8,9 @@ import { Bracket, BracketLine } from './Bracket';
 import { ChipInput } from './ChipInput';
 import { ExclusionTargetRow } from './ExclusionTargetRow';
 import { SuggestField } from './SuggestField';
+import { TagBrowseHost, TagMark } from './TagMark';
 import { PICK_COLUMN, TARGET_COLUMN } from './layout';
+import { useWorkspace } from '../../context/workspaceContext';
 import { useI18n } from '../../i18n/useI18n';
 import {
   exclusionDirectiveKind,
@@ -17,7 +19,7 @@ import {
   readExclusionTargets,
   writeExclusionTargets,
 } from '../../modsec/exclusions';
-import { TAG_SUGGESTIONS, VARIABLE_SUGGESTIONS } from '../../modsec/suggestions';
+import { tagSuggestions, VARIABLE_SUGGESTIONS } from '../../modsec/suggestions';
 import type { I18nContextValue } from '../../i18n/context';
 import type { TranslationKey } from '../../i18n/translations';
 import type { DirectiveForm } from '../../modsec/directives';
@@ -69,6 +71,7 @@ interface ExclusionDirectivePanelProps {
  */
 export function ExclusionDirectivePanel({ form, onChange }: ExclusionDirectivePanelProps) {
   const { t } = useI18n();
+  const { tags } = useWorkspace();
   const kind = exclusionDirectiveKind(form.name);
   if (kind === null) return null;
 
@@ -132,14 +135,30 @@ export function ExclusionDirectivePanel({ form, onChange }: ExclusionDirectivePa
             </Box>
           ) : (
             <Box sx={{ flex: '1 1 160px', minWidth: 0 }}>
-              <SuggestField
-                monospace
-                label={t(PICK_LABEL[selector])}
-                suggestions={selector === 'tag' ? TAG_SUGGESTIONS : []}
-                value={form.pick}
-                onCommit={(pick) => onChange({ ...form, pick })}
-                error={form.pick === '' ? t('builder.exclusionPickRequired') : undefined}
-              />
+              {selector === 'tag' ? (
+                <TagBrowseHost>
+                  <SuggestField
+                    monospace
+                    label={t(PICK_LABEL.tag)}
+                    suggestions={tagSuggestions(tags)}
+                    value={form.pick}
+                    onCommit={(pick) => onChange({ ...form, pick })}
+                    error={form.pick === '' ? t('builder.exclusionPickRequired') : undefined}
+                    optionEnd={(option) => (
+                      <TagMark tag={option.value} count={option.badge} />
+                    )}
+                  />
+                </TagBrowseHost>
+              ) : (
+                <SuggestField
+                  monospace
+                  label={t(PICK_LABEL[selector])}
+                  suggestions={[]}
+                  value={form.pick}
+                  onCommit={(pick) => onChange({ ...form, pick })}
+                  error={form.pick === '' ? t('builder.exclusionPickRequired') : undefined}
+                />
+              )}
             </Box>
           )}
 

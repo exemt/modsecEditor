@@ -11,6 +11,7 @@ import { useWorkspace } from '../../context/workspaceContext';
 import { useI18n } from '../../i18n/useI18n';
 import { lookupMarkerRefs } from '../../modsec/markers';
 import type { MarkerRefSite } from '../../modsec/markers';
+import { CHIP_HEIGHT } from '../../theme';
 import '../RuleEditor.css';
 import './MarkTip.css';
 
@@ -174,8 +175,16 @@ export function MarkerMark({ label }: MarkerMarkProps) {
           color={orphan ? 'warning' : 'default'}
           onMouseDown={(event) => event.preventDefault()}
           onClick={openList}
+          sx={{
+            // Рядом с чипом метки — той же высоты, иначе значок выше строки.
+            width: CHIP_HEIGHT,
+            height: CHIP_HEIGHT,
+            p: 0,
+            borderRadius: 1,
+            '& .MuiSvgIcon-root': { fontSize: 14 },
+          }}
         >
-          <InfoOutlinedIcon fontSize="small" />
+          <InfoOutlinedIcon />
         </IconButton>
       </Tooltip>
 

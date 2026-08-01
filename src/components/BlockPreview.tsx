@@ -5,7 +5,7 @@ import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
-import NotesOutlinedIcon from '@mui/icons-material/NotesOutlined';
+import RawOnIcon from '@mui/icons-material/RawOn';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import type { ChipProps } from '@mui/material/Chip';
 import type { SxProps, Theme } from '@mui/material/styles';
@@ -188,13 +188,19 @@ export function BlockPreview({
         openText();
       }}
       sx={{
-        p: 0.15,
-        ml: 0.25,
+        p: 0,
+        px: 0.5,
+        m: 0,
+        ml: 0.5,
+        alignSelf: 'stretch',
+        borderRadius: 0,
+        borderLeft: '1px solid',
+        borderColor: 'divider',
         color: 'inherit',
-        '& .MuiSvgIcon-root': { fontSize: 14 },
+        '& .MuiSvgIcon-root': { fontSize: 22 },
       }}
     >
-      <NotesOutlinedIcon />
+      <RawOnIcon />
     </IconButton>
   );
 
@@ -217,9 +223,14 @@ export function BlockPreview({
         preview ? (
           <Box
             component="span"
-            sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}
+            sx={{ display: 'inline-flex', alignItems: 'stretch', height: '100%' }}
           >
-            {caption}
+            <Box
+              component="span"
+              sx={{ display: 'inline-flex', alignItems: 'center', pr: 0.5 }}
+            >
+              {caption}
+            </Box>
             {textControl}
           </Box>
         ) : (
@@ -228,7 +239,19 @@ export function BlockPreview({
       }
       onClick={goVisual}
       aria-label={hints.reveal}
-      sx={[{ flexShrink: 0 }, ...(chipSx === undefined ? [] : Array.isArray(chipSx) ? chipSx : [chipSx])]}
+      sx={[
+        {
+          flexShrink: 0,
+          ...(preview
+            ? {
+                overflow: 'hidden',
+                // Иконка текста вплотную к правому и верхнему краю чипа.
+                '& .MuiChip-label': { pr: 0, py: 0, display: 'flex', height: '100%' },
+              }
+            : {}),
+        },
+        ...(chipSx === undefined ? [] : Array.isArray(chipSx) ? chipSx : [chipSx]),
+      ]}
     />
   );
 
@@ -363,7 +386,7 @@ export function BlockPreview({
             onClick={openText}
             sx={{ p: 0.25, '& .MuiSvgIcon-root': { fontSize: 18 } }}
           >
-            <NotesOutlinedIcon />
+            <RawOnIcon />
           </IconButton>
         </Box>
         {modal}

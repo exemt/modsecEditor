@@ -1,4 +1,12 @@
-import { useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
+import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
@@ -29,9 +37,66 @@ const SHOWN_SITES = 3;
 /** Коллекции, которым нужно хранилище: без него запись не переживёт запрос. */
 const PERSISTENT = new Set(['ip', 'session', 'user', 'global', 'resource']);
 
+interface BrowseTarget {
+  collection: string;
+  name: string;
+}
+
+/**
+ * Кто открывает окно правил по переменной.
+ *
+ * Окно нельзя держать внутри пункта меню подстановки: клик по чипу или
+ * по подсказке закрывает список Autocomplete, пункт размонтируется — и
+ * диалог исчезает вместе с ним, так и не открывшись. Хост живёт снаружи
+ * меню и переживает закрытие списка.
+ */
+const VariableBrowseContext = createContext<((target: BrowseTarget) => void) | null>(null);
+
+interface VariableBrowseHostProps {
+  children: ReactNode;
+}
+
+/** Держит одно окно правил для всех отметок переменных внутри. */
+export function VariableBrowseHost({ children }: VariableBrowseHostProps) {
+  const { variables } = useWorkspace();
+  const [target, setTarget] = useState<BrowseTarget | null>(null);
+
+  const open = useCallback((next: BrowseTarget) => setTarget(next), []);
+
+  const entry =
+    target === null ? null : lookupVariable(variables, target.collection, target.name);
+  const sites = entry === null ? [] : [...entry.writes, ...entry.reads];
+  const ruleIds = uniqueRuleIds(sites);
+  const usesById = usesByRuleId(sites);
+  const heading =
+    target === null
+      ? ''
+      : target.name === ''
+        ? target.collection
+        : `${target.collection}.${target.name}`;
+
+  return (
+    <VariableBrowseContext.Provider value={open}>
+      {children}
+      <RuleMatchesDialog
+        open={target !== null && ruleIds.length > 0}
+        onClose={() => setTarget(null)}
+        ids={ruleIds}
+        heading={heading}
+        usesById={usesById}
+      />
+    </VariableBrowseContext.Provider>
+  );
+}
+
 interface VariableMarkProps {
   collection: string;
   name: string;
+  /**
+   * Число мест в наборе — тогда отметка это чип «N | i», как номер правила
+   * с иконкой текста. Без числа — один значок `i` в обойме поля.
+   */
+  count?: number;
 }
 
 /**
@@ -44,19 +109,24 @@ interface VariableMarkProps {
  * ответа лежат в других строках, а часто и в других файлах, — поэтому они
  * собраны здесь, у самого поля имени, а не в отдельной сводке.
  *
- * Отметка — значок в обойме поля. Наведение даёт краткий список карточками;
- * нажатие и «посмотреть все» открывают то же окно исходников, что у
- * исключений. Адрес в карточке — как шапка мини-редактора: номер ведёт в
- * конструктор, имя файла и строка — в текстовую вкладку. Цветом же отметка
- * отвечает на единственный вопрос, ответ на который виден сразу и без
- * раскрытия: читает ли эту переменную хоть кто-нибудь.
+ * Отметка — значок в обойме поля или чип с числом в меню выбора. Наведение
+ * даёт краткий список карточками; нажатие и «посмотреть все» открывают то
+ * же окно исходников, что у исключений. Адрес в карточке — как шапка
+ * мини-редактора: номер ведёт в конструктор, имя файла и строка — в
+ * текстовую вкладку. Цветом же отметка отвечает на единственный вопрос,
+ * ответ на который виден сразу и без раскрытия: читает ли эту переменную
+ * хоть кто-нибудь.
+ *
+ * Окно исходников открывает {@link VariableBrowseHost}: отметка в меню
+ * подстановки не должна быть его владельцем — список закрывается раньше,
+ * чем диалог успевает показаться.
  */
-export function VariableMark({ collection, name }: VariableMarkProps) {
+export function VariableMark({ collection, name, count }: VariableMarkProps) {
   const { t } = useI18n();
   const label = useLabel();
   const { revealLine } = useEditorView();
   const { variables, nameOf } = useWorkspace();
-  const [listOpen, setListOpen] = useState(false);
+  const browse = useContext(VariableBrowseContext);
 
   const entry = lookupVariable(variables, collection, name);
   const reads = entry?.reads ?? [];
@@ -72,12 +142,12 @@ export function VariableMark({ collection, name }: VariableMarkProps) {
 
   const sites = [...writes, ...reads];
   const ruleIds = uniqueRuleIds(sites);
-  const usesById = usesByRuleId(sites);
   const variableName = unnamed ? collection : `${collection}.${name}`;
   const truncated = writes.length > SHOWN_SITES || reads.length > SHOWN_SITES;
 
   const openList = () => {
-    if (ruleIds.length > 0) setListOpen(true);
+    if (ruleIds.length === 0 || browse === null) return;
+    browse({ collection, name });
   };
 
   const siteCard = (item: VariableSite, index: number) => {
@@ -175,8 +245,16 @@ export function VariableMark({ collection, name }: VariableMarkProps) {
     );
   };
 
+  // Не давать списку Autocomplete принять жест за выбор варианта: подсказка
+  // порталится наружу списка, и без preventDefault поле теряет фокус, список
+  // закрывается и — если отметка была в пункте — размонтируется.
+  const holdFocus = (event: MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
   const tip = (
-    <div className="mark-tip">
+    <div className="mark-tip" onMouseDown={holdFocus} onClick={(event) => event.stopPropagation()}>
       <div className="mark-tip__name">{variableName}</div>
       <div className="mark-tip__note">
         {label(setvarCollectionMeta(collection.toLowerCase())?.note, '')}
@@ -215,46 +293,102 @@ export function VariableMark({ collection, name }: VariableMarkProps) {
     </div>
   );
 
-  return (
-    <>
-      <Tooltip
-        title={tip}
-        placement="top-end"
-        // Подсказка интерактивная: в ней ссылки, прокрутка и кнопки.
-        disableInteractive={false}
-        slotProps={{
-          tooltip: {
-            sx: {
-              // Свой фон и поля у содержимого: умолчания MUI режут ширину
-              // на 300px и красят попап в серый поверх нашей панели.
-              bgcolor: 'transparent',
-              p: 0,
-              maxWidth: 'none',
-            },
-          },
-        }}
-      >
-        <IconButton
-          size="small"
-          aria-label={t('builder.variableInfo')}
-          color={unread || homeless ? 'warning' : 'default'}
-          // Не забирать фокус у поля: иначе список подсказок имени открылся
-          // бы от клика по соседней иконке, а значение ещё и ушло бы наружу.
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={openList}
-        >
-          <InfoOutlinedIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
+  // Не забирать фокус у поля и не выбирать пункт списка: иначе клик по
+  // отметке в меню подстановки подставил бы это имя в поле, а значение
+  // ещё и ушло бы наружу по blur.
+  const stopField = {
+    onMouseDown: holdFocus,
+    onClick: (event: MouseEvent) => {
+      event.stopPropagation();
+      openList();
+    },
+  };
 
-      <RuleMatchesDialog
-        open={listOpen}
-        onClose={() => setListOpen(false)}
-        ids={ruleIds}
-        heading={variableName}
-        usesById={usesById}
+  const warn = unread || homeless;
+
+  const trigger =
+    count !== undefined && count > 0 ? (
+      <Chip
+        size="small"
+        component="button"
+        variant="outlined"
+        color={warn ? 'warning' : 'default'}
+        aria-label={t('builder.variableInfo')}
+        {...stopField}
+        label={
+          <Box
+            component="span"
+            sx={{ display: 'inline-flex', alignItems: 'stretch', height: '100%' }}
+          >
+            <Box
+              component="span"
+              sx={{ display: 'inline-flex', alignItems: 'center', pr: 0.5 }}
+            >
+              {count}
+            </Box>
+            {/* Черта отделяет число от i; правый отступ чипа снят, чтобы
+                значок стоял у края, как RawOn у номера правила. */}
+            <Box
+              component="span"
+              aria-hidden
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                pl: 0.5,
+                pr: '3px',
+                // Тот же цвет, что обводка и цифра чипа — не нейтральный
+                // divider: у warning-чипа черта иначе оставалась бы серой.
+                borderLeft: '1px solid currentColor',
+                // Круг InfoOutlined при `small` (20px) почти равен высоте
+                // чипа — рядом с цифрой выглядит больше неё.
+                '& .MuiSvgIcon-root': { fontSize: 14 },
+              }}
+            >
+              <InfoOutlinedIcon />
+            </Box>
+          </Box>
+        }
+        sx={{
+          flexShrink: 0,
+          '& .MuiChip-label': { pr: 0 },
+        }}
       />
-    </>
+    ) : (
+      <IconButton
+        size="small"
+        aria-label={t('builder.variableInfo')}
+        color={warn ? 'warning' : 'default'}
+        {...stopField}
+      >
+        <InfoOutlinedIcon fontSize="small" />
+      </IconButton>
+    );
+
+  return (
+    <Tooltip
+      title={tip}
+      placement="right"
+      // Подсказка интерактивная: в ней ссылки, прокрутка и кнопки.
+      disableInteractive={false}
+      slotProps={{
+        popper: {
+          // Иначе mousedown по порталу забирает фокус у поля — список
+          // закрывается ещё до click по кнопке в подсказке.
+          onMouseDown: holdFocus,
+        },
+        tooltip: {
+          sx: {
+            // Свой фон и поля у содержимого: умолчания MUI режут ширину
+            // на 300px и красят попап в серый поверх нашей панели.
+            bgcolor: 'transparent',
+            p: 0,
+            maxWidth: 'none',
+          },
+        },
+      }}
+    >
+      {trigger}
+    </Tooltip>
   );
 }
 

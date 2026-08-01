@@ -16,6 +16,12 @@
  */
 
 import { operatorMeta, variableMeta, VARIABLE_NAMES } from './semantics';
+import { lookupTag, workspaceTags, type TagIndex } from './tags';
+import {
+  collectionVariables,
+  lookupVariable,
+  type VariableIndex,
+} from './variables';
 import type { Label, TargetLike, ValueKind } from './semantics';
 
 /** Один вариант выпадающего списка: что подставится и что это значит. */
@@ -26,6 +32,13 @@ export interface Suggestion {
   hint: Label;
   /** Заголовок группы; варианты одной группы идут в списке подряд. */
   group?: Label;
+  /**
+   * Сколько раз переменная встречается в наборе (записи + чтения).
+   *
+   * Число справа в меню выбора: по нему видно, своё ли это имя или чужое,
+   * к которому присваивание, скорее всего, и относится.
+   */
+  badge?: number;
 }
 
 /** Компактная запись одного варианта. */
@@ -950,30 +963,84 @@ const COLLECTION_VAR_NAMES: Record<string, Suggestion[]> = {
 
 const USED_GROUP: Label = { en: 'Already in the set', ru: 'Уже есть в наборе' };
 
-const USED_HINT: Label = {
-  en: 'Another rule of the set already writes or reads it',
-  ru: 'Другое правило набора её уже пишет или читает',
-};
+/**
+ * Сколько раз переменную пишут и читают — словами, для своего имени в наборе.
+ *
+ * У известного CRS-имени пояснение другое: что оно значит. У своего имени
+ * смысла в документации нет, и единственный осмысленный ответ — кто его
+ * уже трогает и как часто. Отдельно названы «никто не читает» и «никто не
+ * пишет»: это как раз то, чего в общей фразе «уже есть в наборе» не видно.
+ */
+function usageHint(writes: number, reads: number): Label {
+  if (writes > 0 && reads === 0) {
+    return {
+      en: `Written ${writes}×, never read`,
+      ru: `Пишет ${writes}, никто не читает`,
+    };
+  }
+  if (reads > 0 && writes === 0) {
+    return {
+      en: `Read ${reads}×, never written`,
+      ru: `Читает ${reads}, никто не пишет`,
+    };
+  }
+  return {
+    en: `Written ${writes} · read ${reads}`,
+    ru: `Пишет ${writes} · читает ${reads}`,
+  };
+}
+
+/**
+ * Имя, которое форма setvar умеет держать в поле.
+ *
+ * То же ограничение, что у {@link readSetvar}: цифра в начале — это
+ * захваченная группа (`tx.1`) или служебная запись CRS вроде
+ * `tx.942130_matched_var_name`, а макрос в имени формой не собрать.
+ * Такие имена индекс переменных знает, но предлагать их в меню выбора
+ * нечего: выбранное всё равно не встало бы в поля.
+ */
+const SUGGESTIBLE_NAME = /^[A-Za-z_][\w.-]*$/;
 
 /**
  * Имена переменных коллекции: сначала занятые в наборе, потом известные.
  *
- * Порядок здесь и есть подсказка. Своё имя в наборе — не пример из
- * документации, а то самое, к чему присваивание, скорее всего, и относится:
- * счётчик заводят там же, где его потом читают. Известные имена CRS идут
- * ниже: они нужны тому, кто дописывает своё правило к чужому набору.
+ * Порядок здесь и есть подсказка. Имя в наборе — не пример из документации,
+ * а то самое, к чему присваивание, скорее всего, и относится: счётчик
+ * заводят там же, где его потом читают. Известные имена CRS, которых в
+ * наборе ещё нет, идут ниже — они нужны тому, кто дописывает своё правило
+ * к чужому набору.
+ *
+ * У занятого имени справа стоит число мест. У известного занятого остаётся
+ * пояснение из документации; у своего — сколько раз его пишут и читают.
+ * Служебные `942130_matched_var_name` и прочие имена с цифры в начале в
+ * список не входят: формой их не набрать.
  */
 export function setvarNameSuggestions(
   collection: string,
-  used: readonly string[],
+  index: VariableIndex,
 ): Suggestion[] {
   const known = COLLECTION_VAR_NAMES[collection.toLowerCase()] ?? [];
-  const listed = new Set(known.map((item) => item.value));
-  const own = used
-    .filter((name) => !listed.has(name))
-    .map((name) => ({ value: name, hint: USED_HINT, group: USED_GROUP }));
+  const knownByName = new Map(known.map((item) => [item.value.toLowerCase(), item]));
+  const used = collectionVariables(index, collection).filter((name) =>
+    SUGGESTIBLE_NAME.test(name),
+  );
+  const usedSet = new Set(used.map((name) => name.toLowerCase()));
 
-  return [...own, ...known];
+  const own = used.map((name): Suggestion => {
+    const entry = lookupVariable(index, collection, name);
+    const writes = entry?.writes.length ?? 0;
+    const reads = entry?.reads.length ?? 0;
+    const knownItem = knownByName.get(name.toLowerCase());
+    return {
+      value: name,
+      hint: knownItem?.hint ?? usageHint(writes, reads),
+      group: USED_GROUP,
+      badge: writes + reads,
+    };
+  });
+
+  const rest = known.filter((item) => !usedSet.has(item.value.toLowerCase()));
+  return [...own, ...rest];
 }
 
 /** Метки правила — то, по чему потом ищут срабатывания в логах. */
@@ -1012,3 +1079,56 @@ export const TAG_SUGGESTIONS = [
     s('PCI/6.5.1', 'PCI DSS: injection', 'PCI DSS: инъекции'),
   ]),
 ];
+
+/**
+ * Сколько правил носят тег и снимают ли его — для своего ярлыка в наборе.
+ *
+ * У известного тега из каталога пояснение другое: что он значит. У своего
+ * ярлыка смысла в документации нет, и единственный осмысленный ответ —
+ * у скольких правил он уже стоит и снимает ли кто-то правила по нему.
+ */
+function tagUsageHint(rules: number, exclusions: number): Label {
+  const onRules =
+    rules === 1
+      ? { en: 'On 1 rule', ru: 'У 1 правила' }
+      : { en: `On ${rules} rules`, ru: `У ${rules} правил` };
+  if (exclusions === 0) return onRules;
+  return {
+    en: `${onRules.en} · excluded by ${exclusions}`,
+    ru: `${onRules.ru} · снимают ${exclusions}`,
+  };
+}
+
+/**
+ * Теги: сначала занятые в наборе, потом известные из каталога.
+ *
+ * Порядок — та же подсказка, что у имён переменных. Ярлык, который уже
+ * носят правила набора, — не пример из документации, а то, к чему новое
+ * правило, скорее всего, и относится. У занятого справа число правил;
+ * у известного занятого остаётся пояснение из каталога.
+ */
+export function tagSuggestions(index: TagIndex): Suggestion[] {
+  const knownByName = new Map(
+    TAG_SUGGESTIONS.map((item) => [item.value.toLowerCase(), item]),
+  );
+  const used = workspaceTags(index);
+  const usedSet = new Set(used.map((tag) => tag.toLowerCase()));
+
+  const own = used.map((tag): Suggestion => {
+    const entry = lookupTag(index, tag);
+    const rules = entry?.rules.length ?? 0;
+    const exclusions = entry?.exclusions.length ?? 0;
+    const knownItem = knownByName.get(tag.toLowerCase());
+    return {
+      value: tag,
+      hint: knownItem?.hint ?? tagUsageHint(rules, exclusions),
+      group: USED_GROUP,
+      badge: rules,
+    };
+  });
+
+  const rest = TAG_SUGGESTIONS.filter(
+    (item) => !usedSet.has(item.value.toLowerCase()),
+  );
+  return [...own, ...rest];
+}

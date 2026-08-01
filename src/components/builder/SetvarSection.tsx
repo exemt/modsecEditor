@@ -10,7 +10,7 @@ import { ChoiceField } from './ChoiceField';
 import { LongTextField } from './LongTextField';
 import { SideTitle } from './SideTitle';
 import { SuggestField } from './SuggestField';
-import { VariableMark } from './VariableMark';
+import { VariableBrowseHost, VariableMark } from './VariableMark';
 import { COLLECTION_COLUMN, ICON_COLUMN, SETVAR_OP_COLUMN } from './layout';
 import { useWorkspace } from '../../context/workspaceContext';
 import { useI18n } from '../../i18n/useI18n';
@@ -104,7 +104,8 @@ export function SetvarSection({ values, onChange }: SetvarSectionProps) {
   };
 
   return (
-    <Stack spacing={0.75}>
+    <VariableBrowseHost>
+      <Stack spacing={0.75}>
       <SideTitle label={t('builder.setvar')} />
 
       {values.map((raw, index) => {
@@ -160,10 +161,17 @@ export function SetvarSection({ values, onChange }: SetvarSectionProps) {
               label={t('builder.setvarName')}
               monospace
               required
-              suggestions={setvarNameSuggestions(collection, collectionVariables(variables, collection))}
+              suggestions={setvarNameSuggestions(collection, variables)}
               value={name}
               error={name === '' ? t('builder.setvarNameRequired') : undefined}
               onCommit={(next) => commit({ name: next })}
+              optionEnd={(option) => (
+                <VariableMark
+                  collection={collection}
+                  name={option.value}
+                  count={option.badge}
+                />
+              )}
               endAdornment={
                 <InputAdornment position="end">
                   <VariableMark collection={collection} name={name} />
@@ -215,7 +223,8 @@ export function SetvarSection({ values, onChange }: SetvarSectionProps) {
           {t('builder.addSetvar')}
         </Button>
       </Box>
-    </Stack>
+      </Stack>
+    </VariableBrowseHost>
   );
 }
 

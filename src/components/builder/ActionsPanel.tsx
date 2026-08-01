@@ -13,10 +13,11 @@ import { Section, SECTION_PADDING } from './Section';
 import { SetvarSection } from './SetvarSection';
 import { SideTitle } from './SideTitle';
 import { SuggestField } from './SuggestField';
-import { TagMark } from './TagMark';
+import { TagBrowseHost, TagMark } from './TagMark';
 import { OtherActionsSection } from './extra/OtherActionsSection';
 import { ruleActionCount, ruleActionSummary } from './summary';
 import { FLAG_COLUMN, PHASE_COLUMN, REACTION_COLUMN, STATUS_COLUMN } from './layout';
+import { useWorkspace } from '../../context/workspaceContext';
 import { useI18n } from '../../i18n/useI18n';
 import { isExclusionCtl } from '../../modsec/exclusions';
 import { AUDIT_FLAGS, LOG_FLAGS, takesDestination } from '../../modsec/semantics';
@@ -26,7 +27,7 @@ import {
   phaseChoices,
   severityChoices,
 } from '../../modsec/choices';
-import { MACRO_SUGGESTIONS, STATUS_SUGGESTIONS, TAG_SUGGESTIONS } from '../../modsec/suggestions';
+import { MACRO_SUGGESTIONS, STATUS_SUGGESTIONS, tagSuggestions } from '../../modsec/suggestions';
 import type { DisruptiveAction } from '../../modsec/semantics';
 import type { ExclusionEntry } from '../../modsec/exclusions';
 import type { VisualActions } from '../../modsec/model';
@@ -88,6 +89,7 @@ export function ActionsPanel({
   exclusions = [],
 }: ActionsPanelProps) {
   const { t } = useI18n();
+  const { tags } = useWorkspace();
 
   const statusRelevant =
     actions.disruptive === 'deny' || actions.disruptive === 'redirect';
@@ -297,17 +299,24 @@ export function ActionsPanel({
         onCommit={(logdata) => onChange({ ...actions, logdata })}
       />
 
-      <ChipInput
-        fullWidth
-        label={t('builder.tags')}
-        placeholder={t('builder.addTag')}
-        dialogTitle={t('builder.tags')}
-        separators={[',']}
-        suggestions={TAG_SUGGESTIONS}
-        values={actions.tags}
-        onChange={(tags) => onChange({ ...actions, tags })}
-        chipEnd={(tag) => <TagMark tag={tag} />}
-      />
+      <TagBrowseHost>
+        <ChipInput
+          fullWidth
+          label={t('builder.tags')}
+          placeholder={t('builder.addTag')}
+          dialogTitle={t('builder.tags')}
+          separators={[',']}
+          suggestions={tagSuggestions(tags).filter(
+            (item) => !actions.tags.includes(item.value),
+          )}
+          values={actions.tags}
+          onChange={(next) => onChange({ ...actions, tags: next })}
+          optionEnd={(option) => (
+            <TagMark tag={option.value} count={option.badge} />
+          )}
+          wrapChip={(tag, chip) => <TagMark tag={tag}>{chip}</TagMark>}
+        />
+      </TagBrowseHost>
 
       {/* Список стоит и пустым — иначе завести первое присваивание было бы
           негде, а ради него `SecAction` и пишут. Заготовка при этом

@@ -1,5 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import type { KeyboardEvent, ReactNode } from 'react';
+import { Fragment, useEffect, useId, useRef, useState } from 'react';
+import type { KeyboardEvent, ReactElement, ReactNode } from 'react';
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -55,12 +55,12 @@ interface ChipInputProps {
   /** Подпись чипа, если она отличается от самого значения. */
   renderLabel?: (value: string) => string;
   /**
-   * Кнопка внутри чипа, перед крестиком удаления.
+   * Обёртка вокруг чипа значения.
    *
-   * У тегов там отметка «кто ещё носит этот ярлык»: смысл тега лежит не в
+   * У тегов — подсказка «кто ещё носит этот ярлык»: смысл тега лежит не в
    * нём самом, и сказать это надо у самого значения, а не у поля целиком.
    */
-  chipEnd?: (value: string) => ReactNode;
+  wrapChip?: (value: string, chip: ReactElement) => ReactNode;
   /**
    * Символы, разделяющие значения при вводе и вставке. Пустой список —
    * значение добавляется только по Enter.
@@ -68,6 +68,13 @@ interface ChipInputProps {
   separators?: string[];
   /** Готовые варианты очередного значения; пустой список ничего не меняет. */
   suggestions?: Suggestion[];
+  /**
+   * Отметка справа от варианта в списке.
+   *
+   * У тегов — чип «N | i» с числом правил и той же подсказкой, что у
+   * выбранного значения в поле.
+   */
+  optionEnd?: (option: Suggestion) => ReactNode;
   /**
    * Проверка отдельного значения — например, что запись похожа на IPv4-
    * или IPv6-адрес. Без неё все чипы равноправны.
@@ -155,9 +162,10 @@ export function ChipInput({
   disabled = false,
   chipColor = 'default',
   renderLabel,
-  chipEnd,
+  wrapChip,
   separators = [],
   suggestions = [],
+  optionEnd,
   isValueValid,
   invalidHint,
   monospace = false,
@@ -170,7 +178,9 @@ export function ChipInput({
   const [open, setOpen] = useState(false);
   // Текст окна правки; `null` — окно закрыто.
   const [text, setText] = useState<string | null>(null);
-  const { slotProps, groupBy, renderGroup, renderOption } = useSuggestionList(suggestions);
+  const { slotProps, groupBy, renderGroup, renderOption } = useSuggestionList(suggestions, {
+    optionEnd,
+  });
 
   // Ряд значков в углу поля стоит вне строк и в переносе чипов не участвует:
   // иначе при заполнении поля он «плывёт» вслед за последним чипом вместо
@@ -324,58 +334,37 @@ export function ChipInput({
               // показывает весь список построчным текстом. Невалидному
               // значению название добавляется к подсказке — иначе то,
               // что с ним не так, видно только по цвету.
-              const title = valid
-                ? value
-                : invalidHint === undefined
-                  ? value
-                  : `${value} — ${invalidHint}`;
+              // Обёртка со своей подсказкой (теги) native `title` не берёт —
+              // иначе браузерная всплывашка перекрывала бы содержимое.
+              const title =
+                wrapChip !== undefined
+                  ? undefined
+                  : valid
+                    ? value
+                    : invalidHint === undefined
+                      ? value
+                      : `${value} — ${invalidHint}`;
               const text = renderLabel === undefined ? value : renderLabel(value);
-              const end = chipEnd?.(value);
-              return (
+              const chip = (
                 <Chip
-                  key={`${value}-${index}`}
                   size="small"
                   color={valid ? chipColor : 'error'}
                   variant={valid ? 'outlined' : 'filled'}
-                  label={
-                    end === undefined ? (
-                      text
-                    ) : (
-                      <Box
-                        component="span"
-                        sx={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 0.25,
-                          // Отметка внутри чипа — меньше крестика удаления:
-                          // иначе ряд тегов раздувается выше соседних полей.
-                          '& .MuiIconButton-root': { p: 0.15 },
-                          '& .MuiSvgIcon-root': { fontSize: 14 },
-                        }}
-                      >
-                        <Box
-                          component="span"
-                          sx={
-                            monospace
-                              ? { fontFamily: 'ui-monospace, Consolas, monospace' }
-                              : undefined
-                          }
-                        >
-                          {text}
-                        </Box>
-                        {end}
-                      </Box>
-                    )
-                  }
+                  label={text}
                   disabled={disabled}
                   onDelete={() => onChange(values.filter((_, i) => i !== index))}
                   title={title}
                   sx={
-                    end === undefined && monospace
+                    monospace
                       ? { fontFamily: 'ui-monospace, Consolas, monospace' }
                       : undefined
                   }
                 />
+              );
+              return (
+                <Fragment key={`${value}-${index}`}>
+                  {wrapChip === undefined ? chip : wrapChip(value, chip)}
+                </Fragment>
               );
             })}
           </>

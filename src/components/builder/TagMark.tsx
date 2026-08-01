@@ -1,4 +1,14 @@
-import { useState } from 'react';
+import {
+  cloneElement,
+  createContext,
+  useCallback,
+  useContext,
+  useState,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
+import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
@@ -23,8 +33,53 @@ import './MarkTip.css';
  */
 const SHOWN_SITES = 3;
 
+/**
+ * Кто открывает окно правил по тегу.
+ *
+ * Окно нельзя держать внутри пункта меню подстановки: клик по чипу или
+ * по подсказке закрывает список Autocomplete, пункт размонтируется — и
+ * диалог исчезает вместе с ним. Хост живёт снаружи меню.
+ */
+const TagBrowseContext = createContext<((tag: string) => void) | null>(null);
+
+interface TagBrowseHostProps {
+  children: ReactNode;
+}
+
+/** Держит одно окно правил для всех отметок тегов внутри. */
+export function TagBrowseHost({ children }: TagBrowseHostProps) {
+  const { tags } = useWorkspace();
+  const [tag, setTag] = useState<string | null>(null);
+
+  const open = useCallback((next: string) => setTag(next), []);
+
+  const entry = tag === null ? null : lookupTag(tags, tag);
+  const ruleIds = uniqueRuleIds(entry?.rules ?? []);
+
+  return (
+    <TagBrowseContext.Provider value={open}>
+      {children}
+      <RuleMatchesDialog
+        open={tag !== null && ruleIds.length > 0}
+        onClose={() => setTag(null)}
+        ids={ruleIds}
+        heading={tag ?? ''}
+      />
+    </TagBrowseContext.Provider>
+  );
+}
+
 interface TagMarkProps {
   tag: string;
+  /**
+   * Чип значения в поле — подсказка висит на нём.
+   *
+   * В меню выбора вместо чипа значения рисуется отметка «N | i» по
+   * {@link count}; тогда `children` не нужен.
+   */
+  children?: ReactElement;
+  /** Число правил с этим тегом — чип «N | i» в меню выбора. */
+  count?: number;
 }
 
 /**
@@ -34,18 +89,21 @@ interface TagMarkProps {
  * `tag:'attack-sqli'` не говорит ни того, сколько правил носят тот же
  * ярлык, ни того, снимает ли их `SecRuleRemoveByTag`. Оба ответа — в других
  * строках, часто в файле-надстройке, — поэтому они собраны здесь, на самом
- * чипе, а не в отдельной сводке.
+ * чипе или в меню выбора, а не в отдельной сводке.
  *
  * Цветом отметка говорит одно: тег стоит только здесь и никто по нему не
  * выбирает правила. Это не ошибка конфигурации — правило загрузится, —
  * просто ярлык ни с кем не связан.
+ *
+ * Окно исходников открывает {@link TagBrowseHost}: отметка в меню
+ * подстановки не должна быть его владельцем.
  */
-export function TagMark({ tag }: TagMarkProps) {
+export function TagMark({ tag, children, count }: TagMarkProps) {
   const { t } = useI18n();
   const { revealRule } = useBuilderView();
   const { revealLine } = useEditorView();
   const { tags, nameOf } = useWorkspace();
-  const [listOpen, setListOpen] = useState(false);
+  const browse = useContext(TagBrowseContext);
 
   const entry = lookupTag(tags, tag);
   const rules = entry?.rules ?? [];
@@ -57,7 +115,8 @@ export function TagMark({ tag }: TagMarkProps) {
   const truncatedExclusions = exclusions.length > SHOWN_SITES;
 
   const openList = () => {
-    if (ruleIds.length > 0) setListOpen(true);
+    if (ruleIds.length === 0) return;
+    if (browse !== null) browse(tag);
   };
 
   const ruleCard = (item: TagRuleSite, index: number) => {
@@ -164,8 +223,13 @@ export function TagMark({ tag }: TagMarkProps) {
     );
   };
 
+  const holdFocus = (event: MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
   const tip = (
-    <div className="mark-tip">
+    <div className="mark-tip" onMouseDown={holdFocus} onClick={(event) => event.stopPropagation()}>
       <div className="mark-tip__name">{unnamed ? t('builder.unset') : tag}</div>
       <div className="mark-tip__note">{t('builder.tagNote')}</div>
 
@@ -236,40 +300,96 @@ export function TagMark({ tag }: TagMarkProps) {
     </div>
   );
 
-  return (
-    <>
-      <Tooltip
-        title={tip}
-        placement="top"
-        disableInteractive={false}
-        slotProps={{
-          tooltip: {
-            sx: { bgcolor: 'transparent', p: 0, maxWidth: 'none' },
-          },
-        }}
-      >
-        <IconButton
-          size="small"
-          aria-label={t('builder.tagInfo')}
-          color={lonely ? 'warning' : 'default'}
-          // Не давать чипу съесть клик: иначе нажатие на «i» сняло бы тег.
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={(event) => {
-            event.stopPropagation();
-            openList();
-          }}
-        >
-          <InfoOutlinedIcon fontSize="inherit" />
-        </IconButton>
-      </Tooltip>
+  const stopField = {
+    onMouseDown: holdFocus,
+    onClick: (event: MouseEvent) => {
+      event.stopPropagation();
+      openList();
+    },
+  };
 
-      <RuleMatchesDialog
-        open={listOpen}
-        onClose={() => setListOpen(false)}
-        ids={ruleIds}
-        heading={tag}
+  const trigger =
+    count !== undefined && count > 0 ? (
+      <Chip
+        size="small"
+        component="button"
+        variant="outlined"
+        color={lonely ? 'warning' : 'default'}
+        aria-label={t('builder.tagInfo')}
+        {...stopField}
+        label={
+          <Box
+            component="span"
+            sx={{ display: 'inline-flex', alignItems: 'stretch', height: '100%' }}
+          >
+            <Box
+              component="span"
+              sx={{ display: 'inline-flex', alignItems: 'center', pr: 0.5 }}
+            >
+              {count}
+            </Box>
+            <Box
+              component="span"
+              aria-hidden
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                pl: 0.5,
+                pr: '3px',
+                borderLeft: '1px solid currentColor',
+                '& .MuiSvgIcon-root': { fontSize: 14 },
+              }}
+            >
+              <InfoOutlinedIcon />
+            </Box>
+          </Box>
+        }
+        sx={{
+          flexShrink: 0,
+          '& .MuiChip-label': { pr: 0 },
+        }}
       />
-    </>
+    ) : children !== undefined ? (
+      cloneElement(children, {
+        color: lonely ? 'warning' : children.props.color,
+        onClick: (event: MouseEvent<HTMLDivElement>) => {
+          children.props.onClick?.(event);
+          openList();
+        },
+        onMouseDown: (event: MouseEvent<HTMLDivElement>) => {
+          children.props.onMouseDown?.(event);
+          holdFocus(event);
+        },
+        'aria-label': t('builder.tagInfo'),
+      })
+    ) : (
+      // Известный тег, которого в наборе ещё нет: числа нет, остаётся i.
+      <IconButton
+        size="small"
+        aria-label={t('builder.tagInfo')}
+        color={lonely ? 'warning' : 'default'}
+        {...stopField}
+      >
+        <InfoOutlinedIcon fontSize="small" />
+      </IconButton>
+    );
+
+  return (
+    <Tooltip
+      title={tip}
+      placement="right"
+      disableInteractive={false}
+      slotProps={{
+        popper: {
+          onMouseDown: holdFocus,
+        },
+        tooltip: {
+          sx: { bgcolor: 'transparent', p: 0, maxWidth: 'none' },
+        },
+      }}
+    >
+      {trigger}
+    </Tooltip>
   );
 }
 

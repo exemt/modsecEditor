@@ -11,16 +11,18 @@ import { Bracket, BracketLine } from './Bracket';
 import { ChoiceField } from './ChoiceField';
 import { ExclusionMarks } from './ExclusionMarks';
 import { SuggestField } from './SuggestField';
+import { TagBrowseHost, TagMark } from './TagMark';
 import { TargetRow } from './TargetRow';
 import { CONDITION_PADDING, CONDITION_PADDING_TOP, PICK_COLUMN } from './layout';
 import { useBuilderView } from '../../context/builderViewContext';
 import { useForeignFile } from '../../context/useForeignFile';
+import { useWorkspace } from '../../context/workspaceContext';
 import { useI18n } from '../../i18n/useI18n';
 import { ctlExclusionChoices } from '../../modsec/choices';
 import { ctlOption } from '../../modsec/exclusions';
 import { makeTarget, targetsToVariables } from '../../modsec/model';
 import { serializeVariable } from '../../modsec/serialize';
-import { TAG_SUGGESTIONS } from '../../modsec/suggestions';
+import { tagSuggestions } from '../../modsec/suggestions';
 import type { I18nContextValue } from '../../i18n/context';
 import type { TranslationKey } from '../../i18n/translations';
 import type {
@@ -115,6 +117,7 @@ export function CtlExclusionRow({
   onRemove,
 }: CtlExclusionRowProps) {
   const { t } = useI18n();
+  const { tags } = useWorkspace();
 
   // Цель разбирается и собирается тем же кодом, что цели правила: имя
   // параметра бывает с пробелом, и кавычки в нём — не украшение.
@@ -216,14 +219,30 @@ export function CtlExclusionRow({
           />
         </Box>
 
-        <SuggestField
-          label={t(PICK_LABEL[value.selector])}
-          suggestions={value.selector === 'tag' ? TAG_SUGGESTIONS : []}
-          value={value.pick}
-          onCommit={(pick) => onChange({ ...value, pick })}
-          error={value.pick === '' ? t('builder.ctlPickRequired') : undefined}
-          sx={{ width: PICK_COLUMN }}
-        />
+        {value.selector === 'tag' ? (
+          <TagBrowseHost>
+            <SuggestField
+              label={t(PICK_LABEL.tag)}
+              suggestions={tagSuggestions(tags)}
+              value={value.pick}
+              onCommit={(pick) => onChange({ ...value, pick })}
+              error={value.pick === '' ? t('builder.ctlPickRequired') : undefined}
+              optionEnd={(option) => (
+                <TagMark tag={option.value} count={option.badge} />
+              )}
+              sx={{ width: PICK_COLUMN }}
+            />
+          </TagBrowseHost>
+        ) : (
+          <SuggestField
+            label={t(PICK_LABEL[value.selector])}
+            suggestions={[]}
+            value={value.pick}
+            onCommit={(pick) => onChange({ ...value, pick })}
+            error={value.pick === '' ? t('builder.ctlPickRequired') : undefined}
+            sx={{ width: PICK_COLUMN }}
+          />
+        )}
       </Stack>
 
       {/* Секция целей — ниже полей, а не рядом с ними: у неё своя ширина

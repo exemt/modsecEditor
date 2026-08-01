@@ -1,3 +1,5 @@
+import { compileDocument } from './compile';
+import { parseModsec } from './parser';
 import { VARIABLE_NAMES } from './semantics';
 import {
   MACRO_SUGGESTIONS,
@@ -8,9 +10,15 @@ import {
   operatorValueSuggestions,
   sampleValueHint,
   selectorSuggestions,
+  setvarNameSuggestions,
+  tagSuggestions,
 } from './suggestions';
+import { indexWorkspaceExclusions } from './exclusions';
+import { emptyTagIndex, indexWorkspaceTags } from './tags';
+import { emptyVariableIndex, indexWorkspaceVariables } from './variables';
 import type { Suggestion } from './suggestions';
 import type { TargetLike } from './semantics';
+import type { WorkspaceUnit } from './workspace';
 
 function target(name: string, extra: Partial<TargetLike> = {}): TargetLike {
   return { name, count: false, mode: 'only', params: [], ...extra };
@@ -257,5 +265,163 @@ describe('варианты действий', () => {
       expect(item.hint.en).not.toBe('');
       expect(item.hint.ru).not.toBe('');
     }
+  });
+});
+
+/** Индекс переменных одного файла — для меню имён setvar. */
+function varIndex(source: string) {
+  const doc = parseModsec(source);
+  const unit: WorkspaceUnit = {
+    id: 'rules.conf',
+    name: 'rules.conf',
+    blocks: compileDocument(doc, 'rules.conf').blocks,
+    statements: doc.statements,
+  };
+  return indexWorkspaceVariables([unit]);
+}
+
+describe('имена переменных setvar', () => {
+  it('ставит занятые имена первыми и помечает числом мест', () => {
+    const suggestions = setvarNameSuggestions(
+      'tx',
+      varIndex(`
+        SecAction "id:1,phase:1,pass,nolog,setvar:tx.own_flag=1"
+        SecRule TX:own_flag "@eq 1" "id:2,phase:2,pass,nolog"
+      `),
+    );
+
+    expect(suggestions[0].value).toBe('own_flag');
+    expect(suggestions[0].group?.en).toBe('Already in the set');
+    expect(suggestions[0].badge).toBe(2);
+    expect(suggestions[0].hint.ru).toMatch(/Пишет 1 · читает 1/);
+  });
+
+  it('у своего имени без читателей говорит об этом прямо', () => {
+    const own = setvarNameSuggestions(
+      'tx',
+      varIndex('SecAction "id:1,phase:1,pass,nolog,setvar:tx.lonely=1"'),
+    ).find((item) => item.value === 'lonely');
+
+    expect(own?.hint.ru).toBe('Пишет 1, никто не читает');
+    expect(own?.badge).toBe(1);
+  });
+
+  it('у известного занятого имени оставляет пояснение CRS и ставит badge', () => {
+    const score = setvarNameSuggestions(
+      'tx',
+      varIndex('SecAction "id:1,phase:1,pass,nolog,setvar:tx.anomaly_score=+1"'),
+    ).find((item) => item.value === 'anomaly_score');
+
+    expect(score?.group?.en).toBe('Already in the set');
+    expect(score?.hint.ru).toBe('Счёт, накопленный входящими правилами');
+    expect(score?.badge).toBe(1);
+  });
+
+  it('неиспользованное известное имя идёт без badge ниже занятых', () => {
+    const suggestions = setvarNameSuggestions(
+      'tx',
+      varIndex('SecAction "id:1,phase:1,pass,nolog,setvar:tx.own_flag=1"'),
+    );
+    const threshold = suggestions.find(
+      (item) => item.value === 'inbound_anomaly_score_threshold',
+    );
+
+    expect(threshold?.badge).toBeUndefined();
+    expect(threshold?.group?.en).toBe('Anomaly score (CRS)');
+    expect(values(suggestions).indexOf('own_flag')).toBeLessThan(
+      values(suggestions).indexOf('inbound_anomaly_score_threshold'),
+    );
+  });
+
+  it('пустой набор предлагает только известные имена', () => {
+    const suggestions = setvarNameSuggestions('tx', emptyVariableIndex());
+    expect(suggestions.every((item) => item.badge === undefined)).toBe(true);
+    expect(suggestions.some((item) => item.group?.en === 'Already in the set')).toBe(false);
+    expect(values(suggestions)).toContain('anomaly_score');
+  });
+
+  // CRS пишет `tx.942130_matched_var_name` буквально — формой такое имя не
+  // набрать (цифра в начале), и в меню выбора ему делать нечего.
+  it('не предлагает служебные имена CRS с цифры в начале', () => {
+    const suggestions = setvarNameSuggestions(
+      'tx',
+      varIndex(`
+        SecAction "id:1,phase:1,pass,nolog,setvar:tx.anomaly_score=+1"
+        SecRule ARGS "@rx 1=1" "id:942130,phase:2,pass,nolog,setvar:tx.942130_matched_var_name=%{matched_var_name}"
+      `),
+    );
+
+    expect(values(suggestions)).toContain('anomaly_score');
+    expect(values(suggestions)).not.toContain('942130_matched_var_name');
+  });
+});
+
+/** Индекс тегов одного файла — для меню ярлыков. */
+function tagIndex(source: string) {
+  const doc = parseModsec(source);
+  const unit: WorkspaceUnit = {
+    id: 'rules.conf',
+    name: 'rules.conf',
+    blocks: compileDocument(doc, 'rules.conf').blocks,
+    statements: doc.statements,
+  };
+  const units = [unit];
+  return indexWorkspaceTags(units, indexWorkspaceExclusions(units));
+}
+
+describe('меню тегов', () => {
+  it('ставит занятые теги первыми и помечает числом правил', () => {
+    const suggestions = tagSuggestions(
+      tagIndex(`
+        SecRule ARGS "@rx a" "id:1,phase:2,deny,tag:'own-tag'"
+        SecRule ARGS "@rx b" "id:2,phase:2,deny,tag:'own-tag'"
+      `),
+    );
+
+    expect(suggestions[0].value).toBe('own-tag');
+    expect(suggestions[0].group?.en).toBe('Already in the set');
+    expect(suggestions[0].badge).toBe(2);
+    expect(suggestions[0].hint.ru).toBe('У 2 правил');
+  });
+
+  it('у известного занятого тега оставляет пояснение каталога и ставит badge', () => {
+    const sqli = tagSuggestions(
+      tagIndex('SecRule ARGS "@rx a" "id:1,phase:2,deny,tag:\'attack-sqli\'"'),
+    ).find((item) => item.value === 'attack-sqli');
+
+    expect(sqli?.group?.en).toBe('Already in the set');
+    expect(sqli?.hint.ru).toBe('SQL-инъекция');
+    expect(sqli?.badge).toBe(1);
+  });
+
+  it('у своего тега со снятием говорит об исключениях', () => {
+    const own = tagSuggestions(
+      tagIndex(`
+        SecRule ARGS "@rx a" "id:1,phase:2,deny,tag:'own-tag'"
+        SecRuleRemoveByTag own-tag
+      `),
+    ).find((item) => item.value === 'own-tag');
+
+    expect(own?.hint.ru).toBe('У 1 правила · снимают 1');
+  });
+
+  it('неиспользованный известный тег идёт без badge ниже занятых', () => {
+    const suggestions = tagSuggestions(
+      tagIndex('SecRule ARGS "@rx a" "id:1,phase:2,deny,tag:\'own-tag\'"'),
+    );
+    const xss = suggestions.find((item) => item.value === 'attack-xss');
+
+    expect(xss?.badge).toBeUndefined();
+    expect(xss?.group?.en).toBe('Attack type');
+    expect(values(suggestions).indexOf('own-tag')).toBeLessThan(
+      values(suggestions).indexOf('attack-xss'),
+    );
+  });
+
+  it('пустой набор предлагает только каталог', () => {
+    const suggestions = tagSuggestions(emptyTagIndex());
+    expect(suggestions.every((item) => item.badge === undefined)).toBe(true);
+    expect(suggestions.some((item) => item.group?.en === 'Already in the set')).toBe(false);
+    expect(values(suggestions)).toContain('attack-sqli');
   });
 });
