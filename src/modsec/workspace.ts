@@ -82,13 +82,6 @@ export function placeIn(unit: WorkspaceUnit, order: number, index: number): Work
   return { file: unit.id, order, index };
 }
 
-/** Номера файлов в порядке включения: по ним сортируют замечания набора. */
-export function fileOrder(units: readonly WorkspaceUnit[]): Map<string, number> {
-  const order = new Map<string, number>();
-  units.forEach((unit, index) => order.set(unit.id, index));
-  return order;
-}
-
 /**
  * Файл записи так, как его называет замечание.
  *

@@ -914,17 +914,6 @@ export interface TargetLike {
 }
 
 /**
- * Положительная часть цели — вся коллекция, а не перечень параметров.
- *
- * Только к такой цели можно прижать исключения: вычитать из перечня
- * бессмысленно, там уже сказано, что именно проверяется.
- */
-export function hasWholeBase(target: TargetLike): boolean {
-  if (target.excludeOnly) return false;
-  return target.mode === 'except' || target.params.length === 0;
-}
-
-/**
  * Что доступно в текущей строке условия и почему.
  *
  * Именно здесь живёт правило «одни проверки исключают другие»: подсчёт `&`
@@ -1038,22 +1027,6 @@ export function countSupported(name: string): boolean {
 export function operatorNeedsArgument(name: string): boolean {
   return (operatorMeta(name)?.arg ?? 'string') !== 'none';
 }
-
-/** Действия, которые могут стоять только на первом правиле цепочки. */
-export const HEAD_ONLY_ACTIONS = [
-  'id',
-  'phase',
-  'severity',
-  'msg',
-  'logdata',
-  'tag',
-  'rev',
-  'ver',
-  'maturity',
-  'accuracy',
-  'skip',
-  'skipAfter',
-] as const;
 
 /**
  * Разрушающие действия — взаимоисключающие и допустимые только в голове
@@ -1190,11 +1163,6 @@ export function disruptiveMeta(name: string): ActionMeta | null {
  */
 export function takesDestination(name: string): boolean {
   return name === 'redirect' || name === 'proxy';
-}
-
-/** Действие относится к «шапке» правила и не должно дублироваться в звеньях. */
-export function isHeadOnlyAction(name: string): boolean {
-  return (HEAD_ONLY_ACTIONS as readonly string[]).includes(name) || isDisruptive(name);
 }
 
 /**

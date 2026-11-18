@@ -1,0 +1,3388 @@
+[
+  {
+    "name": "tag-exact",
+    "claim": "A tag selector equal to the tag removes the rule in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq attack\" \"id:1,phase:1,deny,status:403,nolog,tag:'attack-sqli'\"",
+      "SecRuleRemoveByTag \"attack-sqli\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "attack"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "tag-pattern",
+    "claim": "exclusionPatternNotPortable: only ModSecurity 2 reads the tag selector as a regular expression.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq attack\" \"id:1,phase:1,deny,status:403,nolog,tag:'attack-sqli'\"",
+      "SecRuleRemoveByTag \"^attack-\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "attack"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "tag-substring",
+    "claim": "exclusionPatternNotPortable: a part of the tag selects the rule only in ModSecurity 2.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq attack\" \"id:1,phase:1,deny,status:403,nolog,tag:'attack-sqli'\"",
+      "SecRuleRemoveByTag \"attack\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "attack"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "macro-dot",
+    "claim": "A macro key after a dot is expanded by every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:1,phase:1,pass,nolog,setvar:tx.copy=%{REQUEST_HEADERS.X-Test}\"",
+      "SecRule TX:copy \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "macro-colon",
+    "claim": "macroKeySeparator: a macro key after a colon is expanded only by ModSecurity 3; Coraza refuses to load it.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:1,phase:1,pass,nolog,setvar:tx.copy=%{REQUEST_HEADERS:X-Test}\"",
+      "SecRule TX:copy \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "ERR"
+    }
+  },
+  {
+    "name": "skipafter-macro",
+    "claim": "macroInStaticAction: a macro in skipAfter is not expanded, so the marker is never found and the rest of the phase is skipped.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:1,phase:1,pass,nolog,setvar:tx.label=END\"",
+      "SecAction \"id:2,phase:1,pass,nolog,skipAfter:%{tx.label}\"",
+      "SecAction \"id:3,phase:1,deny,status:403,nolog\"",
+      "SecMarker END",
+      "SecAction \"id:4,phase:1,deny,status:402,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "skipafter-plain",
+    "claim": "A literal skipAfter label jumps to its marker.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:2,phase:1,pass,nolog,skipAfter:END\"",
+      "SecAction \"id:3,phase:1,deny,status:403,nolog\"",
+      "SecMarker END",
+      "SecAction \"id:4,phase:1,deny,status:402,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "402",
+      "modsecurity3": "402",
+      "coraza": "402"
+    }
+  },
+  {
+    "name": "skipafter-missing-marker",
+    "claim": "missingMarker: without the marker everything left in the phase is skipped.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:2,phase:1,pass,nolog,skipAfter:NOWHERE\"",
+      "SecAction \"id:3,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "marker-behind",
+    "claim": "markerBehind: skipAfter only looks down; a marker above the jump is not found.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecMarker END",
+      "SecAction \"id:2,phase:1,pass,nolog,skipAfter:END\"",
+      "SecAction \"id:3,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "chain-head-setvar",
+    "claim": "setvarInChainHead: setvar in the chain head runs even when the chain does not match.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq abc\" \"id:1,phase:1,pass,nolog,setvar:tx.count=+1,chain\"",
+      "SecRule REQUEST_HEADERS:X-Other \"@streq never\" \"t:none\"",
+      "SecRule TX:count \"@eq 1\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "chain-link-setvar",
+    "claim": "setvar in the last link runs only when the whole chain matches.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq abc\" \"id:1,phase:1,pass,nolog,chain\"",
+      "SecRule REQUEST_HEADERS:X-Other \"@streq never\" \"setvar:tx.count=+1\"",
+      "SecRule TX:count \"@eq 1\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "case-never-matches",
+    "claim": "caseNeverMatches: after t:lowercase an upper-case literal cannot match.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq POST\" \"id:1,phase:1,deny,status:403,nolog,t:lowercase\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "POST"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "capture-streq",
+    "claim": "captureWithoutRegex: @streq does not fill TX.0 even with capture.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq abc\" \"id:1,phase:1,pass,nolog,capture,setvar:tx.got=%{TX.0}\"",
+      "SecRule TX:got \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "capture-rx",
+    "claim": "@rx with capture fills TX.0.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@rx ^abc$\" \"id:1,phase:1,pass,nolog,capture,setvar:tx.got=%{TX.0}\"",
+      "SecRule TX:got \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "capture-missing",
+    "claim": "captureMissing: without capture TX.0 stays empty.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@rx ^abc$\" \"id:1,phase:1,pass,nolog,setvar:tx.got=%{TX.0}\"",
+      "SecRule TX:got \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "ctl-before-target",
+    "claim": "A ctl exclusion that runs before its target removes it.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:1,phase:1,pass,nolog,ctl:ruleRemoveById=2\"",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "ctl-after-target",
+    "claim": "exclusionCtlAfterRule: a ctl exclusion that runs after its target is too late.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\"",
+      "SecAction \"id:1,phase:1,pass,nolog,ctl:ruleRemoveById=2\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "ctl-earlier-phase",
+    "claim": "Execution order is phase first: a ctl written below its target but in an earlier phase still removes it.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq abc\" \"id:2,phase:2,deny,status:403,nolog\"",
+      "SecAction \"id:1,phase:1,pass,nolog,ctl:ruleRemoveById=2\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "remove-before-rule",
+    "claim": "exclusionBeforeRule: SecRuleRemoveById written above the rule does nothing in ModSecurity 2 and Coraza; ModSecurity 3 applies exclusions after loading, so there the order does not matter.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRuleRemoveById 2",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "remove-after-rule",
+    "claim": "SecRuleRemoveById written below the rule removes it.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\"",
+      "SecRuleRemoveById 2"
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "backslash-pair-digit",
+    "claim": "A doubled backslash in the pattern: Apache hands ModSecurity 2 a single one, so \\\\d is a digit there and a literal backslash elsewhere.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@rx ^a\\\\d$\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "a5"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "backslash-pair-literal",
+    "claim": "The same pattern against a literal backslash followed by d.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@rx ^a\\\\d$\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "a\\d"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "rx-macro",
+    "claim": "A macro in the @rx pattern is expanded by ModSecurity and not by Coraza.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:1,phase:1,pass,nolog,setvar:tx.word=abc\"",
+      "SecRule REQUEST_HEADERS:X-Test \"@rx ^%{tx.word}$\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "streq-macro",
+    "claim": "A macro in the @streq argument is expanded by every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:1,phase:1,pass,nolog,setvar:tx.word=abc\"",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq %{tx.word}\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "pm-macro",
+    "claim": "macroNotExpanded: @pm reads its list once, a macro in it is plain text.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:1,phase:1,pass,nolog,setvar:tx.word=abc\"",
+      "SecRule REQUEST_HEADERS:X-Test \"@pm zzz %{tx.word}\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "phase-before-line",
+    "claim": "runsBefore: a variable set in phase 1 by a rule written below is visible to a phase 2 rule written above.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule TX:flag \"@eq 1\" \"id:1,phase:2,deny,status:403,nolog\"",
+      "SecAction \"id:2,phase:1,pass,nolog,setvar:tx.flag=1\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "read-before-set",
+    "claim": "txReadBeforeSet: within one phase a variable set below is still empty above.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule TX:flag \"@eq 1\" \"id:1,phase:1,deny,status:403,nolog\"",
+      "SecAction \"id:2,phase:1,pass,nolog,setvar:tx.flag=1\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "block-without-defaults",
+    "claim": "Without SecDefaultAction \"block\" takes the built-in default reaction, which is pass.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq abc\" \"id:1,phase:1,block,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "status-with-pass",
+    "claim": "statusWithoutBlock: status next to pass changes nothing.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq abc\" \"id:1,phase:1,pass,status:404,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "detection-only",
+    "claim": "engineNotEnforcing: in DetectionOnly mode a matching deny does not block.",
+    "rules": [
+      "SecRuleEngine DetectionOnly",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq abc\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "default-transform-inherited",
+    "claim": "A transformation in SecDefaultAction applies to every rule below it; Coraza refuses to load such defaults.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecDefaultAction \"phase:1,pass,nolog,t:lowercase\"",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq abc\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "ABC"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "ERR"
+    }
+  },
+  {
+    "name": "transform-none-resets",
+    "claim": "t:none in the rule drops the transformations inherited from SecDefaultAction.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecDefaultAction \"phase:1,pass,nolog,t:lowercase\"",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq abc\" \"id:1,phase:1,deny,status:403,nolog,t:none\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "ABC"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "ERR"
+    }
+  },
+  {
+    "name": "unknown-operator-v3",
+    "claim": "ModSecurity 3 does not reject an unknown operator: it reads the whole argument as a pattern.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@regex attack\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "@regex attack"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "ERR",
+      "modsecurity3": "403",
+      "coraza": "ERR"
+    }
+  },
+  {
+    "name": "operator-after-space",
+    "claim": "operatorReadAsPattern: a space before @ turns the operator into a pattern.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \" @streq abc\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "body-in-phase-1",
+    "claim": "Reading the body of the request in phase 1 finds nothing: phaseTooEarly.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_BODY \"@contains secret\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "POST",
+      "uri": "/",
+      "headers": [
+        [
+          "Content-Type",
+          "application/x-www-form-urlencoded"
+        ]
+      ],
+      "body": "a=secret"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "body-in-phase-2",
+    "claim": "The same check in phase 2 sees the body.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_BODY \"@contains secret\" \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "POST",
+      "uri": "/",
+      "headers": [
+        [
+          "Content-Type",
+          "application/x-www-form-urlencoded"
+        ]
+      ],
+      "body": "a=secret"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "body-access-off",
+    "claim": "requestBodyAccessOff: with SecRequestBodyAccess Off the body variables stay empty.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess Off",
+      "SecRule ARGS_POST:a \"@contains secret\" \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "POST",
+      "uri": "/",
+      "headers": [
+        [
+          "Content-Type",
+          "application/x-www-form-urlencoded"
+        ]
+      ],
+      "body": "a=secret"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "args-in-phase-1",
+    "claim": "phasePartial: query-string arguments are already in ARGS in phase 1.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:q \"@streq abc\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?q=abc"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "ctl-unconditional-target",
+    "claim": "ModSecurity 3 does not apply ctl:ruleRemoveById to an unconditional SecAction.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:1,phase:1,pass,nolog,ctl:ruleRemoveById=2\"",
+      "SecAction \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "update-target-after-rule",
+    "claim": "SecRuleUpdateTargetById written below the rule takes the area out of it.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test|REQUEST_HEADERS:X-Other \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\"",
+      "SecRuleUpdateTargetById 2 \"!REQUEST_HEADERS:X-Test\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "update-target-before-rule",
+    "claim": "exclusionBeforeRule: SecRuleUpdateTargetById above the rule does nothing in ModSecurity 2, is refused by Coraza and still works in ModSecurity 3.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:9,phase:1,pass,nolog\"",
+      "SecRuleUpdateTargetById 2 \"!REQUEST_HEADERS:X-Test\"",
+      "SecRule REQUEST_HEADERS:X-Test|REQUEST_HEADERS:X-Other \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "ERR"
+    }
+  },
+  {
+    "name": "ctl-remove-target",
+    "claim": "ctl:ruleRemoveTargetById takes one area out of the rule for this request.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:1,phase:1,pass,nolog,ctl:ruleRemoveTargetById=2;REQUEST_HEADERS:X-Test\"",
+      "SecRule REQUEST_HEADERS:X-Test|REQUEST_HEADERS:X-Other \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "exclude-without-base",
+    "claim": "excludeWithoutBase: subtracting a parameter of a collection that is not in the list removes nothing.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test|!REQUEST_COOKIES:session \"@streq abc\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "skip-counts-rules",
+    "claim": "skip:1 jumps over exactly one rule of the phase.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:1,phase:1,pass,nolog,skip:1\"",
+      "SecAction \"id:2,phase:1,deny,status:403,nolog\"",
+      "SecAction \"id:3,phase:1,deny,status:402,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "402",
+      "modsecurity3": "402",
+      "coraza": "402"
+    }
+  },
+  {
+    "name": "duplicate-transform-none",
+    "claim": "countWithTransforms / implicit rx: an implicit operator is a regular expression.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"^a.c$\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "whitespace-never-matches",
+    "claim": "whitespaceNeverMatches: after t:removeWhitespace a literal with a space cannot match.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq a b\" \"id:1,phase:1,deny,status:403,nolog,t:removeWhitespace\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "a b"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "hash-without-hex",
+    "claim": "hashWithoutHexEncode: t:md5 yields raw bytes, the hex text does not match until t:hexEncode.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq 900150983cd24fb0d6963f7d28e17f72\" \"id:1,phase:1,deny,status:403,nolog,t:md5\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "hash-with-hex",
+    "claim": "With t:hexEncode after t:md5 the same comparison matches.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq 900150983cd24fb0d6963f7d28e17f72\" \"id:1,phase:1,deny,status:403,nolog,t:md5,t:hexEncode\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "count-with-transforms",
+    "claim": "A count is a number: the comparison works whatever transformations stand next to it.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule &REQUEST_HEADERS:X-Test \"@eq 1\" \"id:1,phase:1,deny,status:403,nolog,t:lowercase\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "multimatch-sees-original",
+    "claim": "multiMatch: the operator also sees the value before the transformations.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq ABC\" \"id:1,phase:1,deny,status:403,nolog,t:lowercase,multiMatch\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "ABC"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "capture-read-by-next-rule",
+    "claim": "TX.1 captured by one rule is still there for the next rule.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@rx ^(a)bc$\" \"id:1,phase:1,pass,nolog,capture\"",
+      "SecRule TX:1 \"@streq a\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "capture-read-in-next-phase",
+    "claim": "A group captured in phase 1 is still there in phase 2.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-A \"@rx ^(a)b$\" \"id:1,phase:1,pass,nolog,capture\"",
+      "SecRule TX:1 \"@streq a\" \"id:2,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-A",
+          "ab"
+        ],
+        [
+          "X-B",
+          "cd"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "capture-kept-through-plain-rx",
+    "claim": "A matching @rx without capture does not touch TX.1.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-A \"@rx ^(a)b$\" \"id:1,phase:1,pass,nolog,capture\"",
+      "SecRule REQUEST_HEADERS:X-B \"@rx ^(c)d$\" \"id:2,phase:1,pass,nolog\"",
+      "SecRule TX:1 \"@streq a\" \"id:3,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-A",
+          "ab"
+        ],
+        [
+          "X-B",
+          "cd"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "capture-overwritten-by-later-capture",
+    "claim": "A later capturing rule replaces TX.1.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-A \"@rx ^(a)b$\" \"id:1,phase:1,pass,nolog,capture\"",
+      "SecRule REQUEST_HEADERS:X-B \"@rx ^(c)d$\" \"id:2,phase:1,pass,nolog,capture\"",
+      "SecRule TX:1 \"@streq c\" \"id:3,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-A",
+          "ab"
+        ],
+        [
+          "X-B",
+          "cd"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "capture-kept-when-capturing-rule-misses",
+    "claim": "A capturing rule that does not match leaves TX.1 as it was.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-A \"@rx ^(a)b$\" \"id:1,phase:1,pass,nolog,capture\"",
+      "SecRule REQUEST_HEADERS:X-B \"@rx ^(zzz)$\" \"id:2,phase:1,pass,nolog,capture\"",
+      "SecRule TX:1 \"@streq a\" \"id:3,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-A",
+          "ab"
+        ],
+        [
+          "X-B",
+          "cd"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "capture-fewer-groups-old-second",
+    "claim": "After a later capture with fewer groups ModSecurity 2 clears TX.2; ModSecurity 3 and Coraza keep the old one.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-A \"@rx ^(a)(b)$\" \"id:1,phase:1,pass,nolog,capture\"",
+      "SecRule REQUEST_HEADERS:X-B \"@rx ^(c)d$\" \"id:2,phase:1,pass,nolog,capture\"",
+      "SecRule TX:2 \"@streq b\" \"id:3,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-A",
+          "ab"
+        ],
+        [
+          "X-B",
+          "cd"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "capture-head-does-not-reach-link",
+    "claim": "capture written in the chain head does not make the link's operator capture.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-A \"@streq ab\" \"id:1,phase:1,pass,nolog,capture,chain\"",
+      "    SecRule REQUEST_HEADERS:X-B \"@rx ^(c)d$\" \"setvar:tx.got=x%{tx.1}x\"",
+      "SecRule TX:got \"@streq xcx\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-A",
+          "ab"
+        ],
+        [
+          "X-B",
+          "cd"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "capture-link-fills",
+    "claim": "capture written in the link makes the link's operator capture.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-A \"@streq ab\" \"id:1,phase:1,pass,nolog,chain\"",
+      "    SecRule REQUEST_HEADERS:X-B \"@rx ^(c)d$\" \"capture,setvar:tx.got=x%{tx.1}x\"",
+      "SecRule TX:got \"@streq xcx\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-A",
+          "ab"
+        ],
+        [
+          "X-B",
+          "cd"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "capture-link-does-not-reach-head",
+    "claim": "capture written in the link does not make the head's operator capture.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-A \"@rx ^(a)b$\" \"id:1,phase:1,pass,nolog,chain\"",
+      "    SecRule REQUEST_HEADERS:X-B \"@streq cd\" \"capture,setvar:tx.got=x%{tx.1}x\"",
+      "SecRule TX:got \"@streq xax\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-A",
+          "ab"
+        ],
+        [
+          "X-B",
+          "cd"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "capture-missing-own-group-is-empty",
+    "claim": "Without capture the rule's own group is empty when nothing captured before.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-A \"@rx ^(a)b$\" \"id:1,phase:1,pass,nolog,setvar:tx.got=x%{tx.1}x\"",
+      "SecRule TX:got \"@streq xx\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-A",
+          "ab"
+        ],
+        [
+          "X-B",
+          "cd"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "capture-missing-own-group-is-stale",
+    "claim": "Without capture the rule reads what an earlier rule captured, not its own match.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-A \"@rx ^(a)b$\" \"id:1,phase:1,pass,nolog,capture\"",
+      "SecRule REQUEST_HEADERS:X-B \"@rx ^(c)d$\" \"id:2,phase:1,pass,nolog,setvar:tx.got=x%{tx.1}x\"",
+      "SecRule TX:got \"@streq xax\" \"id:3,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-A",
+          "ab"
+        ],
+        [
+          "X-B",
+          "cd"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "capture-head-setvar-before-link",
+    "claim": "setvar in the chain head runs before the link captures.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-A \"@streq ab\" \"id:1,phase:1,pass,nolog,chain,setvar:tx.got=x%{tx.1}x\"",
+      "    SecRule REQUEST_HEADERS:X-B \"@rx ^(c)d$\" \"capture\"",
+      "SecRule TX:got \"@streq xcx\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-A",
+          "ab"
+        ],
+        [
+          "X-B",
+          "cd"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "capture-head-read-by-link-target",
+    "claim": "The link reads as a target what the head captured.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-A \"@rx ^(a)b$\" \"id:1,phase:1,deny,status:403,nolog,capture,chain\"",
+      "    SecRule TX:1 \"@streq a\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-A",
+          "ab"
+        ],
+        [
+          "X-B",
+          "cd"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "capture-head-read-by-link-argument",
+    "claim": "The link reads in its operator argument what the head captured.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-A \"@rx ^(a)b$\" \"id:1,phase:1,deny,status:403,nolog,capture,chain\"",
+      "    SecRule REQUEST_HEADERS:X-C \"@streq %{tx.1}\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-A",
+          "ab"
+        ],
+        [
+          "X-B",
+          "cd"
+        ],
+        [
+          "X-C",
+          "a"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "capture-pm-fills-zero",
+    "claim": "@pm with capture puts the phrase found into TX.0.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-A \"@pm zz ab\" \"id:1,phase:1,pass,nolog,capture\"",
+      "SecRule TX:0 \"@streq ab\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-A",
+          "ab"
+        ],
+        [
+          "X-B",
+          "cd"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "capture-without-groups-old-first",
+    "claim": "After a later capture without groups ModSecurity 2 clears TX.1; ModSecurity 3 and Coraza keep the old one.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-A \"@rx ^(a)b$\" \"id:1,phase:1,pass,nolog,capture\"",
+      "SecRule REQUEST_HEADERS:X-B \"@rx ^cd$\" \"id:2,phase:1,pass,nolog,capture\"",
+      "SecRule TX:1 \"@streq a\" \"id:3,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-A",
+          "ab"
+        ],
+        [
+          "X-B",
+          "cd"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "capture-in-default-action",
+    "claim": "capture in SecDefaultAction makes rules capture in ModSecurity 2 and Coraza, but not in ModSecurity 3.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecDefaultAction \"phase:1,pass,nolog,capture\"",
+      "SecRule REQUEST_HEADERS:X-A \"@rx ^(a)b$\" \"id:1,phase:1,pass,nolog\"",
+      "SecRule TX:1 \"@streq a\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-A",
+          "ab"
+        ],
+        [
+          "X-B",
+          "cd"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "anchors-whole-line",
+    "claim": "anchoredLiteralRegex: in ModSecurity 3 and Coraza \"^admin$\" also matches \"admin\" on a line of its own; in ModSecurity 2 only the whole value.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:a \"@rx ^admin$\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?a=x%0aadmin",
+      "headers": []
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "anchors-dollar-before-final-newline",
+    "claim": "In ModSecurity 3 and Coraza \"$\" also matches before a final line break; ModSecurity 2 compiles with DOLLAR_ENDONLY.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:a \"@rx ^admin$\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?a=admin%0a",
+      "headers": []
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "anchors-caret-after-newline",
+    "claim": "In ModSecurity 3 and Coraza \"^admin\" also matches at the start of any line, so it is not \"@beginsWith admin\".",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:a \"@rx ^admin\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?a=x%0aadmin1",
+      "headers": []
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "anchors-dollar-before-newline",
+    "claim": "In ModSecurity 3 and Coraza \"admin$\" also matches at the end of any line, so it is not \"@endsWith admin\".",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:a \"@rx admin$\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?a=1admin%0ax",
+      "headers": []
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "anchors-empty-line",
+    "claim": "In ModSecurity 3 and Coraza \"^$\" matches an empty line inside the value, not only an empty value.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:a \"@rx ^$\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?a=x%0a%0ay",
+      "headers": []
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "anchors-empty-after-final-newline",
+    "claim": "After a final line break \"^$\" matches in Coraza (RE2 \"^\" matches at the very end after a line break), but not in PCRE.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:a \"@rx ^$\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?a=x%0a",
+      "headers": []
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "anchors-streq-whole-value",
+    "claim": "\"@streq admin\" compares the whole value in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:a \"@streq admin\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?a=x%0aadmin",
+      "headers": []
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "anchors-text-anchors-whole-value",
+    "claim": "\"\\A\" and \"\\z\" anchor to the whole value in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:a \"@rx \\Aadmin\\z\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?a=x%0aadmin",
+      "headers": []
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "anchors-text-anchors-match",
+    "claim": "\"\\Aadmin\\z\" matches the exact value in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:a \"@rx \\Aadmin\\z\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?a=admin",
+      "headers": []
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "anchors-dot-matches-newline",
+    "claim": "Every engine compiles @rx in dotall mode: \".\" matches a line break.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:a \"@rx ^a.b$\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?a=a%0ab",
+      "headers": []
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "anchors-leading-wildcard-spans-lines",
+    "claim": "redundantLeadingWildcard: \"^.*admin\" finds \"admin\" on any line in every engine, as \"admin\" does.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:a \"@rx ^.*admin\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?a=x%0aadmin",
+      "headers": []
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "anchors-uri-decoded-in-v3",
+    "claim": "ModSecurity 3 URL-decodes REQUEST_URI: \"%0a\" becomes a line break. ModSecurity 2 and Coraza keep the URI as sent.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_URI \"@rx \\x0a\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?a=x%0aadmin",
+      "headers": []
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "anchors-uri-raw-not-decoded",
+    "claim": "REQUEST_URI_RAW holds the URI as sent in every engine: an encoded line break stays \"%0a\".",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_URI_RAW \"@rx \\x0a\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?a=x%0aadmin",
+      "headers": []
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "anchors-query-string-not-decoded",
+    "claim": "QUERY_STRING holds the query as sent: an encoded line break stays \"%0a\".",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule QUERY_STRING \"@rx \\x0a\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?a=x%0aadmin",
+      "headers": []
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "anchors-request-line-not-decoded",
+    "claim": "REQUEST_LINE holds the line as sent: an encoded line break stays \"%0a\".",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_LINE \"@rx \\x0a\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?a=x%0aadmin",
+      "headers": []
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "anchors-args-decoded",
+    "claim": "ARGS are decoded: \"%0a\" becomes a line break before the operator sees the value.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:a \"@rx \\x0a\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?a=x%0aadmin",
+      "headers": []
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "anchors-cookie-not-decoded",
+    "claim": "Cookie values are not URL-decoded: an encoded line break stays \"%0a\".",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_COOKIES:a \"@rx \\x0a\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "Cookie",
+          "a=x%0aadmin"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "leading-possessive-wildcard-never-matches",
+    "claim": "redundantLeadingWildcard: \".*+admin\" is not \"admin\" — the possessive star takes the whole value and never gives it back; RE2 has no possessive quantifiers.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:a \"@rx .*+admin\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?a=admin",
+      "headers": []
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "ERR"
+    }
+  },
+  {
+    "name": "decode-uri-path-phase1",
+    "claim": "REQUEST_URI path in phase 1: raw \"%41\" kept or decoded.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_URI \"@beginsWith /p%41th\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/p%41th?q%41=v%41l"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "decode-uri-query-phase1",
+    "claim": "REQUEST_URI query in phase 1: raw \"%41\" kept or decoded.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_URI \"@contains q%41=v%41l\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/p%41th?q%41=v%41l"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "decode-filename-phase1",
+    "claim": "REQUEST_FILENAME in phase 1: raw \"%41\" kept or decoded.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_FILENAME \"@contains %41\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/p%41th?q%41=v%41l"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "decode-basename-phase1",
+    "claim": "REQUEST_BASENAME in phase 1: raw \"%41\" kept or decoded.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_BASENAME \"@contains %41\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/p%41th?q%41=v%41l"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "decode-uri-path-phase2",
+    "claim": "REQUEST_URI path in phase 2: raw \"%41\" kept or decoded.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_URI \"@beginsWith /p%41th\" \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/p%41th?q%41=v%41l"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "decode-uri-query-phase2",
+    "claim": "REQUEST_URI query in phase 2: raw \"%41\" kept or decoded.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_URI \"@contains q%41=v%41l\" \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/p%41th?q%41=v%41l"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "decode-filename-phase2",
+    "claim": "REQUEST_FILENAME in phase 2: raw \"%41\" kept or decoded.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_FILENAME \"@contains %41\" \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/p%41th?q%41=v%41l"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "decode-basename-phase2",
+    "claim": "REQUEST_BASENAME in phase 2: raw \"%41\" kept or decoded.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_BASENAME \"@contains %41\" \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/p%41th?q%41=v%41l"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "decode-uri-raw",
+    "claim": "REQUEST_URI_RAW is never decoded.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_URI_RAW \"@contains p%41th?q%41=v%41l\" \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/p%41th?q%41=v%41l"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "decode-query-string",
+    "claim": "QUERY_STRING is never decoded.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule QUERY_STRING \"@contains q%41=v%41l\" \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/p%41th?q%41=v%41l"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "decode-request-line",
+    "claim": "REQUEST_LINE is never decoded.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_LINE \"@contains /p%41th?q%41=v%41l\" \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/p%41th?q%41=v%41l"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "decode-args-get",
+    "claim": "ARGS_GET values are decoded in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule ARGS_GET \"@contains %41\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/p%41th?q%41=v%41l"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "decode-args-get-names",
+    "claim": "ARGS_GET_NAMES are decoded in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule ARGS_GET_NAMES \"@contains %41\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/p%41th?q%41=v%41l"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "decode-args-post",
+    "claim": "ARGS_POST values are decoded in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule ARGS_POST \"@contains %41\" \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "POST",
+      "headers": [
+        [
+          "Content-Type",
+          "application/x-www-form-urlencoded"
+        ]
+      ],
+      "uri": "/",
+      "body": "b%41=v%41l"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "decode-args-post-names",
+    "claim": "ARGS_POST_NAMES are decoded in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule ARGS_POST_NAMES \"@contains %41\" \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "POST",
+      "headers": [
+        [
+          "Content-Type",
+          "application/x-www-form-urlencoded"
+        ]
+      ],
+      "uri": "/",
+      "body": "b%41=v%41l"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "decode-request-body",
+    "claim": "REQUEST_BODY of a form is never decoded.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_BODY \"@contains b%41=v%41l\" \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "POST",
+      "headers": [
+        [
+          "Content-Type",
+          "application/x-www-form-urlencoded"
+        ]
+      ],
+      "uri": "/",
+      "body": "b%41=v%41l"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "decode-args-plus",
+    "claim": "In ARGS \"+\" becomes a space in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule ARGS:a \"@streq x y\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?a=x+y"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "decode-uri-plus",
+    "claim": "ModSecurity 3 decodes REQUEST_URI but leaves \"+\" as it is.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_URI \"@contains a=x+y\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?a=x+y"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "decode-args-invalid",
+    "claim": "An invalid \"%zz\" in ARGS is left as it is.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule ARGS:a \"@streq x%zzy\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?a=x%zzy"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "decode-args-percent-u",
+    "claim": "\"%u0041\" in ARGS is left as it is: the engine decodes only \"%XX\".",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule ARGS:a \"@streq %u0041\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?a=%u0041"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "decode-args-double",
+    "claim": "ARGS are decoded once: \"%2541\" arrives as \"%41\".",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule ARGS:a \"@streq %41\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?a=%2541"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "decode-validate-args",
+    "claim": "@validateUrlEncoding on ARGS sees the decoded value: \"%25zz\" arrives as \"%zz\" and fails validation.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule ARGS:a \"@validateUrlEncoding\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?a=%25zz"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "decode-validate-uri",
+    "claim": "@validateUrlEncoding on REQUEST_URI: ModSecurity 3 validates the decoded URI, so a valid \"%25zz\" fails there.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_URI \"@validateUrlEncoding\" \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?a=%25zz"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "decode-validate-uri-raw",
+    "claim": "@validateUrlEncoding on REQUEST_URI_RAW accepts a valid \"%25zz\" in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_URI_RAW \"@validateUrlEncoding\" \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?a=%25zz"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "decode-cookie-plus",
+    "claim": "Cookie values are not decoded: \"+\" stays.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_COOKIES:a \"@streq x+y\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [
+        [
+          "Cookie",
+          "a=x+y"
+        ]
+      ],
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "decode-validate-uri-path",
+    "claim": "validateDecodedInput: with \"%25\" in the path ModSecurity 2 (from phase 2) and ModSecurity 3 validate the decoded REQUEST_URI and reject a valid request; Coraza keeps it as sent.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_URI \"@validateUrlEncoding\" \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/a%25zz"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "selector-name-case",
+    "claim": "Parameter names are compared without case: \"ARGS:Q\" selects \"q\" in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:Q \"@streq abc\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?q=abc"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "cookie-name-case",
+    "claim": "Cookie names are compared without case in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_COOKIES:SID \"@streq abc\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "Cookie",
+          "sid=abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "tx-name-case",
+    "claim": "TX keys are compared without case in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:1,phase:1,pass,nolog,setvar:TX.Flag=1\"",
+      "SecRule TX:flag \"@eq 1\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "update-target-case",
+    "claim": "exclusionHeaderCase: ModSecurity 3 compares the parameter of SecRuleUpdateTargetById with case: \"!ARGS:Q\" does not remove \"q\". ModSecurity 2 and Coraza compare without case.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\"",
+      "SecRuleUpdateTargetById 2 \"!ARGS:Q\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?q=abc"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "anchors-negated-newline",
+    "claim": "anchorsMatchLines: \"!@rx ^\\d+$\" lets \"1\\nabc\" through in ModSecurity 3 and Coraza: \"^\" and \"$\" match at line breaks.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:q \"!@rx ^\\d+$\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?q=1%0aabc"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "anchors-text-negated-newline",
+    "claim": "\"!@rx \\A\\d+\\z\" stops \"1\\nabc\" in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:q \"!@rx \\A\\d+\\z\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?q=1%0aabc"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "anchors-text-negated-digits",
+    "claim": "\"!@rx \\A\\d+\\z\" lets plain digits through in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:q \"!@rx \\A\\d+\\z\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?q=123"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "update-target-chain-link",
+    "claim": "exclusionTargetInLink: SecRuleUpdateTargetById removes a target of a chain link only in ModSecurity 2; ModSecurity 3 and Coraza edit the head alone.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_METHOD \"@streq GET\" \"id:2,phase:1,deny,status:403,nolog,chain\"",
+      "    SecRule REQUEST_HEADERS:X-Test|REQUEST_HEADERS:X-Other \"@streq abc\" \"t:none\"",
+      "SecRuleUpdateTargetById 2 \"!REQUEST_HEADERS:X-Test\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "ctl-remove-target-chain-link",
+    "claim": "exclusionCtlTargetInLink: ctl:ruleRemoveTargetById removes a target of a chain link only in Coraza; ModSecurity 2 and 3 change the first condition alone.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:1,phase:1,pass,nolog,ctl:ruleRemoveTargetById=2;REQUEST_HEADERS:X-Test\"",
+      "SecRule REQUEST_METHOD \"@streq GET\" \"id:2,phase:1,deny,status:403,nolog,chain\"",
+      "    SecRule REQUEST_HEADERS:X-Test|REQUEST_HEADERS:X-Other \"@streq abc\" \"t:none\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ],
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "update-target-not-in-rule",
+    "claim": "exclusionTargetNotInRule: excluding a target the rule does not inspect changes nothing.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\"",
+      "SecRuleUpdateTargetById 2 \"!ARGS:x\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "ctl-remove-target-regex",
+    "claim": "ctlTargetPattern: a pattern in ctl:ruleRemoveTargetById is ignored by ModSecurity 2, refused by ModSecurity 3, honoured by Coraza.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:1,phase:1,pass,nolog,ctl:ruleRemoveTargetById=2;ARGS:/^q/\"",
+      "SecRule ARGS \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?q1=abc"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "ERR",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "update-target-pattern",
+    "claim": "A pattern in SecRuleUpdateTargetById is honoured by every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\"",
+      "SecRuleUpdateTargetById 2 \"!ARGS:/^q/\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?q1=abc"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "non-ascii-in-class",
+    "claim": "multibyteInClass: ModSecurity compares bytes, so \"[é]\" is a class of two bytes and does not match \"é\"; Coraza compares characters.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:q \"@rx ^[é]$\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?q=%C3%A9"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "dot-and-two-bytes",
+    "claim": "In ModSecurity \".\" is one byte, so \"^.$\" does not match \"é\"; in Coraza it is one character.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:q \"@rx ^.$\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?q=%C3%A9"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "non-ascii-as-group",
+    "claim": "\"(?:é)\" matches \"é\" in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:q \"@rx ^(?:é)$\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?q=%C3%A9"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "negated-on-missing-variable",
+    "claim": "negatedOnMissing: \"!@streq secret\" on a header that is not sent does not run at all in any engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Token \"!@streq secret\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "presence-check-on-missing-variable",
+    "claim": "\"&REQUEST_HEADERS:X-Token \"@eq 0\"\" catches a header that is not sent in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule &REQUEST_HEADERS:X-Token \"@eq 0\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "within-substring",
+    "claim": "withinSubstring: \"!@within GET POST\" lets \"ET\" through: the value is searched inside the list.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"!@within GET POST\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/",
+      "headers": [
+        [
+          "X-Test",
+          "ET"
+        ]
+      ]
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "within-exact-rx",
+    "claim": "\"!@rx \\A(?:GET|POST)\\z\" stops \"ET\" in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"!@rx \\A(?:GET|POST)\\z\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [
+        [
+          "X-Test",
+          "ET"
+        ]
+      ],
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "body-partial-bypass",
+    "claim": "partialBodyInspection: with ProcessPartial what lies past SecRequestBodyLimit is not inspected.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRequestBodyLimit 64",
+      "SecRequestBodyNoFilesLimit 64",
+      "SecRequestBodyLimitAction ProcessPartial",
+      "SecRule ARGS_POST \"@contains secret\" \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "POST",
+      "uri": "/",
+      "headers": [
+        [
+          "Content-Type",
+          "application/x-www-form-urlencoded"
+        ]
+      ],
+      "body": "pad=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&a=secret"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "json-request-body-variable",
+    "claim": "REQUEST_BODY of a JSON request without a body processor: filled by ModSecurity 3 only.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_BODY \"@contains secret\" \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "POST",
+      "uri": "/",
+      "headers": [
+        [
+          "Content-Type",
+          "application/json"
+        ]
+      ],
+      "body": "{\"a\":\"secret\"}"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "zero-width-in-pattern",
+    "claim": "typographicCharacter: a zero-width space in a pattern loads everywhere and keeps \"admin\" from matching.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:a \"@rx ad​min\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?a=admin"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "exclusion-case-lower-written",
+    "claim": "ModSecurity 3 compares the parameter of an exclusion with case: \"!ARGS:q\" does not remove \"Q\".",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\"",
+      "SecRuleUpdateTargetById 2 \"!ARGS:q\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?Q=abc"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "exclusion-case-header-upper-written",
+    "claim": "exclusionHeaderCase: \"!REQUEST_HEADERS:X-Test\" does not remove a header sent as \"x-test\" in ModSecurity 3.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\"",
+      "SecRuleUpdateTargetById 2 \"!REQUEST_HEADERS:X-Test\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [
+        [
+          "x-test",
+          "abc"
+        ]
+      ],
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "exclusion-case-header-lower-written",
+    "claim": "exclusionHeaderCase: \"!REQUEST_HEADERS:x-test\" does not remove a header sent as \"X-Test\" in ModSecurity 3.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\"",
+      "SecRuleUpdateTargetById 2 \"!REQUEST_HEADERS:x-test\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ],
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "exclusion-case-ctl",
+    "claim": "exclusionCtlHeaderCase: ctl:ruleRemoveTargetById also compares the name with case in ModSecurity 3.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:1,phase:1,pass,nolog,ctl:ruleRemoveTargetById=2;ARGS:Q\"",
+      "SecRule ARGS \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?q=abc"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "exclusion-case-pattern",
+    "claim": "selectorPatternCase: a pattern over parameter names in an exclusion is case-sensitive in Coraza only.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\"",
+      "SecRuleUpdateTargetById 2 \"!ARGS:/^Q$/\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?q=abc"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "exclusion-case-same",
+    "claim": "Same case in the exclusion and in the request: removed in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\"",
+      "SecRuleUpdateTargetById 2 \"!ARGS:q\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?q=abc"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "exclusion-case-in-rule-target",
+    "claim": "Inside the rule own target list \"!ARGS:Q\" removes \"q\" in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS|!ARGS:Q \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?q=abc"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "exclusion-case-pattern-i",
+    "claim": "A pattern with \"(?i)\" in SecRuleUpdateTargetById removes the parameter whatever its case, in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\"",
+      "SecRuleUpdateTargetById 2 \"!ARGS:/(?i)^Q$/\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?q=abc"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "exclusion-case-header-pattern-i",
+    "claim": "A header pattern with \"(?i)\" in SecRuleUpdateTargetById removes the header whatever its case, in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\"",
+      "SecRuleUpdateTargetById 2 \"!REQUEST_HEADERS:/(?i)^x-test$/\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ],
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "target-pattern-case",
+    "claim": "selectorPatternCase: \"ARGS:/^Q$/\" does not select \"q\" in Coraza; ModSecurity ignores case.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:/^Q$/ \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?q=abc"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "target-pattern-case-tx",
+    "claim": "Over TX Coraza lower-cases the pattern itself: \"TX:/MULTIPART_X/\" finds \"tx.multipart_x\" in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:1,phase:1,pass,nolog,setvar:tx.multipart_x=1\"",
+      "SecRule TX:/MULTIPART_X/ \"@eq 1\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "target-pattern-case-cookie",
+    "claim": "Over cookie names Coraza lower-cases the pattern: \"REQUEST_COOKIES:/SESS/\" finds \"sess1\" in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_COOKIES:/SESS/ \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [
+        [
+          "Cookie",
+          "sess1=abc"
+        ]
+      ],
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "target-pattern-case-header",
+    "claim": "Over header names Coraza lower-cases the pattern: \"REQUEST_HEADERS:/^X-Test$/\" finds the header in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:/^X-Test$/ \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [
+        [
+          "X-Test",
+          "abc"
+        ]
+      ],
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "target-pattern-case-i",
+    "claim": "A pattern with \"(?i)\" in the target list matches whatever the case, in every engine.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:/(?i)^Q$/ \"@streq abc\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?q=abc"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "anchors-negated-in-chain",
+    "claim": "anchorsMatchLines: a chain link \"MATCHED_VARS !@rx ^[a-z0-9]+$\" (as in CRS 942200) is passed by one more line in ModSecurity 3 and Coraza.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS \"@rx union\" \"id:1,phase:1,deny,status:403,nolog,chain\"",
+      "    SecRule MATCHED_VARS \"!@rx ^[,\\-0-9=A-Z_a-z]+$\" \"t:none\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?a=1/**/union%0aabc"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "anchors-header-after-decode",
+    "claim": "anchorsMatchLines: after t:urlDecodeUni a header can hold a line break, and \"!@rx ^(?:\\?[01])?$\" (as in CRS 920275) lets \"?0\\nevil\" through in ModSecurity 3 and Coraza.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule REQUEST_HEADERS:X-Test \"!@rx ^(?:\\?[01])?$\" \"id:1,phase:1,deny,status:403,nolog,t:none,t:urlDecodeUni\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [
+        [
+          "X-Test",
+          "?0%0aevil"
+        ]
+      ],
+      "uri": "/"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "anchors-exclusion-trigger",
+    "claim": "anchorsMatchLines: an exclusion conditioned on \"ARGS:action @rx ^(?:edit)$\" (as in the CRS WordPress exclusions) is triggered by \"x\\nedit\" in ModSecurity 3 and Coraza.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRule ARGS:action \"@rx ^(?:edit)$\" \"id:1,phase:1,pass,nolog,ctl:ruleRemoveById=2\"",
+      "SecRule ARGS:content \"@contains evil\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?action=x%0aedit&content=evil"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "body-error-xml-bypass",
+    "claim": "bodyErrorUnchecked: XML the parser rejects. Coraza leaves XML:/* empty and lets the attack through; ModSecurity 3 inspects what it parsed before the error; ModSecurity 2 on the stand does not reach phase 2 with this body (see diag-phase2-runs).",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_HEADERS:Content-Type \"@contains xml\" \"id:9,phase:1,pass,nolog,ctl:requestBodyProcessor=XML\"",
+      "SecRule XML:/* \"@contains evil\" \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "POST",
+      "uri": "/",
+      "headers": [
+        [
+          "Content-Type",
+          "text/xml"
+        ]
+      ],
+      "body": "<a>evil</b>"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    }
+  },
+  {
+    "name": "body-error-xml-caught",
+    "claim": "A rule on REQBODY_ERROR stops XML the parser rejects in ModSecurity 3 and Coraza (ModSecurity 2: see diag-phase2-runs).",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_HEADERS:Content-Type \"@contains xml\" \"id:9,phase:1,pass,nolog,ctl:requestBodyProcessor=XML\"",
+      "SecRule XML:/* \"@contains evil\" \"id:1,phase:2,deny,status:403,nolog\"",
+      "SecRule REQBODY_ERROR \"!@eq 0\" \"id:2,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "POST",
+      "uri": "/",
+      "headers": [
+        [
+          "Content-Type",
+          "text/xml"
+        ]
+      ],
+      "body": "<a>evil</b>"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "diag-phase2-runs",
+    "claim": "With malformed XML and the XML body processor ModSecurity 2 on the stand does not run phase 2 at all: even an unconditional deny does not fire. Why is not established.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecRequestBodyAccess On",
+      "SecRule REQUEST_HEADERS:Content-Type \"@contains xml\" \"id:9,phase:1,pass,nolog,ctl:requestBodyProcessor=XML\"",
+      "SecAction \"id:1,phase:2,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "POST",
+      "uri": "/",
+      "headers": [
+        [
+          "Content-Type",
+          "text/xml"
+        ]
+      ],
+      "body": "<a>evil</b>"
+    },
+    "expect": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "pcre-limit-fail-open",
+    "claim": "SecPcreMatchLimit 10 does not make this pattern fail open on the stand in any engine: there is no check for the limit until a pattern that does is found.",
+    "rules": [
+      "SecRuleEngine On",
+      "SecPcreMatchLimit 10",
+      "SecPcreMatchLimitRecursion 10",
+      "SecRule ARGS:a \"@rx ^(?:a|aa)+b$\" \"id:1,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "headers": [],
+      "uri": "/?a=aaaaaaaaaaaaaaaaaaaaaaaab"
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  },
+  {
+    "name": "exclusion-args-for-args-get",
+    "claim": "exclusionTargetNotInRule: ctl:ruleRemoveTargetById with ARGS:q does not touch a rule that inspects ARGS_GET (as in CRS 3.3.10, rule 9006240 for 921151).",
+    "rules": [
+      "SecRuleEngine On",
+      "SecAction \"id:1,phase:1,pass,nolog,ctl:ruleRemoveTargetById=2;ARGS:q\"",
+      "SecRule ARGS_GET \"@rx [\\x0a\\x0d]\" \"id:2,phase:1,deny,status:403,nolog\""
+    ],
+    "request": {
+      "method": "GET",
+      "uri": "/?q=(%0A%0A",
+      "headers": []
+    },
+    "expect": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  }
+]

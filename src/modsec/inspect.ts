@@ -1,227 +1,185 @@
 /**
- * Смысловой проход по собранной модели.
- *
- * Отделён от компиляции по двум причинам. Первая — порядок: каждой проверке
- * здесь нужно то, чего в момент чтения очередной строки ещё нет, — контекст
- * всего набора, готовые условия правила и то, какие правила уже встречались
- * выше. Вторая — цена: проход стоит примерно как сама компиляция, но, в
- * отличие от неё, ни на что не влияет немедленно. Ошибок он не выдаёт вовсе,
- * поэтому ни доступность визуальной вкладки, ни модель конструктора его
- * результата не ждут — а значит, его можно вести по частям и в паузах.
+ * Проход по набору: все замечания о конфигурации целиком.
  *
  * Идёт он по набору файлов, а не по одному: метка для `skipAfter` бывает в
  * соседнем файле, `SecRuleEngine` — в настроечном, а номер правила занят
  * ровно один раз на всю конфигурацию. Считать это по одному файлу значило бы
  * ругаться на то, что в наборе как раз в порядке.
  *
- * Отсюда две формы одного и того же: {@link inspectDocument} для тех, кому
- * нужен готовый список, и {@link inspectSlices} для того, кто отдаёт проходу
- * по несколько миллисекунд за раз. Вторая — источник, первая — вычерпывание
- * второй, так что разойтись им негде.
+ * Сами проверки живут в независимом ядре (`src/seclang`). Набор для него
+ * держит {@link Linter}: разбор файла повторяется, только когда изменился его
+ * текст, а смысл набора строится заново на каждый проход — правка одного
+ * файла меняет сказанное о других. Здесь его ответ переводится на язык
+ * редактора: к замечанию приписываются файл, блок конструктора и часть
+ * правила, а к ним добавляется то немногое, что редактор говорит сам.
+ *
+ * Отделён проход от компиляции по цене: компиляция нужна к первому же кадру
+ * и считается по файлу, а этот проход на большом наборе стоит десятки
+ * миллисекунд и ни на что не влияет немедленно — предупреждение, появившееся
+ * на кадр позже, никому ничего не испортит.
  */
 
-import { isDisruptive } from './semantics';
-import { Diagnostics } from './diagnostics';
-import {
-  checkCondition,
-  checkDocument,
-  checkExclusions,
-  checkRule,
-  conditionSignature,
-  emptyDocumentContext,
-} from './checks';
-import { indexWorkspaceExclusions } from './exclusions';
-import { fileMark, loneUnit } from './workspace';
-import type { DocumentContext } from './checks';
-import type { Diagnostic } from './diagnostics';
-import type { ExclusionIndex } from './exclusions';
-import type { VisualBlock } from './model';
-import type { ParsedStatement } from './types';
+import { createWorkspace } from '../seclang';
+import { byLine, editorNotes, markCrossFileIds, toDiagnostics } from './diagnostics';
+import { compileTree, sourceOf } from './compile';
+import { LONE_FILE, fileMark } from './workspace';
+import type { Workspace as Linter } from '../seclang';
+import type { CompileResult } from './compile';
+import type { Diagnostic, IdHolder } from './diagnostics';
+import type { ParsedDocument } from './types';
 import type { WorkspaceUnit } from './workspace';
 
-/** Значение директивы-переключателя: `On` — да, `Off` — нет. */
-function toggle(args: string[]): boolean | null {
-  const value = args[0]?.toLowerCase();
-  if (value === 'on') return true;
-  if (value === 'off') return false;
-  return null;
+export type { Linter };
+
+/** Набор файлов для ядра: его заводят один раз и дальше только обновляют. */
+export function createLinter(): Linter {
+  return createWorkspace();
 }
 
 /**
- * Собирает то, что о правилах известно только по остальному набору.
+ * Приводит набор ядра к файлам редактора: те же тексты в том же порядке.
  *
- * Проход дешёвый и делается до основного: проверкам нужны и метки ниже по
- * файлу, и директивы выше, поэтому откладывать сбор до места использования
- * нельзя. Файлы читаются в порядке включения, и у переключателя побеждает
- * последний — так его читает и ModSecurity.
+ * Файл называется идентификатором, а не именем: имена в наборе повторяются,
+ * а замечание должно вернуться ровно в тот файл, о котором сказано. Текст,
+ * который не менялся, ядро заново не разбирает — ради этого набор и хранится.
  */
-export function readWorkspaceContext(units: readonly WorkspaceUnit[]): DocumentContext {
-  const context = emptyDocumentContext();
+export function syncLinter(
+  linter: Linter,
+  files: ReadonlyArray<{ id: string; source: string }>,
+): void {
+  const ids = new Set(files.map((file) => file.id));
+  for (const name of linter.names()) {
+    if (!ids.has(name)) linter.delete(name);
+  }
+  for (const file of files) linter.set(file.id, file.source);
+  linter.reorder(files.map((file) => file.id));
+}
+
+/**
+ * Кто в наборе держит каждый номер правила первым — и какие блоки повторяют
+ * номер, уже занятый выше в их же файле.
+ *
+ * По этому повтор номера делится на два случая: внутри файла и через файлы
+ * (см. `markCrossFileIds`). Файлы читаются в порядке включения — лишним
+ * ядро считает то правило, что загружено позже.
+ */
+function idHolders(units: readonly WorkspaceUnit[]): {
+  first: Map<string, IdHolder>;
+  local: Map<string, Set<string>>;
+} {
+  const first = new Map<string, IdHolder>();
+  const local = new Map<string, Set<string>>();
 
   for (const unit of units) {
-    for (const statement of unit.statements) {
-      if (statement.kind === 'SecMarker') {
-        context.markers.add(statement.label);
-        continue;
-      }
+    const seenHere = new Set<string>();
+    const repeated = new Set<string>();
 
-      if (statement.kind === 'directive') {
-        const name = statement.name.toLowerCase();
-        if (name === 'secruleengine') {
-          context.engine = statement.args[0] ?? '';
-          context.engineFile = unit.id;
-          context.engineLine = statement.span.startLine;
-        }
-        if (name === 'secrequestbodyaccess') {
-          context.requestBodyAccess = toggle(statement.args);
-        }
-        if (name === 'secresponsebodyaccess') {
-          context.responseBodyAccess = toggle(statement.args);
-        }
-        continue;
-      }
+    for (const block of unit.blocks) {
+      if (block.kind !== 'rule' && block.kind !== 'action') continue;
+      const actions = block.kind === 'rule' ? block.rule.actions : block.actions;
+      const id = actions.id.trim();
+      if (id === '') continue;
 
-      if (statement.kind !== 'SecRule' && statement.kind !== 'SecAction') continue;
+      if (seenHere.has(id)) repeated.add(block.key);
+      seenHere.add(id);
 
-      for (const action of statement.actions) {
-        if (action.name === 'setvar') {
-          const assigned = /^!?tx[.:]([\w-]+)/i.exec(action.value ?? '');
-          if (assigned) context.transactionVars.add(assigned[1].toLowerCase());
-        }
-        if (action.name === 'ctl' && /^requestBodyProcessor=XML$/i.test(action.value ?? '')) {
-          context.xmlProcessor = true;
-        }
+      if (!first.has(id)) {
+        const index = block.kind === 'rule' ? block.rule.headIndex : block.statementIndex;
+        first.set(id, {
+          file: unit.id,
+          name: unit.name,
+          line: unit.statements[index]?.span.startLine,
+        });
       }
     }
+    local.set(unit.id, repeated);
   }
 
-  return context;
+  return { first, local };
 }
 
-/** Контекст одинокого документа — набор из одного файла. */
-export function readDocumentContext(statements: ParsedStatement[]): DocumentContext {
-  return readWorkspaceContext([loneUnit([], statements)]);
-}
+const NO_KEYS: ReadonlySet<string> = new Set();
 
 /**
- * Смысловой проход по частям: каждая выдача — замечания об одном правиле.
+ * Все замечания набора, по файлам в порядке включения.
  *
- * Шаг — правило, а не заранее отмеренный кусок работы: проверки правила
- * делят между собой его контекст, и разрезать их посередине значило бы
- * собирать этот контекст дважды. Правил в наборе тысячи, так что дробить
- * мельче незачем — тот, кто ведёт проход, набирает столько шагов, сколько
- * влезает в его бюджет.
- *
- * Правила идут в порядке включения файлов: `skip:N` отсчитывает свои N по
- * конфигурации, а не по файлу, и одинаковый номер в двух файлах — та же
- * занятая цифра, что и дважды в одном.
- *
- * Последняя выдача — замечания об уровне набора: они опираются на то, что
- * стало известно по ходу прохода, и раньше конца появиться не могут.
+ * `linter` должен держать те же файлы, что и `units`: об этом заботится
+ * {@link syncLinter}. Файл, которого у ядра нет, пропускается — сказать о
+ * нём нечего.
  */
-export function* inspectSlices(
-  units: readonly WorkspaceUnit[],
-  exclusions?: ExclusionIndex,
-): Generator<Diagnostic[], void, void> {
-  const diag = new Diagnostics();
-  const context = readWorkspaceContext(units);
+export function inspectWorkspace(units: readonly WorkspaceUnit[], linter: Linter): Diagnostic[] {
+  const found = new Map(linter.lint().map((result) => [result.name, result.diagnostics]));
+  const holders = idHolders(units);
+  const all: Diagnostic[] = [];
 
-  /** Правила набора, считая `SecAction`: по ним отсчитывает `skip:N`. */
-  const executable = units.flatMap((unit) =>
-    unit.blocks
-      .filter((block) => block.kind === 'rule' || block.kind === 'action')
-      .map((block) => ({ unit, block })),
-  );
-  /** Первое правило с такой же проверкой — чтобы поймать копию. */
-  const seenSignatures = new Map<string, string>();
-  /** Номер правила → где он уже занят: по нему видно повтор через файлы. */
-  const seenIds = new Map<string, { file: string; name: string; line?: number }>();
+  for (const unit of units) {
+    const tree = linter.tree(unit.id);
+    if (tree === null) continue;
 
-  /** Сколько замечаний уже отдано: остальное — новое с прошлой выдачи. */
-  let published = 0;
-  const fresh = () => {
-    const slice = diag.items.slice(published);
-    published = diag.items.length;
-    return slice;
-  };
-
-  for (let index = 0; index < executable.length; index++) {
-    const { unit, block } = executable[index];
-    const lineOf = (at: number) => unit.statements[at]?.span.startLine;
-    const rulesAfter = executable.length - index - 1;
-    const actions = block.kind === 'rule' ? block.rule.actions : block.actions;
-    const conditions = block.kind === 'rule' ? block.rule.conditions : [];
-    const headLine =
-      block.kind === 'rule' ? lineOf(block.rule.headIndex) : lineOf(block.statementIndex);
-
-    diag.inFile(fileMark(unit.id));
-
-    if (isDisruptive(actions.disruptive) && actions.disruptive !== 'pass') {
-      context.hasBlockingRule = true;
-    }
-
-    const conditionContext = { document: context, capture: actions.capture };
-    conditions.forEach((condition, position) => {
-      // «Условие 1» у правила без цепочки — лишнее уточнение.
-      const chained = conditions.length > 1 ? { condition: position + 1 } : {};
-      diag.at(lineOf(condition.statementIndex) ?? headLine, {
-        ruleKey: block.key,
-        ...chained,
-      });
-      checkCondition(condition, conditionContext, diag);
-    });
-
-    const signature = conditions.map(conditionSignature).join('&&');
-    const twinId = conditions.length > 0 ? seenSignatures.get(signature) : undefined;
-    if (conditions.length > 0 && twinId === undefined && actions.id !== '') {
-      seenSignatures.set(signature, actions.id);
-    }
-
-    diag.at(headLine, { ruleKey: block.key });
-
-    // Повтор номера внутри файла ловит компиляция — там он ошибка и гасит
-    // конструктор. Через файлы её видно только здесь, и сказать о ней всё
-    // равно надо: ModSecurity не загрузит конфигурацию, в которой номер
-    // занят дважды, — а какой из двух файлов править, выбирает человек.
-    const twin = actions.id === '' ? undefined : seenIds.get(actions.id);
-    if (actions.id !== '' && twin === undefined) {
-      seenIds.set(actions.id, { file: unit.id, name: unit.name, line: headLine });
-    } else if (twin !== undefined && twin.file !== unit.id) {
-      diag.report('duplicateIdCrossFile', {
-        id: actions.id,
-        file: twin.name,
-        line: String(twin.line ?? ''),
-      });
-    }
-
-    checkRule(actions, conditions, { document: context, rulesAfter, twinId }, diag);
-
-    yield fresh();
+    const view = {
+      file: fileMark(unit.id),
+      tree,
+      statements: unit.statements,
+      blocks: unit.blocks,
+    };
+    const fromCore = markCrossFileIds(
+      toDiagnostics(found.get(unit.id) ?? [], view),
+      unit.id,
+      holders.first,
+      holders.local.get(unit.id) ?? NO_KEYS,
+    );
+    // Оговорки редактора встают после замечаний ядра о той же строке: сперва
+    // то, что не так с правилом, потом то, что не так с его показом.
+    all.push(...byLine([...fromCore, ...editorNotes(view)]));
   }
 
-  checkDocument(context, diag);
-  // Индекс исключений собирает тот, кто ведёт проход: он же показывает по нему
-  // отметку «выключено исключением» на карточке правила. Считать его заново
-  // здесь пришлось бы только ради того, чтобы вызвать проверку.
-  checkExclusions(exclusions ?? indexWorkspaceExclusions(units), diag);
-  yield fresh();
-}
-
-/** Смысловой проход целиком — для тех, кому результат нужен сразу. */
-export function inspectWorkspace(
-  units: readonly WorkspaceUnit[],
-  exclusions?: ExclusionIndex,
-): Diagnostic[] {
-  const all: Diagnostic[] = [];
-  for (const slice of inspectSlices(units, exclusions)) all.push(...slice);
   return all;
 }
 
-/** Смысловой проход по одинокому документу. */
-export function inspectDocument(
-  blocks: VisualBlock[],
-  statements: ParsedStatement[],
-  exclusions?: ExclusionIndex,
-): Diagnostic[] {
-  return inspectWorkspace([loneUnit(blocks, statements)], exclusions);
+/** Компиляция документа вместе со всеми замечаниями о нём. */
+export interface DocumentAnalysis extends CompileResult {
+  errorCount: number;
+  warningCount: number;
+  /** Советы считаются отдельно: они не должны красить сводку. */
+  adviceCount: number;
+}
+
+/**
+ * Полный ответ об одиноком документе: компиляция и проход по набору из
+ * одного файла, разом и до конца.
+ *
+ * Приложение так не делает: набор у него живёт долго, обновляется по файлу,
+ * а проход по большому набору ждёт паузы. Но там, где нужен ответ о тексте
+ * целиком — в тестах и в разборе примеров, — дробить его не на что, а
+ * заводить набор руками каждый раз незачем.
+ *
+ * `diagnostics` здесь — все замечания, а не только ошибки загрузки, как у
+ * самой компиляции.
+ */
+export function analyzeDocument(doc: ParsedDocument | null): DocumentAnalysis {
+  const linter = createLinter();
+  if (doc !== null) linter.set(LONE_FILE, sourceOf(doc));
+  const tree = linter.tree(LONE_FILE);
+
+  const compiled: CompileResult =
+    doc === null || tree === null
+      ? { ok: false, model: null, blocks: [], diagnostics: [] }
+      : compileTree(tree, doc);
+  const diagnostics =
+    doc === null
+      ? []
+      : inspectWorkspace(
+          [{ id: LONE_FILE, name: '', blocks: compiled.blocks, statements: doc.statements }],
+          linter,
+        );
+  const count = (severity: Diagnostic['severity']) =>
+    diagnostics.filter((d) => d.severity === severity).length;
+
+  return {
+    ...compiled,
+    diagnostics,
+    errorCount: count('error'),
+    warningCount: count('warning'),
+    adviceCount: count('advice'),
+  };
 }

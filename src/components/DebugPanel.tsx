@@ -11,7 +11,7 @@ import { DiagnosticLine } from './diagnostics/DiagnosticLine';
 import { useRule } from '../context/ruleContext';
 import { useI18n } from '../i18n/useI18n';
 import { topicKey } from '../i18n/translations';
-import type { DiagnosticTopic } from '../modsec/compile';
+import type { DiagnosticTopic } from '../modsec/diagnostics';
 
 type DebugTab = 'diagnostics' | 'model' | 'parsed';
 

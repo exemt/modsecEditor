@@ -1,0 +1,5322 @@
+{
+  "engines": {
+    "modsecurity2": {
+      "image": "owasp/modsecurity-crs:apache",
+      "version": "ModSecurity for Apache/2.9.15"
+    },
+    "modsecurity3": {
+      "image": "owasp/modsecurity-crs:nginx",
+      "version": "libmodsecurity.so.3.0.17"
+    },
+    "coraza": {
+      "image": "golang:1.25-alpine",
+      "version": "corazawaf/coraza/v3 v3.8.1"
+    }
+  },
+  "names": {
+    "variable:ARGS_GET": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:ARGS_GET_NAMES": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REQUEST_HEADERS": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REQUEST_HEADERS_NAMES": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REQUEST_COOKIES": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REQUEST_COOKIES_NAMES": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MATCHED_VARS": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MATCHED_VARS_NAMES": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:WEBSERVER_ERROR_LOG": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:ARGS": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:ARGS_NAMES": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:ARGS_POST": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:ARGS_POST_NAMES": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:FILES": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:FILES_NAMES": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:FILES_TMPNAMES": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:FILES_TMP_CONTENT": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_PART_HEADERS": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:RESPONSE_HEADERS": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:RESPONSE_HEADERS_NAMES": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:PERF_RULES": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:FILES_SIZES": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:TX": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:IP": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "variable:SESSION": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "variable:USER": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "variable:GLOBAL": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "variable:RESOURCE": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "variable:ENV": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:GEO": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:RULE": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:XML": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:AUTH_TYPE": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MATCHED_VAR": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MATCHED_VAR_NAME": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MODSEC_BUILD": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "variable:PATH_INFO": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:QUERY_STRING": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REMOTE_ADDR": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REMOTE_HOST": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REMOTE_USER": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "variable:REQBODY_PROCESSOR": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REQUEST_BASENAME": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REQUEST_FILENAME": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REQUEST_LINE": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REQUEST_METHOD": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REQUEST_PROTOCOL": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REQUEST_URI": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REQUEST_URI_RAW": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:SCRIPT_BASENAME": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:SCRIPT_FILENAME": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:SCRIPT_GROUPNAME": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:SCRIPT_MODE": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:SCRIPT_USERNAME": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:SERVER_ADDR": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:SERVER_NAME": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:SESSIONID": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:TIME": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:UNIQUE_ID": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:USERID": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:USERAGENT_IP": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:WEBAPPID": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "variable:FULL_REQUEST": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_FILENAME": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_NAME": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REQBODY_ERROR_MSG": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REQBODY_PROCESSOR_ERROR_MSG": {
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REQUEST_BODY": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:STREAM_INPUT_BODY": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:RESPONSE_CONTENT_TYPE": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:RESPONSE_PROTOCOL": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:STATUS_LINE": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:RESPONSE_BODY": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:STREAM_OUTPUT_BODY": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:DURATION": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:HIGHEST_SEVERITY": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MSC_PCRE_ERROR": {
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "variable:MSC_PCRE_LIMITS_EXCEEDED": {
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "variable:PERF_ALL": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:PERF_COMBINED": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:PERF_GC": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:PERF_LOGGING": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:PERF_PHASE1": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:PERF_PHASE2": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:PERF_PHASE3": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:PERF_PHASE4": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:PERF_PHASE5": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:PERF_SREAD": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:PERF_SWRITE": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:REMOTE_PORT": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:SCRIPT_GID": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:SCRIPT_UID": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:SDBM_DELETE_ERROR": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "variable:SERVER_PORT": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:TIME_DAY": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:TIME_EPOCH": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:TIME_HOUR": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:TIME_MIN": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:TIME_MON": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:TIME_SEC": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:TIME_WDAY": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:TIME_YEAR": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:URLENCODED_ERROR": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:ARGS_COMBINED_SIZE": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:FILES_COMBINED_SIZE": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:FULL_REQUEST_LENGTH": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:INBOUND_DATA_ERROR": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_BOUNDARY_QUOTED": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_BOUNDARY_WHITESPACE": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_CRLF_LF_LINES": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_DATA_AFTER": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_DATA_BEFORE": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_FILE_LIMIT_EXCEEDED": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_HEADER_FOLDING": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_INVALID_HEADER_FOLDING": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_INVALID_PART": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_INVALID_QUOTING": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_LF_LINE": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_MISSING_SEMICOLON": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_SEMICOLON_MISSING": {
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "variable:MULTIPART_STRICT_ERROR": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_UNMATCHED_BOUNDARY": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REQBODY_ERROR": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REQBODY_PROCESSOR_ERROR": {
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:REQUEST_BODY_LENGTH": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:RESPONSE_CONTENT_LENGTH": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:RESPONSE_STATUS": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:OUTBOUND_DATA_ERROR": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:ARGS_PATH": {
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "variable:RESPONSE_ARGS": {
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "variable:REQUEST_XML": {
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "variable:JSON": {
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "variable:RESPONSE_XML": {
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "variable:URI_PARSE_ERROR": {
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "variable:ARGUMENTS_LIMIT_REACHED": {
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "variable:MULTIPART_DUPLICATE_PART_HEADER": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_FILENAME_CHARSET": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:MULTIPART_FILENAME_LANGUAGE": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "variable:RES_BODY_PROCESSOR": {
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "variable:RES_BODY_ERROR_MSG": {
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "variable:RES_BODY_PROCESSOR_ERROR_MSG": {
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "variable:RES_BODY_ERROR": {
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "variable:RES_BODY_PROCESSOR_ERROR": {
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "operator:rx": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:rxGlobal": {
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "operator:verifyCC": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "operator:verifyCPF": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "operator:verifySSN": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "operator:verifySVNR": {
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "operator:validateHash": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "operator:gsbLookup": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "operator:streq": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:contains": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:beginsWith": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:endsWith": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:containsWord": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "operator:within": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:strmatch": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:rbl": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:rsub": {
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "operator:ipMatchFromDataset": {
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "operator:pmFromDataset": {
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "operator:restpath": {
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:validateNid": {
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "operator:eq": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:ge": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:gt": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:le": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:lt": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:pm": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:pmFromFile": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:pmf": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:ipMatchFromFile": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:ipMatchF": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:validateDTD": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "operator:validateSchema": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "operator:inspectFile": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:fuzzyHash": {
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "operator:ipMatch": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:validateByteRange": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:detectSQLi": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:detectXSS": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:validateUrlEncoding": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:validateUtf8Encoding": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:unconditionalMatch": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:noMatch": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "operator:geoLookup": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:none": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:lowercase": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:uppercase": {
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:compressWhitespace": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:removeWhitespace": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:trim": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:trimLeft": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:trimRight": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:urlDecode": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:urlDecodeUni": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:htmlEntityDecode": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:jsDecode": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:cssDecode": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:escapeSeqDecode": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:base64Decode": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:base64DecodeExt": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:hexDecode": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:sqlHexDecode": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "transform:utf8toUnicode": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:removeNulls": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:replaceNulls": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:removeComments": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:removeCommentsChar": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:replaceComments": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:cmdLine": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:normalizePath": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:normalisePath": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:normalizePathWin": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:normalisePathWin": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:urlEncode": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:hexEncode": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:base64Encode": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:md5": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:sha1": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "transform:parityEven7bit": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "transform:parityOdd7bit": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "transform:parityZero7bit": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "transform:length": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:id": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:phase": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:msg": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:logdata": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:tag": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:rev": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:ver": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:severity": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:maturity": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:accuracy": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:block": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:deny": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:drop": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:pass": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:allow": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:redirect": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:proxy": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "action:pause": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "action:chain": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:skip": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:skipAfter": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:log": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:nolog": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:auditlog": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:noauditlog": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:capture": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:multiMatch": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:sanitiseMatched": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "action:sanitizeMatched": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "action:sanitiseMatchedBytes": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "action:sanitizeMatchedBytes": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "action:ctl": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:setvar": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:setenv": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:setuid": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "action:setsid": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "action:setrsc": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "action:initcol": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:expirevar": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:deprecatevar": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "action:exec": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "action:append": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "action:prepend": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "action:xmlns": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "action:status": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "action:sanitiseArg": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "action:sanitiseRequestHeader": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "action:sanitiseResponseHeader": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "action:sanitizeArg": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "action:sanitizeRequestHeader": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "action:sanitizeResponseHeader": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "action:t": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecArgumentsLimit": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecAuditEngine": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecAuditLogDirMode": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecAuditLogFileMode": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecAuditLogFormat": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecAuditLogParts": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecAuditLogType": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecCollectionTimeout": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecConnEngine": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "directive:SecConnReadStateLimit": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "directive:SecConnWriteStateLimit": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "directive:SecContentInjection": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "directive:SecCookieFormat": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecDebugLogLevel": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecDisableBackendCompression": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "directive:SecHashEngine": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "directive:SecInterceptOnError": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "directive:SecParseXmlIntoArgs": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "directive:SecPcreMatchLimit": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecPcreMatchLimitRecursion": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecReadStateLimit": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "directive:SecRemoteRulesFailAction": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecRequestBodyAccess": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecRequestBodyInMemoryLimit": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "directive:SecRequestBodyJsonDepthLimit": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecRequestBodyLimit": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecRequestBodyLimitAction": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecRequestBodyNoFilesLimit": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecResponseBodyAccess": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecResponseBodyLimit": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecResponseBodyLimitAction": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecResponseBodyMimeTypesClear": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecRuleEngine": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecRuleInheritance": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "directive:SecRulePerfTime": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "directive:SecStatusEngine": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "directive:SecStreamInBodyInspection": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "directive:SecStreamOutBodyInspection": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "directive:SecTmpSaveUploadedFiles": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "directive:SecUnicodeCodePage": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "directive:SecUploadFileLimit": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecUploadFileMode": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "directive:SecUploadKeepFiles": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "directive:SecWriteStateLimit": {
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "directive:SecXmlExternalEntity": {
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "directive:SecResponseBodyJsonDepthLimit": {
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    }
+  },
+  "load": {
+    "b62566092fe977e1": {
+      "where": "captures.conf:0013",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "b96038617564f74e": {
+      "where": "captures.conf:0017",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "1a43e03f06a3211b": {
+      "where": "captures.conf:0022",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "54efe2a02c8b00ae": {
+      "where": "captures.conf:0030",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "66233a2dc9fbdc25": {
+      "where": "captures.conf:0035",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "164034233a6252e2": {
+      "where": "captures.conf:0039",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "b1c25e26163a8a37": {
+      "where": "captures.conf:0043",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "791d754171aa43ab": {
+      "where": "captures.conf:0049",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "f64af737cf228efc": {
+      "where": "captures.conf:0055",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "57b2141abc3e6404": {
+      "where": "captures.conf:0061",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "d18210577d87d6ab": {
+      "where": "captures.conf:0068",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "b901c6bca0116db8": {
+      "where": "captures.conf:0074",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "9f8cb52ed1d90ec8": {
+      "where": "captures.conf:0078",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "55de5b11f1427226": {
+      "where": "captures.conf:0083",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "be871c44dfbfb4fb": {
+      "where": "clean.conf:0007",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "bcf9c064bbb26c69": {
+      "where": "clean.conf:0013",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "59cd8084cf8c9761": {
+      "where": "clean.conf:0028",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "b368c83e68b0fc54": {
+      "where": "clean.conf:0035",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "68bac8bac9881ef2": {
+      "where": "clean.conf:0039",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "d365613640ad6895": {
+      "where": "clean.conf:0056",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "d45a7d3bef1b27e6": {
+      "where": "clean.conf:0060",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "0158a90a65d28977": {
+      "where": "clean.conf:0064",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "b73a7fa7be67d779": {
+      "where": "clean.conf:0068",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "38a630bd611565db": {
+      "where": "clean.conf:0076",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "72e10fd8e8fff708": {
+      "where": "clean.conf:0080",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "389051b6fbb0d9b3": {
+      "where": "clean.conf:0085",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "9acd41e4005102e4": {
+      "where": "clean.conf:0090",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "c3d9d688b47fd61e": {
+      "where": "clean.conf:0095",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "ac821ffa54d78395": {
+      "where": "clean.conf:0101",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "f3aa89ae00d8603f": {
+      "where": "clean.conf:0107",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "992cbf65bb15bdbb": {
+      "where": "clean.conf:0112",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "e72d275c632416f3": {
+      "where": "clean.conf:0116",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "81549972020ffb40": {
+      "where": "clean.conf:0122",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "392ed97712c5c8e4": {
+      "where": "clean.conf:0127",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "eb36ffa3937cec10": {
+      "where": "clean.conf:0133",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "b213741652e08ac4": {
+      "where": "clean.conf:0138",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "50996cd1661a8fa4": {
+      "where": "clean.conf:0145",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "d2468bbf461e4831": {
+      "where": "clean.conf:0149",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "9e76b13c448ca8f4": {
+      "where": "clean.conf:0154",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "585ae4df9cfcf847": {
+      "where": "clean.conf:0159",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "98b7dad14ce684e0": {
+      "where": "clean.conf:0163",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "f7177869bcab331d": {
+      "where": "clean.conf:0168",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "a10aa4e6679727e4": {
+      "where": "clean.conf:0173",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "f1a8778d96b00a6c": {
+      "where": "clean.conf:0179",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "2ab5e53d4e3eaca5": {
+      "where": "clean.conf:0185",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "38626961e4c97ba8": {
+      "where": "clean.conf:0190",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "e95e75c1e39a11c8": {
+      "where": "clean.conf:0196",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "50c4d717ad8d828e": {
+      "where": "clean.conf:0205",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "544d4f902f629fd8": {
+      "where": "clean.conf:0210",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "3a1c66740468a1fa": {
+      "where": "clean.conf:0214",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "ed795d1636efa386": {
+      "where": "clean.conf:0219",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "566039a430dd03e9": {
+      "where": "clean.conf:0224",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "caaece2e888a5f83": {
+      "where": "clean.conf:0228",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "ea2c633e5cbb69c2": {
+      "where": "coraza.conf:0011",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "731a3fde0c41adca": {
+      "where": "coraza.conf:0018",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "2d11fd92a8cb0607": {
+      "where": "coraza.conf:0022",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "a47473b692656a6a": {
+      "where": "coraza.conf:0025",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "a58e9951db80dd44": {
+      "where": "coraza.conf:0029",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "0af2b75541aad547": {
+      "where": "coraza.conf:0033",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "206121055a2f6f73": {
+      "where": "coraza.conf:0037",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "122682b58c309f99": {
+      "where": "coraza.conf:0041",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "81373f0c9df989ee": {
+      "where": "coraza.conf:0047",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "05e2dafe148d0ab2": {
+      "where": "coraza.conf:0051",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "b1889da0bc0790a5": {
+      "where": "coraza.conf:0055",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "1ce3703c27a04404": {
+      "where": "coraza.conf:0059",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "bfa379ad2383a492": {
+      "where": "coraza.conf:0063",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "b885866f087df359": {
+      "where": "coraza.conf:0067",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "51e114438f5ea3f0": {
+      "where": "coraza.conf:0072",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "3db3604dfef302f0": {
+      "where": "coraza.conf:0076",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "0969b4b58313fbd6": {
+      "where": "coraza.conf:0081",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "1f316eeb9d56fe7d": {
+      "where": "coraza.conf:0085",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "3e086d2615fb0562": {
+      "where": "environment.conf:0008",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "ed2b4d2694e3aec2": {
+      "where": "environment.conf:0012",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "4761e5ae7f9499d4": {
+      "where": "environment.conf:0016",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "ef2dc18befa85070": {
+      "where": "environment.conf:0020",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "720a9a23dad5ec25": {
+      "where": "environment.conf:0023",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "df0ef362f633d4f9": {
+      "where": "environment.conf:0027",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "ca8b8624828058ff": {
+      "where": "environment.conf:0031",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "62c52dd5d0a95271": {
+      "where": "environment.conf:0039",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "b51cba185c6b63f0": {
+      "where": "environment.conf:0042",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "8cdeecc87410c61c": {
+      "where": "environment.conf:0045",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "c70144423023fe17": {
+      "where": "environment.conf:0048",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "43c332964a9372e9": {
+      "where": "environment.conf:0051",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "4c7f89b314acae6b": {
+      "where": "environment.conf:0055",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "d4793c7f266d4f73": {
+      "where": "environment.conf:0059",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "57b03dbaba12244e": {
+      "where": "environment.conf:0063",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "612635a6fd26f396": {
+      "where": "environment.conf:0067",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "70b28f947a48673a": {
+      "where": "exclusions.conf:0008",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "2c60740480e3a91b": {
+      "where": "exclusions.conf:0014",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "16c2bcec982e2bc9": {
+      "where": "probe:ah5-remove-no-arg",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "c15618030313687c": {
+      "where": "probe:ah1-remove-bad-id",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "e822ff8b1b0fb557": {
+      "where": "exclusions.conf:0031",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "bc99e1783649e5dc": {
+      "where": "exclusions.conf:0035",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "b2ad1a86667e30d5": {
+      "where": "exclusions.conf:0039",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "595307c1b5a1a4b0": {
+      "where": "exclusions.conf:0044",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "56938e7119584a8f": {
+      "where": "exclusions.conf:0047",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "acc0d7c24acdf28c": {
+      "where": "exclusions.conf:0051",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "6e6d597f7ba33f78": {
+      "where": "exclusions.conf:0055",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "1c7c076a08796945": {
+      "where": "exclusions.conf:0063",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "8680f1304da16876": {
+      "where": "exclusions.conf:0067",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "8b978bdcc26e2bdc": {
+      "where": "exclusions.conf:0072",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "113524c1b44119d1": {
+      "where": "exclusions.conf:0077",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "c52a136250704e7a": {
+      "where": "exclusions.conf:0081",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "3adb0530dd04b336": {
+      "where": "exclusions.conf:0086",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "e986452b9005c4bb": {
+      "where": "exclusions.conf:0095",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "1d442c45373c76b9": {
+      "where": "exclusions.conf:0099",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "078d34102093b0cb": {
+      "where": "exclusions.conf:0104",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "1c11b4702bbb8da0": {
+      "where": "exclusions.conf:0123",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "5a40e8906dc19441": {
+      "where": "exclusions.conf:0127",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "35002f34fabff5d5": {
+      "where": "exclusions.conf:0132",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "f59666ad22186bf0": {
+      "where": "exclusions.conf:0137",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "d12d229374b99cb1": {
+      "where": "exclusions.conf:0142",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "bdd7298c86b7c963": {
+      "where": "exclusions.conf:0149",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "892768c2d63b8af2": {
+      "where": "exclusions.conf:0155",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "2bc1b16ce7f17009": {
+      "where": "exclusions.conf:0160",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "a26aa3ee6a69ad8f": {
+      "where": "exclusions.conf:0166",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "0be51c36fb72357c": {
+      "where": "files.conf:0009",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "d973f3edb2067cf1": {
+      "where": "files.conf:0014",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "67dea8b48d7f19bc": {
+      "where": "files.conf:0018",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "cc4572c816e2ee36": {
+      "where": "files.conf:0022",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "71f66e3bb1d2f956": {
+      "where": "files.conf:0026",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "0bffef49b9f9724b": {
+      "where": "files.conf:0030",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "95645be867d0f6c4": {
+      "where": "findings.conf:0014",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "91b1e09f62e64a54": {
+      "where": "findings.conf:0024",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "c5c1f1c965bff8de": {
+      "where": "findings.conf:0028",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "7d3faa115468c510": {
+      "where": "findings.conf:0031",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "de0cb63a4142bb26": {
+      "where": "probe:af1-marker-no-arg",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "295b869bb3348483": {
+      "where": "findings.conf:0038",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "cb8cf61b99f7c250": {
+      "where": "findings.conf:0043",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "a628f8a0a7ce050c": {
+      "where": "findings.conf:0046",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "2557d30a96cbd08b": {
+      "where": "findings.conf:0049",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "f28e5f6c888079c8": {
+      "where": "findings.conf:0052",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "b650ab42edaacba7": {
+      "where": "findings.conf:0055",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "40e021770e7fdcda": {
+      "where": "findings.conf:0058",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "a169ac1ab1f5f76a": {
+      "where": "findings.conf:0061",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "20a94c5e330ff95c": {
+      "where": "findings.conf:0064",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "52c1086d8b24447f": {
+      "where": "findings.conf:0067",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "879d257d078d582e": {
+      "where": "findings.conf:0070",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "ec54dc3cd6ab673c": {
+      "where": "findings.conf:0073",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "21a9a2c23ecb2c0e": {
+      "where": "findings.conf:0076",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "9d99fdb94a577e75": {
+      "where": "findings.conf:0079",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "6c5fa493a6b1b6e2": {
+      "where": "findings.conf:0083",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "5534fcff7147cc06": {
+      "where": "findings.conf:0087",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "e9b9f5d9a26e5e46": {
+      "where": "findings.conf:0092",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "f7ce2c9481cbc7e5": {
+      "where": "findings.conf:0105",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "8e1a259558f6c12b": {
+      "where": "findings.conf:0108",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "41d0a613e8f2883c": {
+      "where": "findings.conf:0111",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "30bff2285be6532f": {
+      "where": "findings.conf:0114",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "675590bd0bd5b966": {
+      "where": "findings.conf:0117",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "368569209cc74029": {
+      "where": "findings.conf:0124",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "164d3d7585e10975": {
+      "where": "findings.conf:0128",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "5a8f386298e0eb3d": {
+      "where": "findings.conf:0132",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "d48281c8c78fd8f5": {
+      "where": "findings.conf:0135",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "5bec01fd5094ef13": {
+      "where": "findings.conf:0139",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "52f455cdf7abd58b": {
+      "where": "findings.conf:0142",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "bf71058cb577e01c": {
+      "where": "findings.conf:0146",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "07d3c7f2429e970e": {
+      "where": "findings.conf:0150",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "7602a517e73fe115": {
+      "where": "findings.conf:0155",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "c2b446fc06a65750": {
+      "where": "findings.conf:0159",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "795cfeb7c00924c3": {
+      "where": "findings.conf:0162",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "174365eb30928a40": {
+      "where": "findings.conf:0167",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "d02dde1957258bb8": {
+      "where": "findings.conf:0174",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "0fa6ab3c98d78eab": {
+      "where": "findings.conf:0178",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "69f6a7122663efe1": {
+      "where": "findings.conf:0182",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "8a1eca9778de5a86": {
+      "where": "findings.conf:0185",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "f3b6ff1e3fc888c8": {
+      "where": "findings.conf:0188",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "a3098ab6f76e4fcd": {
+      "where": "findings.conf:0191",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "fc8c7834063b89f3": {
+      "where": "findings.conf:0194",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "68cac48a5532ebe2": {
+      "where": "findings.conf:0198",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "d7fb10f8f46d1310": {
+      "where": "findings.conf:0204",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "5e3f1690d885ac0e": {
+      "where": "findings.conf:0207",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "3c113805dad41148": {
+      "where": "findings.conf:0210",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "68d5fdb2b4f6cd0b": {
+      "where": "findings.conf:0218",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "f5d67052c331db20": {
+      "where": "findings.conf:0222",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "03a03832d2ba3550": {
+      "where": "findings.conf:0226",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "8dfdb3505ba6fedd": {
+      "where": "findings.conf:0233",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "84b23c1254a768b6": {
+      "where": "findings.conf:0237",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "e79b272bafa36dad": {
+      "where": "findings.conf:0241",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "101b930977899496": {
+      "where": "findings.conf:0245",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "4fb6adb74d99ed68": {
+      "where": "findings.conf:0248",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "3a15448a1eff6ec6": {
+      "where": "findings.conf:0252",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "10307cef8aaa2ded": {
+      "where": "findings.conf:0255",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "177ae0be8ac11227": {
+      "where": "findings.conf:0259",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "9ad958c8eaaad5b7": {
+      "where": "findings.conf:0262",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "27fe14288b67edae": {
+      "where": "findings.conf:0265",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "fa5c5ba626731688": {
+      "where": "findings.conf:0270",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "57507228b6400d90": {
+      "where": "findings.conf:0274",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "d388f30d310f82c9": {
+      "where": "findings.conf:0277",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "a0b370b13163e47f": {
+      "where": "findings.conf:0284",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "dc1d3493165eb7ce": {
+      "where": "findings.conf:0290",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "564c2d4ceb8cb7cc": {
+      "where": "findings.conf:0296",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "55ca3a21c2024179": {
+      "where": "findings.conf:0299",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "c12afe75b3f1a08a": {
+      "where": "findings.conf:0307",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "8dedfd04651acd96": {
+      "where": "findings.conf:0311",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "156fc3343549aa79": {
+      "where": "findings.conf:0315",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "d2ac804af930ce7b": {
+      "where": "findings.conf:0320",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "9b80144e56992988": {
+      "where": "findings.conf:0325",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "9c9fb2cb247173c0": {
+      "where": "findings.conf:0329",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "746d69de45cf5311": {
+      "where": "findings.conf:0333",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "d1fd225dd07285c4": {
+      "where": "findings.conf:0337",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "926ddd38ef38cebe": {
+      "where": "findings.conf:0346",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "0c3433bffa50b0de": {
+      "where": "findings.conf:0351",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "73b4c3b3ef71a79b": {
+      "where": "findings.conf:0356",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "569f7c6e25fe42be": {
+      "where": "findings.conf:0362",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "3a387809aef86d09": {
+      "where": "findings.conf:0372",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "47fc7813f3668acd": {
+      "where": "findings.conf:0379",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "78df3f17c938d884": {
+      "where": "findings.conf:0384",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "e029771eaabd8f27": {
+      "where": "findings.conf:0388",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "4b5a2dcd8cb84bb3": {
+      "where": "findings.conf:0392",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "3f71583d327b9272": {
+      "where": "findings.conf:0396",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "069a0157e07ade48": {
+      "where": "findings.conf:0400",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "093aa6eab517efb0": {
+      "where": "findings.conf:0404",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "af11561c122a0d1e": {
+      "where": "findings.conf:0408",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "b4bbbd1537b11a1d": {
+      "where": "findings.conf:0412",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "567457389ca0cf3b": {
+      "where": "findings.conf:0416",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "3654417aaf62f8bd": {
+      "where": "modsecurity3.conf:0011",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "a6ff6e633c1ed1cf": {
+      "where": "modsecurity3.conf:0018",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "7cd8ae837519efad": {
+      "where": "modsecurity3.conf:0022",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "9c1eac0cfc1296ce": {
+      "where": "modsecurity3.conf:0026",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "c19186d3eb0c4794": {
+      "where": "modsecurity3.conf:0029",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "66b3bb814093ae6f": {
+      "where": "modsecurity3.conf:0034",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "dbb61d1f440ca776": {
+      "where": "modsecurity3.conf:0037",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "16bb6cbee7eb6e9a": {
+      "where": "modsecurity3.conf:0041",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "4617cfac4dffab2e": {
+      "where": "modsecurity3.conf:0044",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "6a234fc97a1cadc2": {
+      "where": "modsecurity3.conf:0049",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "a39c7c3bbd49ec10": {
+      "where": "modsecurity3.conf:0053",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "09d882e94c538aea": {
+      "where": "reactions.conf:0007",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "7a75fe9c9d094815": {
+      "where": "reactions.conf:0015",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "c0df845ead88500a": {
+      "where": "reactions.conf:0019",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "94abf48b21c87526": {
+      "where": "reactions.conf:0023",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "92a491ed683671e2": {
+      "where": "reactions.conf:0027",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "4ab691efb59192ac": {
+      "where": "reactions.conf:0031",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "4b7d0b78f68e2454": {
+      "where": "reactions.conf:0036",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "1f5e5dbc1a39f8d9": {
+      "where": "reactions.conf:0039",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "6dd3f99d20c6e096": {
+      "where": "reactions.conf:0043",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "88932386c0840678": {
+      "where": "reactions.conf:0046",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "0559a682bf7772d7": {
+      "where": "reactions.conf:0054",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "d14efdc9c88e6cf3": {
+      "where": "reactions.conf:0058",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "b1ce85070c626416": {
+      "where": "reactions.conf:0062",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "799e32e451f39f20": {
+      "where": "reactions.conf:0067",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "6761b01932b1575b": {
+      "where": "reactions.conf:0071",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "2df1bdb4a58ed9fc": {
+      "where": "reactions.conf:0079",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "946c76c55d363f42": {
+      "where": "reactions.conf:0083",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "ec979e3f09be109a": {
+      "where": "reactions.conf:0087",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "f203e9aa99bff385": {
+      "where": "reactions.conf:0091",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "405633dd7987e440": {
+      "where": "reactions.conf:0096",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "bb11d682fc39825e": {
+      "where": "reactions.conf:0102",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "bfa216d0c4e34394": {
+      "where": "reactions.conf:0110",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "decb2a9a049a457c": {
+      "where": "reactions.conf:0113",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "d302503ddf341cbe": {
+      "where": "reactions.conf:0117",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "3131ec30c587d010": {
+      "where": "reactions.conf:0121",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "2ea76ef1b34c2fa7": {
+      "where": "reactions.conf:0124",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "50dd4923def17216": {
+      "where": "reactions.conf:0127",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "e2fe63c79ece9f95": {
+      "where": "reactions.conf:0130",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "4e8c19f2981490ad": {
+      "where": "reactions.conf:0134",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "622c4e69da447f9a": {
+      "where": "reactions.conf:0137",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "262095f3826b8110": {
+      "where": "reactions.conf:0142",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "339d9712c328c843": {
+      "where": "reactions.conf:0150",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "e068881ddfc776a5": {
+      "where": "reactions.conf:0153",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "10db75d9861306fd": {
+      "where": "reactions.conf:0156",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "cfbc4fb442e7f42d": {
+      "where": "reactions.conf:0160",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "40bf8077d689f4a8": {
+      "where": "reactions.conf:0164",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "6622144634e9e6fb": {
+      "where": "reactions.conf:0167",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "27d198c0106e7adc": {
+      "where": "reactions.conf:0172",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "0f901d52b639ebdf": {
+      "where": "reactions.conf:0176",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "9cca271807a35575": {
+      "where": "reactions.conf:0179",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "d2b1db23b39d3373": {
+      "where": "reactions.conf:0182",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "9bfec5a9b898d7cf": {
+      "where": "reactions.conf:0186",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "4784b4f4dc894489": {
+      "where": "reactions.conf:0189",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "21bce77f9035c936": {
+      "where": "reactions.conf:0193",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "6edb36bf32415e0d": {
+      "where": "reactions.conf:0197",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "5f767c061b9d1998": {
+      "where": "reactions.conf:0205",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "eda6d3e2d5e2a516": {
+      "where": "reactions.conf:0208",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "f7c1b432a7b77eef": {
+      "where": "reactions.conf:0212",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "e2431c08d224580d": {
+      "where": "reactions.conf:0217",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "29233e538b5a1646": {
+      "where": "reactions.conf:0224",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "1b83367af693bc18": {
+      "where": "reactions.conf:0228",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "952ab14ef771d1ce": {
+      "where": "reactions.conf:0236",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "9d34ec8f7ed79364": {
+      "where": "reactions.conf:0241",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "d7034d536397aabd": {
+      "where": "reactions.conf:0253",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "2558d573145c5c9e": {
+      "where": "reactions.conf:0257",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "36e6949dd824fc7e": {
+      "where": "reactions.conf:0261",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "1684bcca46256a1f": {
+      "where": "reactions.conf:0265",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "484d4c26bc7c5b27": {
+      "where": "reactions.conf:0269",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "59b5faa24916467e": {
+      "where": "reactions.conf:0273",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "d72a9d6643d7908c": {
+      "where": "reactions.conf:0277",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "0e31c6f2d18e186a": {
+      "where": "reactions.conf:0281",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "06af5ce7940855b8": {
+      "where": "reactions.conf:0285",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "6d2dff6f78065f72": {
+      "where": "reactions.conf:0289",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "1a90c9052d076793": {
+      "where": "reactions.conf:0294",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "47703f2e1d3b54dd": {
+      "where": "reactions.conf:0301",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "44d863db47bd80ac": {
+      "where": "reactions.conf:0306",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "488fa121aa2d501c": {
+      "where": "reactions.conf:0310",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "5a94dc5244ae676c": {
+      "where": "reactions.conf:0314",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "3fafd9a8e6b54f92": {
+      "where": "reactions.conf:0322",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "63f853ccebdc5afb": {
+      "where": "reactions.conf:0326",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "95f71076bc19b61e": {
+      "where": "security.conf:0008",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "f0b184751fd17bd5": {
+      "where": "security.conf:0013",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "930e823d578ddd79": {
+      "where": "security.conf:0017",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "844be2a8f7c3be68": {
+      "where": "security.conf:0021",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "34d18c89c22a4431": {
+      "where": "security.conf:0025",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "f733300bb3a7d396": {
+      "where": "security.conf:0029",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "bf9b5f02a7c40f87": {
+      "where": "probe:b1-quoted-variables",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "5155ba7e2517f623": {
+      "where": "probe:b2-quoted-variables-selector",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "2f05c5235aa8794e": {
+      "where": "probe:b3-unquoted-selector-quotes",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "5066e20dd1df8d63": {
+      "where": "probe:c1-operator-upper",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "3563598fa23ea827": {
+      "where": "probe:c2-operator-lower",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "008c028194a52e44": {
+      "where": "probe:c3-operator-mixed",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "9e1136064396f168": {
+      "where": "probe:c4-transform-case",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "c6b5f06ebba9d824": {
+      "where": "probe:c5-action-case",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "53406e6c2f2515df": {
+      "where": "probe:c6-variable-case",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "0b2314626131b4ee": {
+      "where": "probe:c7-directive-case",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "711e64cbb0002b38": {
+      "where": "probe:d1-unquoted-value-space",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "dc1d852c857b8b98": {
+      "where": "probe:d2-unquoted-value-pipe",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "73d0e44203a5822c": {
+      "where": "probe:d3-unquoted-value-plain",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "30f9975a809fed4a": {
+      "where": "probe:d4-redirect-pipe",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "6eb9828f6d852931": {
+      "where": "probe:d5-spaces-around-commas",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "395b28bfd3630c59": {
+      "where": "probe:d6-trailing-comma",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "4a4da28645ccdb9a": {
+      "where": "probe:d7-double-comma",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "e9c4d42a3d3baa10": {
+      "where": "probe:f1-codepoint-ff",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "44324077c6195f2e": {
+      "where": "probe:f2-codepoint-100",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "9abe2f3d9d6e470e": {
+      "where": "probe:f3-codepoint-20ac",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "74389a6d0109c958": {
+      "where": "probe:g1-update-target-alone",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "27df5c434d84cba1": {
+      "where": "probe:g2-update-target-before-rule",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "6f15cded5a7f2f49": {
+      "where": "probe:g3-update-target-after-other-rule",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "a871e1800ff7cee9": {
+      "where": "probe:g4-update-target-after-rule",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "9bc441e3aaa8af96": {
+      "where": "probe:g5-update-target-by-tag-alone",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "ac52cdef44a72f57": {
+      "where": "probe:g6-remove-by-id-alone",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "a0d9f859fdcc4b9c": {
+      "where": "probe:g7-remove-by-tag-alone",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "886062e71a58f26e": {
+      "where": "probe:h1-update-action-alone",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "aee68f5864d82164": {
+      "where": "probe:h2-update-action-after-rule",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "583190f27381ea7c": {
+      "where": "probe:i1-text-after-quote",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "e1b10e78a62ea136": {
+      "where": "probe:i2-space-after-quote",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "f56db0a80aab40a7": {
+      "where": "probe:j1-quoted-setvar-comma",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "ef66eef9f0572b92": {
+      "where": "probe:j2-quoted-setvar",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "2fdb9f0fac8c908c": {
+      "where": "probe:j3-quoted-msg-comma",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "7885296f313de108": {
+      "where": "probe:k1-quoted-ctl",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "291dc5359588757e": {
+      "where": "probe:l1-setvar-ip",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "e7ddb2f258a9c9aa": {
+      "where": "probe:l2-initcol-alone",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "a5d1ff8f7b59518a": {
+      "where": "probe:l3-setvar-global",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "6c96ca373b5459d5": {
+      "where": "probe:l4-expirevar-ip",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "2c1521abc8535c10": {
+      "where": "probe:l5-expirevar-tx",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "b1ceaa1155348e34": {
+      "where": "probe:l6-read-ip",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "3266e785e5199506": {
+      "where": "probe:q1-id-quoted",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "1ea77cadc09d3f7a": {
+      "where": "probe:q2-id-zero",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "a4917544da6f5ca4": {
+      "where": "probe:q3-id-negative",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "0926298b9252152c": {
+      "where": "probe:q4-id-text",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "f3ae61333c01e18e": {
+      "where": "probe:q5-id-fraction",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "d9ae1ca82ad463ea": {
+      "where": "probe:q6-id-missing",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "3f4e71088d31b668": {
+      "where": "probe:r1-phase-6",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "553a3148b5444007": {
+      "where": "probe:r2-phase-0",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "2e0dc6271a91ecd8": {
+      "where": "probe:r3-phase-word",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "dd788c0fe177708f": {
+      "where": "probe:r4-phase-word-upper",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "6f253d3b3613e787": {
+      "where": "probe:r5-phase-missing",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "20b6475629172674": {
+      "where": "probe:s1-severity-8",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "fe73ac83fd1a2338": {
+      "where": "probe:s2-severity-lower",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "90c16f10b2aca890": {
+      "where": "probe:s3-severity-quoted",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "7750747fe1aea677": {
+      "where": "probe:s4-severity-word",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "4c6914e27f0acd84": {
+      "where": "probe:s5-status-99",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "6f9b39883e34c15a": {
+      "where": "probe:s6-status-600",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "4d5fe8aa2900393d": {
+      "where": "probe:s7-status-text",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "a316f9a17310166b": {
+      "where": "probe:s8-status-with-pass",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "aededf911bfee03f": {
+      "where": "probe:t1-ctl-bad-value",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "eda224c5103b8073": {
+      "where": "probe:t2-ctl-unknown",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "0c8991f12b60e500": {
+      "where": "probe:t3-ctl-parts",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "840bd3ca871c0ba7": {
+      "where": "probe:t4-ctl-limit",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "2dc0f1bd274deb00": {
+      "where": "probe:t5-ctl-no-value",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "32a772e03b86ff07": {
+      "where": "probe:t6-ctl-remove-target-no-target",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "ab9226f6a2aed6d3": {
+      "where": "probe:t7-ctl-remove-by-tag",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "b0e28e9b2169c72c": {
+      "where": "probe:t8-ctl-remove-target-by-tag",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "f86dfa89a9ad74f9": {
+      "where": "probe:t9-ctl-processor-custom",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "cde31cb51fad71ca": {
+      "where": "probe:u1-duplicate-id",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "69afa70160226476": {
+      "where": "probe:u2-two-disruptive",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "c55578fe9bbab489": {
+      "where": "probe:u3-log-nolog",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "469771e7e37cad74": {
+      "where": "probe:u4-duplicate-msg",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "e612a924b18c7dec": {
+      "where": "probe:u5-duplicate-phase",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "bc9dad8476aed500": {
+      "where": "probe:v1-default-incomplete",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "6614c3821ce830a2": {
+      "where": "probe:v2-default-chain",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "b87842729e450d22": {
+      "where": "probe:v3-default-tag",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "e6d1a7d5c53dc6ec": {
+      "where": "probe:v4-default-twice",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "2b653dc3687b9e36": {
+      "where": "probe:v5-default-transform",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "71741f1ccd605155": {
+      "where": "probe:v6-default-id",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "d00adbda39d11424": {
+      "where": "probe:v7-default-msg",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "639258c6027a4f9d": {
+      "where": "probe:v8-default-no-disruptive",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "eb01b421aa6f37f8": {
+      "where": "probe:w1-skip-zero",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "c7c50ebab097d0ae": {
+      "where": "probe:w2-skip-text",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "2ffd853fad8cbdd8": {
+      "where": "probe:w3-xmlns-no-equals",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "009a8e4473e76cea": {
+      "where": "probe:w4-allow-bad",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "278c1f4ee68c41c1": {
+      "where": "probe:w5-initcol-no-key",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "f1d4d0a1e8c3d683": {
+      "where": "probe:w6-setvar-no-name",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "623ca0dd45957b1a": {
+      "where": "probe:w7-setvar-geo",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "e5011618fa477fb8": {
+      "where": "probe:w8-maturity-text",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "2c8f32562c8ab093": {
+      "where": "probe:w9-pause-text",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "ac08ebcb782a4e9f": {
+      "where": "probe:y1-space-before-operator",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "1d22264548e8efa9": {
+      "where": "probe:y2-double-bang",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "81ceb0a22b65f22e": {
+      "where": "probe:y3-bang-space",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "b71a8781cf6d61a2": {
+      "where": "probe:y4-unknown-operator",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "963f722bda54d8e0": {
+      "where": "probe:y5-operator-no-arg",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "d96c5394b3440c76": {
+      "where": "probe:y6-empty-operator",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "5b825f04566d4514": {
+      "where": "probe:y7-eq-text",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "832853d6c1bf7958": {
+      "where": "probe:y8-unconditional-with-arg",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "919608dc68307d46": {
+      "where": "probe:z1-ip-spaces",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "55ead18fb50ee533": {
+      "where": "probe:z2-ip-bad-mask",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "755e6a59628a4ff2": {
+      "where": "probe:z3-ip-trailing-comma",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "dd5748c9cd28b881": {
+      "where": "probe:z4-byte-range-spaces",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "9f3ec1abfbad61f7": {
+      "where": "probe:z5-byte-range-reversed",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "1dc6c9ca0a8a8129": {
+      "where": "probe:z6-byte-range-text",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "296ef62ba22ee8af": {
+      "where": "probe:z7-pm-macro",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "4ac06189b42879f4": {
+      "where": "probe:z8-ip-macro",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "1e8df1166cc6f9f6": {
+      "where": "probe:aa1-disruptive-in-link",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "909ae4c404473adc": {
+      "where": "probe:aa2-msg-in-link",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "6de15b153314985e": {
+      "where": "probe:aa3-id-in-link",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "676760f185c715e5": {
+      "where": "probe:aa4-phase-in-link",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "dfe583b260c0e5d1": {
+      "where": "probe:aa5-dangling-chain",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "2959c30444175d72": {
+      "where": "probe:aa6-skipafter-in-link",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "c2f32fd4adb1c3e6": {
+      "where": "probe:ab1-double-pipe",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "997e076545f615b2": {
+      "where": "probe:ab2-trailing-pipe",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "4a918ced128f5c20": {
+      "where": "probe:ab3-comma-variables",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "e7e91d609665a554": {
+      "where": "probe:ab4-exclude-without-base",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "ad17a27f3633f87f": {
+      "where": "probe:ab5-count-scalar",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "d91ee7ef7b732bb7": {
+      "where": "probe:ab6-tx-no-selector",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "ebda015ca1ad667f": {
+      "where": "probe:ab7-selector-on-scalar",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "403e9376a74fb20c": {
+      "where": "probe:ac1-macro-unknown",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "d70aad4e24ae7c2a": {
+      "where": "probe:ac2-macro-colon",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "aae2c75117e863da": {
+      "where": "probe:ac3-macro-rule-field",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "277b25dc19d43f16": {
+      "where": "probe:ac4-macro-unterminated",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "66b67257acee4606": {
+      "where": "probe:ac5-macro-in-skipafter",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "ec8a25d4599bc3fa": {
+      "where": "probe:ac6-macro-in-id",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "635043e51364d1bd": {
+      "where": "probe:ac7-macro-in-status",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "0b2c68c8ecca3bd8": {
+      "where": "probe:ae1-unclosed-value-quote",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "96b489168fb7fde7": {
+      "where": "probe:ae2-apostrophe-inside",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "31ebd59c7992b3a3": {
+      "where": "probe:ae3-invalid-pair",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "ff83c12837754998": {
+      "where": "probe:ae4-two-slashes",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "d75111ab411b79f8": {
+      "where": "probe:ae5-three-slashes",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "497d03044fd9012c": {
+      "where": "probe:ae6-escaped-quote",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "3cbaea3dbe557218": {
+      "where": "probe:af2-rule-one-arg",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "baa20cf76a6a6748": {
+      "where": "probe:af3-rule-no-actions",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "1e2c172c26eb8755": {
+      "where": "probe:af4-rule-four-args",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "2170c372dbf9465d": {
+      "where": "probe:af5-unknown-directive",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "69e9a39c7091a920": {
+      "where": "probe:af6-unbalanced-quotes",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "74aa7bc41c6d40a0": {
+      "where": "probe:ag1-duplicate-ids",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "36614b6324ffaee7": {
+      "where": "probe:ah2-remove-open-range",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "949a50d15d1c68c3": {
+      "where": "probe:ah3-remove-quoted-list",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "486095be1fbfd0cc": {
+      "where": "probe:ah4-remove-reversed-range",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "f4c48b5186151a2d": {
+      "where": "probe:ai1-remove-by-tag-bad-regex",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "15db8fcbab25db53": {
+      "where": "probe:ai2-update-target-no-bang",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "b77ce1ac14bea1b2": {
+      "where": "probe:ai3-update-action-id",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "9f8c4909c1092d46": {
+      "where": "probe:ak1-disruptive-phase5",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "cb6ae707371b1a14": {
+      "where": "probe:ak2-block-phase5",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "26916d2d7ce650ac": {
+      "where": "probe:ak3-no-disruptive",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "371f92e1889a9193": {
+      "where": "probe:al1-phase-too-early",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "5995c38d568b505b": {
+      "where": "probe:am1-regex-in-directive",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "72756fccf29b01ba": {
+      "where": "probe:am2-regex-lookbehind",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "b6e9a75fa5853eaa": {
+      "where": "probe:am3-regex-possessive",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "9ea990247a5c0880": {
+      "where": "probe:am4-regex-backslash-pair",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "5c8880ee7310fdeb": {
+      "where": "probe:am5-regex-invalid",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "84707b44d64ad772": {
+      "where": "probe:an1-transform-unknown",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "2648da07a018a249": {
+      "where": "probe:an2-transform-none-twice",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "570ad12679e393f5": {
+      "where": "probe:ao1-single-quoted-args",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "0e6774c8d6df3791": {
+      "where": "probe:ao2-unquoted-actions",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "357f32cc52a1858f": {
+      "where": "probe:ao3-unquoted-operator",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "eb4d5a99d9d4e510": {
+      "where": "probe:ap1-continuation-space",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "082961fcb13fe9e8": {
+      "where": "probe:ap2-comment-backslash",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "4075f64d230f873b": {
+      "where": "probe:ap3-continuation-in-quotes",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "10a9a092ffccdc99": {
+      "where": "probe:w1-bom",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "77a5e163ee81e828": {
+      "where": "probe:w2-nbsp-separator",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "b096e5f4a5bef8d8": {
+      "where": "probe:w3-nbsp-before-actions",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": false
+    },
+    "99dea47993aaa59e": {
+      "where": "probe:w4-smart-quotes",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "621fd14aabf6ddae": {
+      "where": "probe:w5-zero-width-in-name",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "0a50b110d79afce1": {
+      "where": "probe:w6-zero-width-in-pattern",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "085a6df20aa1a41e": {
+      "where": "probe:w7-nbsp-in-msg",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "4a8dcf85f24a2240": {
+      "where": "probe:w8-smart-quotes-in-msg",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "49d5d894f32a23f8": {
+      "where": "probe:w9-zero-width-between-actions",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": false
+    },
+    "1a22d04f87cd6761": {
+      "where": "probe:x1-id-int32-max",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "86b0ec3d159c3ad8": {
+      "where": "probe:x2-id-int32-over",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "452833ca08e24c9b": {
+      "where": "probe:x3-id-uint32-max",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "8132f0b6316d0f24": {
+      "where": "probe:x4-id-uint32-over",
+      "modsecurity2": false,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "fec69e00b3f17fe5": {
+      "where": "probe:x5-id-int64-max",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "c0ea67119e989711": {
+      "where": "probe:y1-marker-space",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "f539e7493e01aa1a": {
+      "where": "probe:y2-marker-plain",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "4a4dad87f7882f7d": {
+      "where": "probe:y3-skipafter-space",
+      "modsecurity2": false,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "ee3e7464284133f3": {
+      "where": "probe:z1-selector-equals",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "3992020c0ecb3a52": {
+      "where": "probe:z2-ctl-remove-target-pattern",
+      "modsecurity2": true,
+      "modsecurity3": false,
+      "coraza": true
+    },
+    "73019d8424b9bada": {
+      "where": "probe:z3-update-target-pattern",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    },
+    "1861b1a779560463": {
+      "where": "probe:z4-partial-body",
+      "modsecurity2": true,
+      "modsecurity3": true,
+      "coraza": true
+    }
+  },
+  "behaviour": {
+    "tag-exact": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "tag-pattern": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "tag-substring": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "macro-dot": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "macro-colon": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "ERR"
+    },
+    "skipafter-macro": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "skipafter-plain": {
+      "modsecurity2": "402",
+      "modsecurity3": "402",
+      "coraza": "402"
+    },
+    "skipafter-missing-marker": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "marker-behind": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "chain-head-setvar": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "chain-link-setvar": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "case-never-matches": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "capture-streq": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "capture-rx": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "capture-missing": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "ctl-before-target": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "ctl-after-target": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "ctl-earlier-phase": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "remove-before-rule": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    },
+    "remove-after-rule": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "backslash-pair-digit": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "backslash-pair-literal": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "rx-macro": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    },
+    "streq-macro": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "pm-macro": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "phase-before-line": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "read-before-set": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "block-without-defaults": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "status-with-pass": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "detection-only": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "default-transform-inherited": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "ERR"
+    },
+    "transform-none-resets": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "ERR"
+    },
+    "unknown-operator-v3": {
+      "modsecurity2": "ERR",
+      "modsecurity3": "403",
+      "coraza": "ERR"
+    },
+    "operator-after-space": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "body-in-phase-1": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "body-in-phase-2": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "body-access-off": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "args-in-phase-1": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "ctl-unconditional-target": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    },
+    "update-target-after-rule": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "update-target-before-rule": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "ERR"
+    },
+    "ctl-remove-target": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "exclude-without-base": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "skip-counts-rules": {
+      "modsecurity2": "402",
+      "modsecurity3": "402",
+      "coraza": "402"
+    },
+    "duplicate-transform-none": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "whitespace-never-matches": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "hash-without-hex": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "hash-with-hex": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "count-with-transforms": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "multimatch-sees-original": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "capture-read-by-next-rule": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "capture-read-in-next-phase": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "capture-kept-through-plain-rx": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "capture-overwritten-by-later-capture": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "capture-kept-when-capturing-rule-misses": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "capture-fewer-groups-old-second": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "capture-head-does-not-reach-link": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "capture-link-fills": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "capture-link-does-not-reach-head": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "capture-missing-own-group-is-empty": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "capture-missing-own-group-is-stale": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "capture-head-setvar-before-link": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "capture-head-read-by-link-target": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "capture-head-read-by-link-argument": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "capture-pm-fills-zero": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "capture-without-groups-old-first": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "capture-in-default-action": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    },
+    "anchors-whole-line": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "anchors-dollar-before-final-newline": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "anchors-caret-after-newline": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "anchors-dollar-before-newline": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "anchors-empty-line": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "anchors-empty-after-final-newline": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    },
+    "anchors-streq-whole-value": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "anchors-text-anchors-whole-value": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "anchors-text-anchors-match": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "anchors-dot-matches-newline": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "anchors-leading-wildcard-spans-lines": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "anchors-uri-decoded-in-v3": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    },
+    "anchors-uri-raw-not-decoded": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "anchors-query-string-not-decoded": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "anchors-request-line-not-decoded": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "anchors-args-decoded": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "anchors-cookie-not-decoded": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "leading-possessive-wildcard-never-matches": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "ERR"
+    },
+    "decode-uri-path-phase1": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    },
+    "decode-uri-query-phase1": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    },
+    "decode-filename-phase1": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "decode-basename-phase1": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "decode-uri-path-phase2": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    },
+    "decode-uri-query-phase2": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    },
+    "decode-filename-phase2": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "decode-basename-phase2": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "decode-uri-raw": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "decode-query-string": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "decode-request-line": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "decode-args-get": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "decode-args-get-names": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "decode-args-post": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "decode-args-post-names": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "decode-request-body": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "decode-args-plus": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "decode-uri-plus": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "decode-args-invalid": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "decode-args-percent-u": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "decode-args-double": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "decode-validate-args": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "decode-validate-uri": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    },
+    "decode-validate-uri-raw": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "decode-cookie-plus": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "decode-validate-uri-path": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    },
+    "selector-name-case": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "cookie-name-case": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "tx-name-case": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "update-target-case": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    },
+    "anchors-negated-newline": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "anchors-text-negated-newline": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "anchors-text-negated-digits": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "update-target-chain-link": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "ctl-remove-target-chain-link": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    },
+    "update-target-not-in-rule": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "ctl-remove-target-regex": {
+      "modsecurity2": "403",
+      "modsecurity3": "ERR",
+      "coraza": "pass"
+    },
+    "update-target-pattern": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "non-ascii-in-class": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    },
+    "dot-and-two-bytes": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    },
+    "non-ascii-as-group": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "negated-on-missing-variable": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "presence-check-on-missing-variable": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "within-substring": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "within-exact-rx": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "body-partial-bypass": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "json-request-body-variable": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    },
+    "zero-width-in-pattern": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "exclusion-case-lower-written": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    },
+    "exclusion-case-header-upper-written": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    },
+    "exclusion-case-header-lower-written": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    },
+    "exclusion-case-ctl": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    },
+    "exclusion-case-pattern": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "403"
+    },
+    "exclusion-case-same": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "exclusion-case-in-rule-target": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "exclusion-case-pattern-i": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "exclusion-case-header-pattern-i": {
+      "modsecurity2": "pass",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "target-pattern-case": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    },
+    "target-pattern-case-tx": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "target-pattern-case-cookie": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "target-pattern-case-header": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "target-pattern-case-i": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "anchors-negated-in-chain": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "anchors-header-after-decode": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "anchors-exclusion-trigger": {
+      "modsecurity2": "403",
+      "modsecurity3": "pass",
+      "coraza": "pass"
+    },
+    "body-error-xml-bypass": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "pass"
+    },
+    "body-error-xml-caught": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "diag-phase2-runs": {
+      "modsecurity2": "pass",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "pcre-limit-fail-open": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    },
+    "exclusion-args-for-args-get": {
+      "modsecurity2": "403",
+      "modsecurity3": "403",
+      "coraza": "403"
+    }
+  }
+}

@@ -1035,7 +1035,7 @@ function no(refusal: DirectiveRefusal): DirectiveRead {
  * макрос в значении. Во всех трёх случаях форма показала бы меньше, чем
  * есть в строке, а сохранила бы ровно то, что показала.
  */
-export function parseDirective(statement: DirectiveStatement): DirectiveRead {
+function parseDirective(statement: DirectiveStatement): DirectiveRead {
   const name = canonicalDirectiveName(statement.name);
   if (name === null) return no('unknown');
 

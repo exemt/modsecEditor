@@ -29,7 +29,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "jest"
+    "test": "jest",
+    "seclang": "node scripts/seclang.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

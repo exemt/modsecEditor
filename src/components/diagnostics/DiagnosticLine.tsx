@@ -10,9 +10,8 @@ import { useBuilderView } from '../../context/builderViewContext';
 import { useEditorView } from '../../context/editorViewContext';
 import { useWorkspace } from '../../context/workspaceContext';
 import { useI18n } from '../../i18n/useI18n';
-import { diagnosticKey, fixKey, slotKey } from '../../i18n/translations';
+import { diagnosticKey, diagnosticParams, fixKey, slotKey } from '../../i18n/translations';
 import { quickFixFor } from '../../modsec/fixes';
-import { findRule } from '../../modsec/model';
 import type { Diagnostic } from '../../modsec/diagnostics';
 
 /** Значок уровня: ошибка, предупреждение, совет. */
@@ -42,26 +41,42 @@ interface DiagnosticLineProps {
  */
 export function DiagnosticLine({ diagnostic, showPlace = false }: DiagnosticLineProps) {
   const { t } = useI18n();
-  const { compiled, updateRule } = useRule();
+  const { compiled, updateRule, replaceSource } = useRule();
   const { revealLine } = useEditorView();
   const { revealRule } = useBuilderView();
-  const { files, activeId, nameOf } = useWorkspace();
+  const { files, activeId, nameOf, treeOf } = useWorkspace();
   const { anchor } = diagnostic;
 
   /**
    * Замечание не о том файле, который открыт.
    *
-   * Модель на руках только у активного файла, поэтому у чужого замечания не
-   * ищется ни правило, ни правка: ключ `rule-3` есть в каждом файле, и поиск
-   * по открытой модели нашёл бы чужое правило. Перейти к нему всё равно можно —
-   * переход сменит файл.
+   * Правят только активный файл: у него и модель на руках, и история отмены.
+   * У чужого замечания поэтому не ищется ни правило, ни правка: ключ `rule-3`
+   * есть в каждом файле, и поиск по открытой модели нашёл бы чужое правило.
+   * Перейти к нему всё равно можно — переход сменит файл.
    */
   const foreign = diagnostic.file !== undefined && diagnostic.file !== activeId;
 
-  // Чинить можно только то, что компилятор разложил в модель: пока в тексте
-  // есть блокирующая ошибка, правка не на что опереться.
-  const fix = quickFixFor(diagnostic);
-  const rule = foreign ? null : findRule(compiled.model, anchor?.ruleKey);
+  // Блок замечания в открытой модели. Адрес есть у любого блока — правила,
+  // безусловного действия, метки, директивы, — и показать в конструкторе
+  // можно любой; правка модели нужна только правилу.
+  const block =
+    foreign || anchor === undefined
+      ? undefined
+      : compiled.model?.blocks.find((candidate) => candidate.key === anchor.ruleKey);
+  const rule = block?.kind === 'rule' ? block.rule : null;
+
+  // Правка текста опирается на дерево файла и работает даже там, где
+  // конструктор закрыт ошибкой. Правке модели нужно правило: пока в тексте
+  // есть блокирующая ошибка, ей не на что опереться.
+  const found = foreign ? null : quickFixFor(diagnostic, treeOf(activeId));
+  const fix = found !== null && found.via === 'model' && rule === null ? null : found;
+
+  const applyFix = () => {
+    if (fix === null) return;
+    if (fix.via === 'text') replaceSource(fix.apply());
+    else if (rule !== null) updateRule(fix.apply(rule));
+  };
 
   // Адрес читается от мелкого к крупному: «оператор · условие 2 · строка 7».
   // Номер строки отделён от остального: он не просто подпись, по нему
@@ -90,14 +105,14 @@ export function DiagnosticLine({ diagnostic, showPlace = false }: DiagnosticLine
         color={diagnostic.severity === 'advice' ? 'text.secondary' : 'text.primary'}
         sx={{ flex: 1 }}
       >
-        {t(diagnosticKey(diagnostic.code), diagnostic.params)}
+        {t(diagnosticKey(diagnostic.code), diagnosticParams(diagnostic.params, t))}
       </Typography>
 
-      {fix !== null && rule !== null && (
+      {fix !== null && (
         <Button
           size="small"
           sx={{ py: 0, minWidth: 0, whiteSpace: 'nowrap' }}
-          onClick={() => updateRule(fix.apply(rule))}
+          onClick={applyFix}
         >
           {t(fixKey(fix.kind), fix.params)}
         </Button>
@@ -111,7 +126,7 @@ export function DiagnosticLine({ diagnostic, showPlace = false }: DiagnosticLine
 
       {/* Две ссылки, а не одна: у текста и у конструктора разные сильные
           стороны, и выбор между ними — за человеком, а не за панелью. */}
-      {showPlace && anchor !== undefined && (rule !== null || foreign) && (
+      {showPlace && anchor !== undefined && (block !== undefined || foreign) && (
         <Link
           component="button"
           variant="caption"

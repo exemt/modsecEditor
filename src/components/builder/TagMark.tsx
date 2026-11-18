@@ -10,6 +10,7 @@ import {
 } from 'react';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
+import type { ChipProps } from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -77,7 +78,7 @@ interface TagMarkProps {
    * В меню выбора вместо чипа значения рисуется отметка «N | i» по
    * {@link count}; тогда `children` не нужен.
    */
-  children?: ReactElement;
+  children?: ReactElement<ChipProps>;
   /** Число правил с этим тегом — чип «N | i» в меню выбора. */
   count?: number;
 }

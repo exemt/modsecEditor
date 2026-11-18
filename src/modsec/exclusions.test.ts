@@ -7,7 +7,6 @@ import {
   exclusionList,
   exclusionRecordText,
   exclusionSelectorText,
-  exclusionSignature,
   exclusionTargetText,
   excludeRuleLine,
   excludeTargetLine,
@@ -125,10 +124,12 @@ describe('разбор директив исключений', () => {
     expect(parsed.map((d) => d.incomplete)).toEqual([true, true, true, true]);
   });
 
-  it('имя директивы читает без учёта регистра, а хранит как написано', () => {
+  it('имя директивы читает без учёта регистра и приводит к принятому написанию', () => {
+    // Движок регистр в именах директив не различает, а формы ищут имя в
+    // своих таблицах буква в букву — поэтому разбор отдаёт его каноничным.
     const [removal] = readExclusions(parseModsec('secruleremovebyid 942100').statements);
     expect(removal.op).toBe('remove');
-    expect(removal.name).toBe('secruleremovebyid');
+    expect(removal.name).toBe('SecRuleRemoveById');
   });
 
   it('на файле без исключений не собирает ничего', () => {
@@ -725,40 +726,5 @@ describe('новое исключение для правила', () => {
     expect(directive.ids).toEqual([{ from: 942100, to: 942100 }]);
     expect(directive.targets.map((target) => target.raw)).toEqual(['!ARGS:comment', '!ARGS:bio']);
     expect(exclusionRecordText(directive)).toBe(line);
-  });
-});
-
-describe('отпечаток директивы', () => {
-  it('совпадает у директив, делающих одно и то же', () => {
-    const [first, second] = readExclusions(
-      parseModsec(['SecRuleRemoveById 942100', 'SecRuleRemoveById 942100'].join('\n')).statements,
-    );
-    expect(exclusionSignature(first)).toBe(exclusionSignature(second));
-  });
-
-  // Директива снимает правило навсегда, `ctl` — на один запрос: одна и та же
-  // выборка тут не значит одно и то же дело.
-  it('различает директиву и `ctl` с той же выборкой', () => {
-    const [directive, ctl] = readExclusions(
-      parseModsec(
-        [
-          'SecRuleRemoveById 942100',
-          `SecRule ARGS "@rx x" "id:1,phase:1,pass,nolog,ctl:ruleRemoveById=942100"`,
-        ].join('\n'),
-      ).statements,
-    );
-    expect(exclusionSignature(directive)).not.toBe(exclusionSignature(ctl));
-  });
-
-  it('различается, когда правки разные', () => {
-    const [target, action] = readExclusions(
-      parseModsec(
-        [
-          'SecRuleUpdateTargetById 942100 "!ARGS:comment"',
-          'SecRuleUpdateTargetById 942100 "!ARGS:bio"',
-        ].join('\n'),
-      ).statements,
-    );
-    expect(exclusionSignature(target)).not.toBe(exclusionSignature(action));
   });
 });

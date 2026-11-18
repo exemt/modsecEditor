@@ -2,6 +2,7 @@
   "files": [],
   "references": [
     { "path": "./tsconfig.app.json" },
+    { "path": "./src/seclang/tsconfig.json" },
     { "path": "./tsconfig.node.json" }
   ]
 }

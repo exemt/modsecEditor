@@ -267,7 +267,7 @@ SecRule ARGS:comment "@gt 4096" \\
     noteKey: 'examples.methods.note',
     code: `# Разрешено то, что перечислено; всё остальное — отказ. Такую политику
 # не нужно дописывать при каждом новом методе.
-SecRule REQUEST_METHOD "!@within GET HEAD POST OPTIONS" \\
+SecRule REQUEST_METHOD "!@rx ^(?:GET|HEAD|POST|OPTIONS)$" \\
     "id:3101,phase:1,deny,status:405,msg:'Method is not allowed',\\
     severity:WARNING,tag:'policy-method'"
 
@@ -453,9 +453,14 @@ SecRule ARGS "@detectXSS" \\
     msg:'XSS in a parameter',severity:CRITICAL,tag:'attack-xss'"
 
 # Ту же настройку можно задать всему файлу сразу — но тогда она
-# действует на каждый запрос, и это уже другое решение.
+# действует на каждый запрос, и это уже другое решение. И раз тело
+# разбирается, кто-то должен читать ошибку разбора: чего разборщик не
+# разобрал, того правила не увидят.
 SecRequestBodyAccess On
 SecRequestBodyLimit 13107200
+SecRule REQBODY_ERROR "!@eq 0" \\
+    "id:6111,phase:2,t:none,deny,status:400,\\
+    msg:'Failed to parse request body',logdata:'%{REQBODY_ERROR_MSG}',severity:CRITICAL"
 `,
   },
 

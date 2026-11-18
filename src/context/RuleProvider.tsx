@@ -66,6 +66,13 @@ export function RuleProvider({ children }: RuleProviderProps) {
     [dispatch],
   );
 
+  const replaceSource = useCallback(
+    (next: string) => {
+      dispatch(applyRuleSource(next, 'push'));
+    },
+    [dispatch],
+  );
+
   const updateRule = useCallback(
     (rule: VisualRule) => runDocOp((doc) => applyRule(doc, rule)),
     [runDocOp],
@@ -120,6 +127,7 @@ export function RuleProvider({ children }: RuleProviderProps) {
       compiled,
       analysis,
       setSource,
+      replaceSource,
       updateRule,
       replaceLines,
       insertLines,
@@ -144,6 +152,7 @@ export function RuleProvider({ children }: RuleProviderProps) {
       compiled,
       analysis,
       setSource,
+      replaceSource,
       updateRule,
       replaceLines,
       insertLines,

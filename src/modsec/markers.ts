@@ -10,7 +10,7 @@
  */
 
 import { serializeAction } from './serialize';
-import type { VisualActions, VisualBlock } from './model';
+import type { VisualBlock } from './model';
 import type { RuleAction } from './types';
 import type { WorkspaceUnit } from './workspace';
 

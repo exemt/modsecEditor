@@ -1174,29 +1174,6 @@ export function excludeTargetLine(id: string, name: string, selectors: string[] 
   return `SecRuleUpdateTargetById ${id} ${dquote(serializeVariables(targets))}`;
 }
 
-/**
- * Отпечаток исключения: по нему видно, что второе делает то же самое.
- *
- * Происхождение входит в отпечаток, потому что директива и `ctl` с одной и той
- * же выборкой — не повтор: первая снимает правило навсегда, второй — на один
- * запрос, и одно другого не заменяет.
- */
-export function exclusionSignature(directive: ExclusionDirective): string {
-  const payload =
-    directive.op === 'updateAction'
-      ? directive.actions.map((action) => action.raw).join(',')
-      : directive.targets.map((target) => target.raw).join('|');
-
-  return [
-    directive.source,
-    directive.op,
-    directive.selector,
-    exclusionSelectorText(directive),
-    payload,
-    directive.replaced ?? '',
-  ].join(':');
-}
-
 /** Правило снято исключением целиком. */
 export function isRemoved(effect: RuleEffect | undefined): boolean {
   return effect !== undefined && effect.removedBy.length > 0;

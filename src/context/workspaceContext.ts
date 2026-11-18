@@ -5,6 +5,7 @@ import type { BlockSnippet, MarkerLocation, RuleLocation } from '../modsec/snipp
 import type { MarkerRefIndex } from '../modsec/markers';
 import type { TagIndex } from '../modsec/tags';
 import type { VariableIndex } from '../modsec/variables';
+import type { FileNode } from '../seclang';
 import type { NewFile } from '../store/filesSlice';
 import type { Analysis } from './useInspection';
 
@@ -32,7 +33,7 @@ export interface WorkspaceFile {
  * Отдельно от `useRule()`, потому что вопросы разные. `useRule()` отвечает про
  * текст, который правят: его модель, его историю, его правки. Здесь — про
  * конфигурацию целиком: какие файлы в неё входят, в каком порядке читаются и
- * что о ней говорит смысловой проход.
+ * что о ней говорит проход по набору.
  */
 export interface WorkspaceContextValue {
   /** Файлы в порядке включения. */
@@ -40,7 +41,7 @@ export interface WorkspaceContextValue {
   /** Файл, который правят. */
   activeId: string;
   /**
-   * Замечания всего набора и ход смыслового прохода.
+   * Замечания всего набора и ход прохода по нему.
    *
    * Одно на набор, а не по файлу: половина замечаний об исключениях — про
    * связь двух файлов, и приписать их одному нельзя.
@@ -107,6 +108,13 @@ export interface WorkspaceContextValue {
    * а не из структуры действия, которой у чипа быть не должно.
    */
   markerOf: (label: string) => MarkerLocation | null;
+  /**
+   * Дерево файла — то самое, по которому найдены его замечания.
+   *
+   * Нужно правке: исправление выводится из замечания и дерева, а границы
+   * замечания считаются в тексте этого дерева. `null` — файла в наборе нет.
+   */
+  treeOf: (id: string) => FileNode | null;
 
   /* --- Набор --- */
   selectFile: (id: string) => void;

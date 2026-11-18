@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
@@ -12,13 +12,13 @@ import {
   select as selectAction,
 } from '../store/filesSlice';
 import { loadDraft, saveDraft } from '../store/draft';
-import { compileDocument } from '../modsec/compile';
+import { compileDocument, compileTree } from '../modsec/compile';
 import { readExclusions, indexWorkspaceExclusions } from '../modsec/exclusions';
+import { createLinter, syncLinter } from '../modsec/inspect';
 import { indexMarkersByLabel, indexRulesById, blockSnippet } from '../modsec/snippet';
 import { indexWorkspaceMarkerRefs } from '../modsec/markers';
 import { indexWorkspaceTags } from '../modsec/tags';
 import { indexWorkspaceVariables } from '../modsec/variables';
-import { fileOrder } from '../modsec/workspace';
 import type { BlockSnippet, MarkerLocation, RuleLocation } from '../modsec/snippet';
 import { RuleProvider } from './RuleProvider';
 import { WorkspaceContext } from './workspaceContext';
@@ -54,6 +54,8 @@ const NO_STATEMENTS: ParsedStatement[] = [];
 interface Entry {
   /** Разбор, по которому это посчитано: сменился — считаем заново. */
   parsed: ParsedDocument | null;
+  /** Текст, по которому это посчитано: разбор без него — ещё не весь файл. */
+  source: string;
   name: string;
   /** Номер в порядке включения: он входит в места исключений. */
   order: number;
@@ -65,7 +67,7 @@ interface Entry {
 /**
  * Набор файлов и всё, что считается по нему целиком.
  *
- * Смысловой проход идёт по набору, а компиляция — по файлу, и именно поэтому
+ * Замечания считаются по набору, а компиляция — по файлу, и именно поэтому
  * здесь живёт кеш по файлам: правка одного файла не должна перекомпилировать
  * остальные. Отсюда же приходит компиляция активного файла — второй раз
  * считать её незачем.
@@ -116,26 +118,47 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
   // состояние — от разбора файла результат не зависит ничем другим.
   const cache = useRef(new Map<string, Entry>());
 
+  // Набор для ядра проверок — тоже кеш, и по той же причине: дерево файла,
+  // текст которого не менялся, ядро заново не строит. Заводится один раз на
+  // жизнь провайдера.
+  const [linter] = useState(createLinter);
+
   const built = useMemo(() => {
     const next = new Map<string, Entry>();
     const units: WorkspaceUnit[] = [];
-    const structural: Diagnostic[] = [];
+    const blocking: Diagnostic[] = [];
     const directives: ExclusionDirective[] = [];
+    let size = 0;
+
+    // Сначала тексты, потом всё остальное: компиляция спрашивает у ядра о
+    // записи файла по тому же дереву, по которому пойдёт проход по набору.
+    syncLinter(linter, files);
 
     files.forEach((file, order) => {
       const old = cache.current.get(file.id);
       let entry = old;
+      size += file.source.length;
 
-      if (entry === undefined || entry.parsed !== file.parsed || entry.name !== file.name || entry.order !== order) {
+      if (
+        entry === undefined ||
+        entry.parsed !== file.parsed ||
+        entry.source !== file.source ||
+        entry.name !== file.name ||
+        entry.order !== order
+      ) {
         const statements = file.parsed?.statements ?? NO_STATEMENTS;
-        // Разбор тот же — та же и компиляция: переставили файл или переименовали,
+        const tree = linter.tree(file.id);
+        // Текст тот же — та же и компиляция: переставили файл или переименовали,
         // а строки в нём остались прежними.
         const compiled =
-          old !== undefined && old.parsed === file.parsed
+          old !== undefined && old.parsed === file.parsed && old.source === file.source
             ? old.compiled
-            : compileDocument(file.parsed, file.id);
+            : tree === null
+              ? compileDocument(file.parsed, file.id)
+              : compileTree(tree, file.parsed, file.id);
         entry = {
           parsed: file.parsed,
+          source: file.source,
           name: file.name,
           order,
           compiled,
@@ -146,15 +169,15 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
 
       next.set(file.id, entry);
       units.push(entry.unit);
-      structural.push(...entry.compiled.diagnostics);
+      blocking.push(...entry.compiled.diagnostics);
       directives.push(...entry.directives);
     });
 
     cache.current = next;
-    return { entries: next, units, structural, directives };
-  }, [files]);
+    return { entries: next, units, blocking, directives, size };
+  }, [files, linter]);
 
-  const { units, structural, directives } = built;
+  const { units, blocking, directives } = built;
 
   const exclusions = useMemo(
     () => indexWorkspaceExclusions(units, directives),
@@ -163,8 +186,7 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
   const variables = useMemo(() => indexWorkspaceVariables(units), [units]);
   const markerRefs = useMemo(() => indexWorkspaceMarkerRefs(units), [units]);
   const tags = useMemo(() => indexWorkspaceTags(units, exclusions), [units, exclusions]);
-  const order = useMemo(() => fileOrder(units), [units]);
-  const analysis = useInspection(units, structural, exclusions, order);
+  const analysis = useInspection(linter, units, blocking, built.size);
 
   // Файла может не быть вовсе — например, до засева. Пустая компиляция
   // говорит то же, что сказала бы о неразобранном тексте: показывать нечего.
@@ -211,6 +233,12 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
     (label: string): MarkerLocation | null => markersByLabel.get(label) ?? null,
     [markersByLabel],
   );
+  // Зависит от набора, а не только от ядра: ядро одно на жизнь провайдера, и
+  // без `built` тот, кто спрашивает дерево, не узнал бы, что оно сменилось.
+  const treeOf = useCallback(
+    (id: string) => (built.entries.has(id) ? linter.tree(id) : null),
+    [built, linter],
+  );
 
   const selectFile = useCallback((id: string) => dispatch(selectAction(id)), [dispatch]);
   const openFiles = useCallback((added: NewFile[]) => dispatch(addFiles(added)), [dispatch]);
@@ -255,6 +283,7 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
       snippetOf,
       ruleOf,
       markerOf,
+      treeOf,
       selectFile,
       openFiles,
       newFile,
@@ -277,6 +306,7 @@ export function WorkspaceProvider({ initialFile, persist, children }: WorkspaceP
       snippetOf,
       ruleOf,
       markerOf,
+      treeOf,
       selectFile,
       openFiles,
       newFile,

@@ -217,15 +217,6 @@ export function blockRange(block: VisualBlock): [number, number] {
     : [block.startIndex, block.statementIndex];
 }
 
-/** Правило модели по ключу — по нему диагностика находит, что чинить. */
-export function findRule(model: VisualModel | null, key: string | undefined): VisualRule | null {
-  if (model === null || key === undefined) return null;
-  for (const block of model.blocks) {
-    if (block.kind === 'rule' && block.key === key) return block.rule;
-  }
-  return null;
-}
-
 /** Пустой набор действий. */
 export function emptyActions(): VisualActions {
   return {

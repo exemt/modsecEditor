@@ -1,34 +1,35 @@
 import { useEffect, useMemo, useState } from 'react';
-import { byLine } from '../modsec/compile';
-import { inspectSlices, inspectWorkspace } from '../modsec/inspect';
+import { inspectWorkspace } from '../modsec/inspect';
 import { LONE_FILE, blockRef } from '../modsec/workspace';
 import type { Diagnostic } from '../modsec/diagnostics';
-import type { ExclusionIndex } from '../modsec/exclusions';
-import type { VisualBlock } from '../modsec/model';
+import type { Linter } from '../modsec/inspect';
 import type { WorkspaceUnit } from '../modsec/workspace';
 
 /**
- * Смысловой проход как часть жизни приложения: когда его вести и чем платить.
+ * Проход по набору как часть жизни приложения: когда его вести и чем платить.
  *
  * Компиляция обязана закончиться до отрисовки — от неё зависят и модель
- * конструктора, и доступность вкладки. Смысловой проход не обязан ничем:
- * ошибок он не выдаёт, а предупреждение, появившееся на кадр позже, никому
- * ничего не испортит. Разница в том, что стоят они примерно одинаково, и на
- * большом файле это разница между «редактор открылся» и «редактор задумался».
+ * конструктора, и доступность вкладки. Проход по набору не обязан ничем:
+ * вкладку он не закрывает, а замечание, появившееся на кадр позже, никому
+ * ничего не испортит. Разница в цене: компиляция считается по одному
+ * файлу — тому, который правят, — а проход каждый раз идёт по всем, потому
+ * что правка одного файла меняет сказанное о других.
  *
- * Поэтому проход ведётся по частям в паузах — но только там, где это имеет
- * смысл. На небольшом файле он занимает единицы миллисекунд, и откладывать
- * было бы чистым проигрышем: сложность есть, выигрыша нет, а диагностика
- * приходит с запозданием там, где могла прийти сразу.
+ * На обычном файле это доли миллисекунды, и откладывать было бы чистым
+ * проигрышем: сложность есть, выигрыша нет, а замечание приходит с опозданием
+ * там, где могло прийти сразу. На наборе размером с CRS проход стоит десятки
+ * миллисекунд — на каждое нажатие клавиши это уже заметно, поэтому там он
+ * ждёт паузы в наборе текста.
  */
 
 /**
- * До какого числа правил проход идёт синхронно.
+ * До какого размера набора проход идёт сразу, в символах.
  *
- * Двести исполняемых блоков — это порядка десяти миллисекунд: незаметно даже
- * при наборе текста. Настоящие файлы CRS начинаются от тысячи.
+ * Сто килобайт правил ядро проверяет за пять–пятнадцать миллисекунд — меньше
+ * кадра. Один файл CRS в этот предел укладывается, весь CRS — нет: он в
+ * несколько раз больше.
  */
-const SYNC_LIMIT = 200;
+const SYNC_LIMIT = 100_000;
 
 /**
  * Пауза после последней правки.
@@ -39,19 +40,10 @@ const SYNC_LIMIT = 200;
  */
 const IDLE_DELAY_MS = 120;
 
-/**
- * Сколько работы делается за один присест.
- *
- * Кадр — шестнадцать миллисекунд, и отдавать проходу весь кадр нельзя: в нём
- * ещё браузеру рисовать. Шесть — компромисс между «не мешает прокрутке» и
- * «не тянется вечно из-за накладных расходов на каждый присест».
- */
-const SLICE_BUDGET_MS = 6;
-
-/** Разбор набора целиком: структура сразу, смысл — как получится. */
+/** Разбор набора целиком: то, что закрывает конструктор, сразу, остальное — как получится. */
 export interface Analysis {
   /**
-   * Структурные и смысловые замечания вместе, в порядке набора.
+   * Все замечания о наборе, в порядке включения файлов.
    *
    * Всех файлов, а не только открытого: исключение, которое ни до чего не
    * дотянулось, и номер, занятый дважды, — замечания о наборе, и увидеть их
@@ -63,79 +55,43 @@ export interface Analysis {
   /** Советы считаются отдельно: они не должны красить сводку. */
   adviceCount: number;
   /**
-   * Смысловой проход ещё идёт, список неполон.
+   * Проход по набору ещё не закончен, список неполон.
    *
    * Неполный счётчик, выглядящий как полный, — ровно тот случай, когда
    * молчание хуже цифры: «замечаний нет» и «замечаний пока не нашли» человек
    * должен различать.
    */
   inspecting: boolean;
-  /** Замечания по правилам: {@link blockRef} правила → его список. */
+  /** Замечания по блокам: {@link blockRef} блока → его список. */
   byRule: Map<string, Diagnostic[]>;
 }
 
-const NO_DIAGNOSTICS: Diagnostic[] = [];
-
-function isExecutable(block: VisualBlock): boolean {
-  return block.kind === 'rule' || block.kind === 'action';
-}
-
-/**
- * Отложенная работа в паузах браузера.
- *
- * Три способа по убыванию осведомлённости. `requestIdleCallback` знает про
- * паузы больше, чем можно узнать самому, но есть не везде. `MessageChannel`
- * паузы не ищет, зато отдаёт управление браузеру между присестами — а это
- * главное, чего мы хотим. `setTimeout` тормозит вложенные вызовы на несколько
- * миллисекунд, поэтому он последний, но и он делает своё дело.
- */
-function schedule(task: () => void): () => void {
-  if (typeof requestIdleCallback === 'function') {
-    const id = requestIdleCallback(task, { timeout: 200 });
-    return () => cancelIdleCallback(id);
-  }
-
-  if (typeof MessageChannel === 'function') {
-    const channel = new MessageChannel();
-    channel.port1.onmessage = () => task();
-    channel.port2.postMessage(null);
-    return () => {
-      channel.port1.onmessage = null;
-    };
-  }
-
-  const id = window.setTimeout(task, 0);
-  return () => window.clearTimeout(id);
-}
-
-/** Ход отложенного прохода. `source` — набор, о котором он рассказывает. */
+/** Итог отложенного прохода. `source` — набор, о котором он рассказывает. */
 interface Progress {
   source: readonly WorkspaceUnit[];
   diagnostics: Diagnostic[];
-  done: boolean;
 }
 
 /**
- * Смысловой проход по набору файлов.
+ * Замечания о наборе файлов.
  *
- * `structural` — замечания компиляции всех файлов: они уже готовы, считать их
- * заново незачем. `order` — порядок включения: по нему список замечаний
- * складывается в один читаемый сверху вниз, а не прыгает между файлами.
+ * `linter` держит те же файлы, что и `units`, — их разбор и есть то, по чему
+ * ядро считает замечания. `blocking` — замечания всех файлов, закрывающие
+ * конструктор: они уже посчитаны компиляцией и показываются, пока проход по
+ * большому набору ждёт своей паузы. `size` — суммарная длина текстов: по ней
+ * решается, идти проходу сразу или подождать.
  */
 export function useInspection(
+  linter: Linter,
   units: readonly WorkspaceUnit[],
-  structural: readonly Diagnostic[],
-  exclusions: ExclusionIndex,
-  order: ReadonlyMap<string, number>,
+  blocking: readonly Diagnostic[],
+  size: number,
 ): Analysis {
-  const deferred = useMemo(
-    () => units.reduce((sum, unit) => sum + unit.blocks.filter(isExecutable).length, 0) > SYNC_LIMIT,
-    [units],
-  );
+  const deferred = size > SYNC_LIMIT;
 
   const immediate = useMemo(
-    () => (deferred ? null : inspectWorkspace(units, exclusions)),
-    [deferred, units, exclusions],
+    () => (deferred ? null : inspectWorkspace(units, linter)),
+    [deferred, units, linter],
   );
 
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -143,56 +99,25 @@ export function useInspection(
   useEffect(() => {
     if (!deferred) return;
 
-    let cancelled = false;
-    let cancelSlice: (() => void) | null = null;
-
-    const start = window.setTimeout(() => {
-      const slices = inspectSlices(units, exclusions);
-      const found: Diagnostic[] = [];
-
-      const step = () => {
-        cancelSlice = null;
-        if (cancelled) return;
-
-        const until = performance.now() + SLICE_BUDGET_MS;
-        let done = false;
-        do {
-          const next = slices.next();
-          if (next.done === true) {
-            done = true;
-            break;
-          }
-          found.push(...next.value);
-        } while (performance.now() < until);
-
-        // Копия, а не сам накопитель: следующий присест допишет в него, и
-        // React не заметил бы изменения в том же массиве.
-        setProgress({ source: units, diagnostics: [...found], done });
-        if (!done) cancelSlice = schedule(step);
-      };
-
-      cancelSlice = schedule(step);
+    const timer = window.setTimeout(() => {
+      setProgress({ source: units, diagnostics: inspectWorkspace(units, linter) });
     }, IDLE_DELAY_MS);
 
-    return () => {
-      cancelled = true;
-      window.clearTimeout(start);
-      cancelSlice?.();
-    };
-  }, [deferred, units, exclusions]);
+    return () => window.clearTimeout(timer);
+  }, [deferred, units, linter]);
 
-  // Ход прохода годится только для того набора, по которому он шёл: правка
+  // Итог прохода годится только для того набора, по которому он шёл: правка
   // текста делает прежние замечания рассказом о другом документе.
-  const current = progress !== null && progress.source === units ? progress : null;
-  const semantic = immediate ?? current?.diagnostics ?? NO_DIAGNOSTICS;
-  const inspecting = deferred && !(current?.done ?? false);
+  const current = progress !== null && progress.source === units ? progress.diagnostics : null;
+  const complete = immediate ?? current;
+  const inspecting = complete === null;
 
   return useMemo(() => {
-    const diagnostics = byLine([...structural, ...semantic], order);
+    const diagnostics = complete ?? [...blocking];
 
-    // Раскладка по правилам считается здесь один раз. Раньше каждая карточка
-    // фильтровала весь список сама: тысяча карточек на три тысячи сообщений —
-    // это три миллиона сравнений на каждый рендер.
+    // Раскладка по блокам считается здесь один раз. Иначе каждая карточка
+    // фильтровала бы весь список сама: тысяча карточек на три тысячи
+    // сообщений — это три миллиона сравнений на каждый рендер.
     const byRule = new Map<string, Diagnostic[]>();
     let errorCount = 0;
     let warningCount = 0;
@@ -205,7 +130,7 @@ export function useInspection(
 
       const key = diagnostic.anchor?.ruleKey;
       if (key === undefined) continue;
-      // Ключ правила считается внутри файла, поэтому в раскладке он идёт с
+      // Ключ блока считается внутри файла, поэтому в раскладке он идёт с
       // файлом: `rule-0` есть в каждом файле набора.
       const ref = blockRef(diagnostic.file ?? LONE_FILE, key);
       const list = byRule.get(ref);
@@ -214,5 +139,5 @@ export function useInspection(
     }
 
     return { diagnostics, errorCount, warningCount, adviceCount, inspecting, byRule };
-  }, [structural, semantic, inspecting, order]);
+  }, [complete, blocking, inspecting]);
 }

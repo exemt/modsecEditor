@@ -1,15 +1,16 @@
 import { parseModsec } from './parser';
-import { analyzeDocument, compileDocument } from './compile';
+import { compileDocument } from './compile';
+import { analyzeDocument } from './inspect';
 import { groupTargets } from './model';
-import type { DiagnosticCode } from './compile';
+import type { DiagnosticCode } from './diagnostics';
 import type { VisualRule } from './model';
 
 /**
- * Полный разбор документа: структура и смысл вместе.
+ * Полный ответ о документе: компиляция и все замечания вместе.
  *
- * Приложение ведёт смысловой проход отдельно и с задержкой, но проверять
- * его отдельно от компиляции здесь незачем: тесту нужен ответ о документе
- * целиком.
+ * Приложение ведёт проход по набору отдельно, а на большом наборе и с
+ * задержкой, но проверять его отдельно от компиляции здесь незачем: тесту
+ * нужен ответ о документе целиком.
  */
 function compile(source: string) {
   return analyzeDocument(parseModsec(source));
@@ -196,10 +197,16 @@ describe('compileDocument — blocking errors', () => {
     expect(found).not.toContain('directiveValueMissing');
   });
 
-  it('says nothing about a directive it has no table for', () => {
+  it('keeps a Lua rule as a plain line, and still checks it as a rule', () => {
     // `SecRuleScript` осталась строкой намеренно: путь плюс список действий —
-    // вид ради одной директивы.
-    expect(codes('SecRuleScript /opt/rules/check.lua "id:1,phase:2"')).toEqual([]);
+    // вид ради одной директивы. Но для ядра это правило, и о нём сказано всё,
+    // что сказано было бы о любом другом.
+    const result = compile('SecRuleScript /opt/rules/check.lua "id:1,phase:2,pass"');
+    expect(result.blocks.map((b) => b.kind)).toEqual(['directive']);
+    expect(result.diagnostics).toEqual([]);
+    expect(codes('SecRuleScript /opt/rules/check.lua "id:1,phase:9,pass"')).toEqual([
+      'invalidActionValue',
+    ]);
   });
 
   it('rejects unbalanced quotes', () => {
@@ -209,25 +216,73 @@ describe('compileDocument — blocking errors', () => {
   });
 
   /**
-   * Все ошибки известны без смыслового прохода.
+   * Что закрывает конструктор, известно без прохода по набору.
    *
    * От этого зависит вся отложенность: `ok` решает, доступна ли визуальная
-   * вкладка, и решаться это должно сразу. Стоит одной ошибке уехать в
-   * отложенный проход — и вкладка сперва откроется, а потом заблокируется.
+   * вкладка, и решаться это должно сразу. Стоит одному такому замечанию
+   * уехать в отложенный проход — и вкладка сперва откроется, а потом
+   * заблокируется.
    */
-  it('knows every blocking error from the structure alone', () => {
-    const structural = (source: string) =>
+  it('knows what blocks the visual editor from the file alone', () => {
+    const blocking = (source: string) =>
       compileDocument(parseModsec(source)).diagnostics.map((d) => d.code);
 
-    expect(structural('SecRule ARGS "@nope foo" "id:1001,phase:2,deny"')).toContain(
+    expect(blocking('SecRule ARGS "@nope foo" "id:1001,phase:2,deny"')).toEqual([
       'unknownOperator',
-    );
-    expect(structural('SecRule "" "@rx foo" "id:1001,phase:2,deny"')).toContain('emptyTargets');
+    ]);
+    expect(blocking('SecRule "" "@rx foo" "id:1001,phase:2,deny"')).toContain('emptyTargets');
+    expect(blocking('SecRule ARGS "@rx foo" "phase:2,deny"')).toEqual(['missingId']);
+    expect(blocking(`${SIMPLE}\n${SIMPLE}`)).toEqual(['duplicateId']);
+    expect(blocking('SecRule ARGS "@rx foo" "id:1001,phase:2,deny,chain"')).toEqual([
+      'danglingChain',
+    ]);
+    expect(blocking('SecRuleEngin On')).toEqual(['unknownDirective']);
+    expect(blocking('SecRuleEngine')).toEqual(['directiveValueMissing']);
+    expect(blocking('SecRuleRemoveById')).toEqual(['exclusionNoTarget']);
+    expect(blocking('SecRule ARGS "@rx foo "id:1001,phase:2,deny"')).toContain('unbalancedQuotes');
 
-    // И наоборот: смысловое замечание в структурную фазу не просочилось.
-    expect(structural('SecRule &ARGS "@gt 10" "id:1001,phase:2,deny,t:lowercase"')).not.toContain(
-      'countWithTransforms',
+    // И наоборот: замечание, с которым конструктор справляется сам, вкладку
+    // не закрывает — каким бы уровнем его ни выдало ядро.
+    expect(blocking('SecRule &ARGS "@gt 10" "id:1001,phase:2,deny,t:lowercase"')).toEqual([]);
+  });
+
+  /**
+   * Запись, которую не загрузит движок, конструктор показать может.
+   *
+   * Шаблон, который не собирается, и значение не из набора — ошибки: с ними
+   * конфигурация не загрузится. Но форме они не мешают: поле краснеет, и
+   * чинят его там же, где набрали. Закрой такая ошибка вкладку — человек,
+   * набравший в форме недописанный шаблон, оказался бы заперт перед ней.
+   */
+  it('keeps the visual editor open for records the form can show and fix', () => {
+    for (const source of [
+      'SecRule ARGS "@rx (" "id:1001,phase:2,deny"',
+      'SecRule ARGS "@rx foo" "id:1001,phase:2,deny,t:nosuch"',
+      'SecRuleEngine Yes',
+      `SecRule ARGS:'my param' "@rx foo" "id:1001,phase:2,deny"`.replace(/^SecRule (\S+ \S+)/, 'SecRule "$1"'),
+    ]) {
+      const result = compile(source);
+      expect({ source, ok: result.ok }).toEqual({ source, ok: true });
+      expect(result.diagnostics.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('blocks the visual editor but still lays the file out in blocks', () => {
+    const broken = compileDocument(parseModsec('SecRule ARGS "@rx foo" "phase:2,deny"'));
+    expect(broken.ok).toBe(false);
+    expect(broken.model).toBeNull();
+    // Блоки разложены и у закрытого файла: проходу по набору они нужны.
+    expect(broken.blocks.map((b) => b.kind)).toEqual(['rule']);
+
+    const fine = compileDocument(
+      parseModsec('SecRule &ARGS "@gt 10" "id:1001,phase:2,deny,t:lowercase"'),
     );
+    expect(fine.ok).toBe(true);
+    expect(fine.model?.blocks).toBe(fine.blocks);
+  });
+
+  it('does not compile a document that was never parsed', () => {
+    expect(compileDocument(null)).toEqual({ ok: false, model: null, blocks: [], diagnostics: [] });
   });
 });
 

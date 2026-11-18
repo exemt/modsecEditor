@@ -60,7 +60,7 @@ interface ChipInputProps {
    * У тегов — подсказка «кто ещё носит этот ярлык»: смысл тега лежит не в
    * нём самом, и сказать это надо у самого значения, а не у поля целиком.
    */
-  wrapChip?: (value: string, chip: ReactElement) => ReactNode;
+  wrapChip?: (value: string, chip: ReactElement<ChipProps>) => ReactNode;
   /**
    * Символы, разделяющие значения при вводе и вставке. Пустой список —
    * значение добавляется только по Enter.

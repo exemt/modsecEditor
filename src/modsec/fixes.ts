@@ -1,24 +1,35 @@
 /**
  * Быстрые правки к диагностикам.
  *
- * Половина сообщений из `checks.ts` описывает механическую ошибку: аргумент
- * написан не в том регистре, шаг конвейера стоит не на своём месте, `@rx`
- * взят там, где хватило бы `@contains`. Читать такое сообщение и руками
- * повторять то, что в нём и так сказано, — работа, которую редактор должен
- * делать сам.
+ * Половина замечаний описывает механическую ошибку: шаг конвейера записан
+ * дважды, `@rx` взят там, где хватило бы `@contains`, аргумент написан не в
+ * том регистре. Читать такое сообщение и руками повторять то, что в нём и так
+ * сказано, — работа, которую редактор должен делать сам.
  *
- * Правка описана как чистое преобразование модели правила, а не как правка
- * текста: текст соберётся заново из модели, и правка не зависит ни от
- * форматирования исходника, ни от того, из какой вкладки её нажали.
+ * Правок два рода, и различаются они тем, что нужно, чтобы их сделать.
+ *
+ * **Правка текста** — исправление ядра (`src/seclang`). Оно выводится из
+ * замечания и дерева и переписывает ровно то место, о котором сказано: убрать
+ * повтор, вставить потерянную запятую, стереть пробел после переноса. Смысла
+ * правила такая правка не меняет, форматирования вокруг не трогает и модели
+ * конструктора не требует — поэтому работает и там, где конструктор закрыт
+ * ошибкой: её-то она обычно и чинит.
+ *
+ * **Правка модели** — то, чего ядро не делает нарочно: оно чинит только
+ * запись, а здесь меняется то, что правило проверяет. Привести аргумент к
+ * нижнему регистру, дописать `t:hexEncode`, подставить фазу — на это нужен
+ * выбор человека, и кнопка — его способ этот выбор сделать. Описана такая
+ * правка как преобразование модели правила: дописать в правило новую часть
+ * умеет сборка текста из модели, а не точечная замена в исходнике.
  *
  * Правки здесь только однозначные. Там, где вариантов несколько — какую из
  * двух несовместимых проверок цепочки убрать, чем заменить `deny` — кнопки
  * нет: угадывать намерение автора правила дороже, чем не угадывать.
  */
 
+import { applyFixes, fixFor, operatorSpec } from '../seclang';
 import { targetsMinPhase } from './semantics';
-import { targetSignature } from './checks';
-import { selectorPattern } from './quoting';
+import type { DiagnosticCode as CoreCode, FileNode } from '../seclang';
 import type { Diagnostic } from './diagnostics';
 import type { VisualCondition, VisualRule } from './model';
 
@@ -38,6 +49,7 @@ export type FixKind =
   | 'escapeDots'
   | 'moveNoneFirst'
   | 'removeTransform'
+  | 'removeAction'
   | 'reorderPipeline'
   | 'clearTransforms'
   | 'addHexEncode'
@@ -48,17 +60,98 @@ export type FixKind =
   | 'clearStatus'
   | 'restoreLog'
   | 'enableCapture'
-  | 'disableCapture';
+  | 'disableCapture'
+  | 'joinContinuation'
+  | 'endComment'
+  | 'macroDot'
+  | 'trimOperator'
+  | 'insertComma';
 
-export interface QuickFix {
+interface FixLabel {
   kind: FixKind;
   /** Подстановки в подпись кнопки. */
   params?: Record<string, string>;
+}
+
+/** Правка текста: новый исходник файла целиком. */
+export interface TextFix extends FixLabel {
+  via: 'text';
+  /**
+   * Текст файла после правки.
+   *
+   * Считается по нажатию, а не заранее: кнопок на экране сотни, и собирать
+   * ради каждой новый текст файла, который почти никогда не понадобится,
+   * незачем.
+   */
+  apply: () => string;
+}
+
+/** Правка модели: правило, которое соберётся в текст обычным путём. */
+export interface ModelFix extends FixLabel {
+  via: 'model';
   apply: (rule: VisualRule) => VisualRule;
 }
 
+export type QuickFix = TextFix | ModelFix;
+
 /* ------------------------------------------------------------------ */
-/* Точечные изменения модели                                           */
+/* Правки текста: исправления ядра                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Подпись кнопки для каждого исправления ядра.
+ *
+ * У ядра подпись своя, английская (`Fix.title`), — для тех, у кого перевода
+ * нет. Здесь она заменена ключом перевода редактора. Таблица полная: тест
+ * сверяет её со списком кодов, которые ядро умеет чинить, и новое
+ * исправление без подписи не пройдёт.
+ */
+export const TEXT_FIX_KINDS: Partial<Record<CoreCode, FixKind>> = {
+  continuationSpace: 'joinContinuation',
+  commentSwallowsLine: 'endComment',
+  duplicateTransform: 'removeTransform',
+  redundantTransform: 'removeTransform',
+  duplicateAction: 'removeAction',
+  duplicateTarget: 'removeTarget',
+  macroKeySeparator: 'macroDot',
+  selectorNeedsQuotes: 'usePatternSelector',
+  operatorReadAsPattern: 'trimOperator',
+  textAfterQuote: 'insertComma',
+  anchoredLiteralRegex: 'useStreq',
+  regexIsPlainText: 'useContains',
+  redundantLeadingWildcard: 'dropLeadingWildcard',
+};
+
+/**
+ * Исправление ядра для замечания — или `null`, если ядро его не чинит.
+ *
+ * Правится тот текст, по которому замечание найдено: границы замечания
+ * считаются в нём, и применить их к другому значило бы резать не там.
+ */
+function textFixFor(diagnostic: Diagnostic, tree: FileNode): TextFix | null {
+  const { range } = diagnostic;
+  const kind = TEXT_FIX_KINDS[diagnostic.code as CoreCode];
+  if (range === undefined || kind === undefined) return null;
+
+  const fix = fixFor(tree, {
+    code: diagnostic.code as CoreCode,
+    start: range.start,
+    end: range.end,
+    data: diagnostic.params,
+  });
+  if (fix === null || fix.edits.length === 0) return null;
+
+  const name = diagnostic.params?.name;
+  return {
+    via: 'text',
+    kind,
+    params: name === undefined ? undefined : { name },
+    apply: () => applyFixes(tree.source, [fix]).source,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Правки модели: точечные изменения                                   */
 /* ------------------------------------------------------------------ */
 
 /** Номер звена, к которому относится диагностика (0-based). */
@@ -97,6 +190,24 @@ function editTransforms(diagnostic: Diagnostic, edit: (transforms: string[]) => 
     }));
 }
 
+/**
+ * Включает или выключает `capture` у звена с этим номером.
+ *
+ * `capture` действует только на оператор того условия, в котором записан,
+ * поэтому поставить его «правилу» нельзя — только звену. У головы он лежит
+ * среди действий правила, у остальных звеньев — среди их собственных.
+ */
+function withCapture(rule: VisualRule, index: number, on: boolean): VisualRule {
+  if (index <= 0) return { ...rule, actions: { ...rule.actions, capture: on } };
+  return editCondition(rule, index, (condition) => {
+    const rest = condition.extra.filter((action) => action.name.toLowerCase() !== 'capture');
+    return {
+      ...condition,
+      extra: on ? [...rest, { raw: '', name: 'capture', quoted: false }] : rest,
+    };
+  });
+}
+
 /** Правка действий правила. */
 function editActions(edit: (rule: VisualRule) => Partial<VisualRule['actions']>) {
   return (rule: VisualRule): VisualRule => ({
@@ -120,207 +231,166 @@ function prependTransforms(transforms: string[], added: string[]): string[] {
   return [...head, ...added, ...rest];
 }
 
+/**
+ * Приводит аргумент оператора к одному регистру.
+ *
+ * У буквального сравнения меняется весь текст. В шаблоне так нельзя: `\D` и
+ * `\d` — разные классы, и приведённый к нижнему регистру шаблон искал бы не
+ * то. Экранированные пары поэтому остаются как написаны, а меняется только
+ * то, что между ними.
+ */
+function foldCase(operator: VisualCondition['operator'], upper: boolean): string {
+  const fold = (text: string) => (upper ? text.toUpperCase() : text.toLowerCase());
+  if (operatorSpec(operator.name)?.arg !== 'regex') return fold(operator.argument);
+  return operator.argument.replace(/\\[\s\S]|[^\\]+/g, (part) =>
+    part.startsWith('\\') ? part : fold(part),
+  );
+}
+
 /* ------------------------------------------------------------------ */
-/* Каталог правок                                                      */
+/* Каталог правок модели                                               */
 /* ------------------------------------------------------------------ */
 
-/**
- * Правка для диагностики или `null`, если однозначной правки нет.
- *
- * Вызывающему остаётся найти правило по `anchor.ruleKey` и применить
- * результат — модель пересоберётся в текст обычным путём.
- */
-export function quickFixFor(diagnostic: Diagnostic): QuickFix | null {
+function modelFixFor(diagnostic: Diagnostic): ModelFix | null {
   const params = diagnostic.params ?? {};
+  const fix = (
+    kind: FixKind,
+    apply: ModelFix['apply'],
+    labelParams?: Record<string, string>,
+  ): ModelFix => ({ via: 'model', kind, params: labelParams, apply });
 
   switch (diagnostic.code) {
     case 'caseNeverMatches': {
       const toUpper = params.name === 'uppercase';
-      return {
-        kind: toUpper ? 'uppercaseValue' : 'lowercaseValue',
-        apply: editOperator(diagnostic, (operator) => ({
-          argument: toUpper
-            ? operator.argument.toUpperCase()
-            : operator.argument.toLowerCase(),
-        })),
-      };
+      return fix(
+        toUpper ? 'uppercaseValue' : 'lowercaseValue',
+        editOperator(diagnostic, (operator) => ({ argument: foldCase(operator, toUpper) })),
+      );
     }
 
-    case 'regexIsPlainText':
-      return {
-        kind: 'useContains',
-        apply: editOperator(diagnostic, () => ({ name: 'contains' })),
-      };
-
     case 'singlePhraseList':
-      return {
-        kind: 'useContains',
-        apply: editOperator(diagnostic, () => ({ name: 'contains' })),
-      };
+      return fix(
+        'useContains',
+        editOperator(diagnostic, () => ({ name: 'contains' })),
+      );
 
-    case 'anchoredLiteralRegex':
-      return {
-        kind: 'useStreq',
-        apply: editOperator(diagnostic, (operator) => ({
-          name: 'streq',
-          argument: operator.argument.replace(/^\^/, '').replace(/\$$/, ''),
-        })),
-      };
-
-    case 'redundantLeadingWildcard':
-      return {
-        kind: 'dropLeadingWildcard',
-        apply: editOperator(diagnostic, (operator) => ({
-          argument: operator.argument.replace(/^\^?\.\*\??/, ''),
-        })),
-      };
-
+    // Замечание выдаётся только шаблону, в котором кроме точек нет ничего
+    // особенного: каждая из них и есть та самая «любой символ вместо точки».
     case 'unescapedDot':
-      return {
-        kind: 'escapeDots',
-        apply: editOperator(diagnostic, (operator) => ({
+      return fix(
+        'escapeDots',
+        editOperator(diagnostic, (operator) => ({
           argument: operator.argument.replace(/\./g, '\\.'),
         })),
-      };
+      );
 
     case 'transformNoneNotFirst':
-      return {
-        kind: 'moveNoneFirst',
-        apply: editTransforms(diagnostic, (transforms) => [
+      return fix(
+        'moveNoneFirst',
+        editTransforms(diagnostic, (transforms) => [
           'none',
           ...transforms.filter((name) => name !== 'none'),
         ]),
-      };
-
-    case 'duplicateTransform':
-      return {
-        kind: 'removeTransform',
-        params: { name: params.name },
-        apply: editTransforms(diagnostic, (transforms) => [...new Set(transforms)]),
-      };
-
-    case 'redundantTransform':
-      return {
-        kind: 'removeTransform',
-        params: { name: params.name },
-        apply: editTransforms(diagnostic, (transforms) =>
-          transforms.filter((name) => name !== params.name),
-        ),
-      };
+      );
 
     case 'decodeAfterNormalise':
-      return {
-        kind: 'reorderPipeline',
-        apply: editTransforms(diagnostic, (transforms) =>
+      return fix(
+        'reorderPipeline',
+        editTransforms(diagnostic, (transforms) =>
           moveBefore(transforms, params.decode, params.normalise),
         ),
-      };
+      );
 
     case 'countWithTransforms':
-      return { kind: 'clearTransforms', apply: editTransforms(diagnostic, () => []) };
+      return fix(
+        'clearTransforms',
+        editTransforms(diagnostic, () => []),
+      );
 
     case 'hashWithoutHexEncode':
-      return {
-        kind: 'addHexEncode',
-        apply: editTransforms(diagnostic, (transforms) => [...transforms, 'hexEncode']),
-      };
+      return fix(
+        'addHexEncode',
+        editTransforms(diagnostic, (transforms) => [...transforms, 'hexEncode']),
+      );
 
     // Одной нормализации мало: если оставить аргумент как есть, `t:lowercase`
     // тут же сделает проверку невыполнимой. Правка чинит обе половины сразу.
     case 'noNormalisation':
-      return {
-        kind: 'addNormalisation',
-        apply: (rule) =>
-          editCondition(rule, conditionIndex(diagnostic), (condition) => ({
-            ...condition,
-            transforms: prependTransforms(condition.transforms, [
-              'urlDecodeUni',
-              'lowercase',
-            ]),
-            operator: {
-              ...condition.operator,
-              argument: condition.operator.argument.toLowerCase(),
-            },
-          })),
-      };
-
-    case 'duplicateTarget':
-      return {
-        kind: 'removeTarget',
-        params: { name: params.name },
-        apply: (rule) =>
-          editCondition(rule, conditionIndex(diagnostic), (condition) => {
-            const seen = new Set<string>();
-            return {
-              ...condition,
-              targets: condition.targets.filter((target) => {
-                const signature = targetSignature(target);
-                if (seen.has(signature)) return false;
-                seen.add(signature);
-                return true;
-              }),
-            };
-          }),
-      };
-
-    // Имя с пробелом ищется по совпадению замены, а не по тексту из
-    // сообщения: там оно обрезано до читаемой длины.
-    case 'selectorNeedsQuotes':
-      return {
-        kind: 'usePatternSelector',
-        apply: (rule) =>
-          editCondition(rule, conditionIndex(diagnostic), (condition) => ({
-            ...condition,
-            targets: condition.targets.map((target) => ({
-              ...target,
-              params: target.params.map((param) =>
-                selectorPattern(param) === params.pattern ? params.pattern : param,
-              ),
-            })),
-          })),
-      };
+      return fix('addNormalisation', (rule) =>
+        editCondition(rule, conditionIndex(diagnostic), (condition) => ({
+          ...condition,
+          transforms: prependTransforms(condition.transforms, ['urlDecodeUni', 'lowercase']),
+          operator: {
+            ...condition.operator,
+            argument: foldCase(condition.operator, false),
+          },
+        })),
+      );
 
     case 'overlappingTargets':
-      return {
-        kind: 'removeTarget',
-        params: { name: params.inner },
-        apply: (rule) =>
+      return fix(
+        'removeTarget',
+        (rule) =>
           editCondition(rule, conditionIndex(diagnostic), (condition) => ({
             ...condition,
             targets: condition.targets.filter(
               (target) => target.name !== params.inner || target.params.length > 0,
             ),
           })),
-      };
+        { name: params.inner },
+      );
 
     // Фазу не нужно угадывать: она однозначно следует из того, когда
     // заполняются области проверки.
     case 'missingPhase':
     case 'phaseTooEarly':
-      return {
-        kind: 'setPhase',
-        apply: editActions((rule) => ({
-          phase: String(
-            Math.max(...rule.conditions.map((c) => targetsMinPhase(c.targets)), 1),
-          ),
+      return fix(
+        'setPhase',
+        editActions((rule) => ({
+          phase: String(Math.max(...rule.conditions.map((c) => targetsMinPhase(c.targets)), 1)),
         })),
-      };
+      );
 
     case 'statusWithoutBlock':
-      return { kind: 'clearStatus', apply: editActions(() => ({ status: '' })) };
+      return fix(
+        'clearStatus',
+        editActions(() => ({ status: '' })),
+      );
 
     case 'blockWithoutLog':
     case 'logdataWithoutLog':
-      return { kind: 'restoreLog', apply: editActions(() => ({ log: null })) };
+      return fix(
+        'restoreLog',
+        editActions(() => ({ log: null })),
+      );
 
+    // Замечание стоит там, где группу читают, а `capture` нужен там, где её
+    // находят: номер этого звена ядро передаёт вместе с замечанием.
     case 'captureMissing':
-      return { kind: 'enableCapture', apply: editActions(() => ({ capture: true })) };
+      return fix('enableCapture', (rule) =>
+        withCapture(rule, Number(params.condition ?? '1') - 1, true),
+      );
 
+    // Здесь замечание стоит на самом `capture` — в своём звене.
     case 'captureUnused':
     case 'captureWithoutRegex':
-      return { kind: 'disableCapture', apply: editActions(() => ({ capture: false })) };
+      return fix('disableCapture', (rule) => withCapture(rule, conditionIndex(diagnostic), false));
 
     default:
       return null;
   }
+}
+
+/**
+ * Правка для диагностики или `null`, если однозначной правки нет.
+ *
+ * Сначала спрашивается ядро: его исправление точнее и не зависит от модели.
+ * `tree` — дерево файла, по которому замечание найдено; без него остаются
+ * только правки модели. Вызывающему остаётся записать результат: текст — в
+ * файл, а для правки модели найти правило по `anchor.ruleKey` и применить
+ * её — модель пересоберётся в текст обычным путём.
+ */
+export function quickFixFor(diagnostic: Diagnostic, tree: FileNode | null = null): QuickFix | null {
+  const text = tree === null ? null : textFixFor(diagnostic, tree);
+  return text ?? modelFixFor(diagnostic);
 }

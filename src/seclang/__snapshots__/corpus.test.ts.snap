@@ -1,0 +1,149 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`корпус: coraza-v3.8.1 состав дерева не изменился 1`] = `
+[
+  "coraza.conf-recommended: SecRule 8, Directive 19, Comment 176, Variable 8, Selector 3, Action 45, Transform 11, Ctl 3, Macro 3",
+]
+`;
+
+exports[`корпус: crs-v2.2.9 состав дерева не изменился 1`] = `
+[
+  "modsecurity_crs_10_setup.conf.example: SecRule 6, SecAction 5, SecDefaultAction 2, Directive 1, Comment 227, Variable 6, Selector 5, Action 52, Transform 13, Setvar 20, Ctl 1, Macro 7",
+  "base_rules/modsecurity_crs_20_protocol_violations.conf: SecRule 35, Comment 265, Variable 51, Selector 23, Action 267, Transform 30, Setvar 69, Macro 140",
+  "base_rules/modsecurity_crs_21_protocol_anomalies.conf: SecRule 11, SecMarker 6, Comment 64, Variable 11, Selector 9, Action 99, Transform 11, Setvar 24, Ctl 1, Macro 41",
+  "base_rules/modsecurity_crs_23_request_limits.conf: SecRule 13, Comment 24, Variable 13, Selector 8, Action 67, Transform 14, Setvar 18, Macro 36",
+  "base_rules/modsecurity_crs_30_http_policy.conf: SecRule 9, Comment 81, Variable 9, Selector 4, Action 84, Transform 9, Setvar 17, Ctl 1, Macro 38",
+  "base_rules/modsecurity_crs_35_bad_robots.conf: SecRule 5, SecMarker 1, Comment 15, Variable 5, Selector 3, Action 59, Transform 7, Setvar 12, Macro 24",
+  "base_rules/modsecurity_crs_40_generic_attacks.conf: SecRule 29, SecMarker 9, Comment 133, Variable 105, Selector 36, Action 345, Transform 56, Setvar 70, Ctl 21, Macro 177",
+  "base_rules/modsecurity_crs_41_sql_injection_attacks.conf: SecRule 55, Comment 122, Variable 241, Selector 93, Action 485, Transform 95, Setvar 185, Ctl 9, Macro 340",
+  "base_rules/modsecurity_crs_41_xss_attacks.conf: SecRule 113, SecMarker 1, Comment 206, Variable 658, Selector 219, Action 1859, Transform 406, Setvar 445, Ctl 67, Macro 1000",
+  "base_rules/modsecurity_crs_42_tight_security.conf: SecRule 1, Comment 17, Variable 5, Selector 2, Action 12, Transform 2, Setvar 3, Ctl 1, Macro 8",
+  "base_rules/modsecurity_crs_45_trojans.conf: SecRule 3, Comment 27, Variable 3, Action 45, Transform 7, Setvar 12, Ctl 3, Macro 24",
+  "base_rules/modsecurity_crs_47_common_exceptions.conf: SecRule 15, Comment 20, Variable 15, Selector 10, Action 27, Transform 13, Setvar 10, Macro 9",
+  "base_rules/modsecurity_crs_49_inbound_blocking.conf: SecRule 7, Comment 19, Variable 7, Selector 7, Action 16, Transform 2, Setvar 4, Macro 10",
+  "base_rules/modsecurity_crs_50_outbound.conf: SecRule 35, SecMarker 2, Comment 39, Variable 35, Selector 2, Action 407, Transform 41, Setvar 108, Ctl 26, Macro 240",
+  "base_rules/modsecurity_crs_59_outbound_blocking.conf: SecRule 3, Comment 19, Variable 3, Selector 3, Action 7, Transform 1, Macro 4",
+  "base_rules/modsecurity_crs_60_correlation.conf: SecRule 8, SecMarker 1, Comment 18, Variable 8, Selector 8, Action 36, Transform 7, Macro 27",
+  "experimental_rules/modsecurity_crs_11_brute_force.conf: SecRule 9, SecAction 1, SecMarker 1, Comment 43, Variable 9, Selector 8, Action 41, Transform 7, Setvar 10, Macro 10",
+  "experimental_rules/modsecurity_crs_11_dos_protection.conf: SecRule 7, SecMarker 1, Comment 31, Variable 7, Selector 6, Action 30, Transform 6, Setvar 9, Macro 8",
+  "experimental_rules/modsecurity_crs_11_proxy_abuse.conf: SecRule 4, Directive 1, Comment 20, Variable 4, Selector 3, Action 10, Transform 2, Setvar 5, Macro 10",
+  "experimental_rules/modsecurity_crs_11_slow_dos_protection.conf: SecRule 2, Directive 4, Comment 23, Variable 2, Selector 1, Action 10, Transform 2, Setvar 1",
+  "experimental_rules/modsecurity_crs_16_scanner_integration.conf: Comment 28",
+  "experimental_rules/modsecurity_crs_25_cc_track_pan.conf: SecRule 3, Comment 11, Variable 3, Action 21, Transform 3, Setvar 6, Macro 9",
+  "experimental_rules/modsecurity_crs_40_appsensor_detection_point_2.0_setup.conf: SecAction 1, Comment 50, Action 5, Transform 1, Setvar 2, Macro 2",
+  "experimental_rules/modsecurity_crs_40_appsensor_detection_point_2.1_request_exception.conf: SecRule 21, SecAction 1, SecRuleScript 1, SecMarker 6, Comment 75, Variable 21, Selector 18, Action 140, Transform 22, Setvar 32, Ctl 1, Macro 61",
+  "experimental_rules/modsecurity_crs_40_appsensor_detection_point_2.9_honeytrap.conf: SecRule 2, Comment 27, Variable 2, Selector 1, Action 12, Transform 2, Setvar 3, Macro 4",
+  "experimental_rules/modsecurity_crs_40_appsensor_detection_point_3.0_end.conf: SecMarker 1, Comment 8",
+  "experimental_rules/modsecurity_crs_40_http_parameter_pollution.conf: SecRule 6, Comment 31, Variable 6, Selector 3, Action 14, Transform 4, Setvar 7, Macro 10",
+  "experimental_rules/modsecurity_crs_42_csp_enforcement.conf: SecRule 6, Directive 2, Comment 34, Variable 6, Selector 4, Action 25, Transform 4, Ctl 1, Macro 3",
+  "experimental_rules/modsecurity_crs_46_scanner_integration.conf: SecRule 6, Comment 14, Variable 6, Selector 4, Action 14, Transform 2, Macro 4",
+  "experimental_rules/modsecurity_crs_48_bayes_analysis.conf: SecRule 2, SecRuleScript 1, Comment 11, Variable 2, Selector 2, Action 23, Transform 3, Setvar 3, Macro 8",
+  "experimental_rules/modsecurity_crs_55_response_profiling.conf: SecRule 10, SecRuleScript 1, SecMarker 1, Comment 8, Variable 10, Selector 10, Action 54, Transform 11, Setvar 24, Macro 40",
+  "experimental_rules/modsecurity_crs_56_pvi_checks.conf: SecRule 3, Comment 8, Variable 3, Selector 2, Action 11, Transform 2, Macro 1",
+  "experimental_rules/modsecurity_crs_61_ip_forensics.conf: SecRule 5, Directive 1, Comment 29, Variable 5, Selector 4, Action 27, Transform 4, Setvar 1, Macro 10",
+  "optional_rules/modsecurity_crs_10_ignore_static.conf: SecRule 6, SecAction 1, SecMarker 1, Comment 32, Variable 6, Action 32, Transform 11, Setvar 3",
+  "optional_rules/modsecurity_crs_11_avs_traffic.conf: Comment 26",
+  "optional_rules/modsecurity_crs_13_xml_enabler.conf: SecRule 1, Comment 10, Variable 1, Selector 1, Action 4, Transform 2, Ctl 1",
+  "optional_rules/modsecurity_crs_16_authentication_tracking.conf: Comment 34",
+  "optional_rules/modsecurity_crs_16_session_hijacking.conf: SecRule 16, SecAction 1, SecMarker 2, Comment 21, Variable 16, Selector 13, Action 63, Transform 25, Setvar 23, Macro 34",
+  "optional_rules/modsecurity_crs_16_username_tracking.conf: Comment 29",
+  "optional_rules/modsecurity_crs_25_cc_known.conf: SecRule 30, SecAction 2, SecMarker 2, Comment 30, Variable 38, Selector 22, Action 174, Transform 18, Setvar 28, Ctl 7, Macro 49",
+  "optional_rules/modsecurity_crs_42_comment_spam.conf: SecRule 9, SecAction 2, SecMarker 3, Comment 19, Variable 13, Selector 4, Action 66, Transform 26, Setvar 23, Ctl 2, Macro 30",
+  "optional_rules/modsecurity_crs_43_csrf_protection.conf: SecRule 5, Directive 3, Comment 27, Variable 5, Selector 3, Action 15, Transform 3, Setvar 6, Macro 12",
+  "optional_rules/modsecurity_crs_46_av_scanning.conf: SecRule 1, Comment 12, Variable 1, Action 7, Transform 1, Setvar 2, Macro 4",
+  "optional_rules/modsecurity_crs_47_skip_outbound_checks.conf: SecRule 2, Comment 15, Variable 2, Selector 2, Action 6",
+  "optional_rules/modsecurity_crs_49_header_tagging.conf: SecRule 2, SecMarker 1, Directive 21, Comment 22, Variable 2, Selector 2, Action 13, Transform 2, Setvar 1, Macro 5",
+  "optional_rules/modsecurity_crs_55_application_defects.conf: SecRule 54, SecAction 1, Directive 2, Comment 100, Variable 58, Selector 43, Action 223, Transform 45, Setvar 28, Ctl 1, Macro 26",
+  "optional_rules/modsecurity_crs_55_marketing.conf: SecRule 3, Comment 11, Variable 3, Selector 3, Action 18, Transform 6",
+]
+`;
+
+exports[`корпус: crs-v3.3.10 состав дерева не изменился 1`] = `
+[
+  "crs-setup.conf.example: SecAction 1, SecDefaultAction 2, Directive 1, Comment 654, Action 12, Transform 1, Setvar 1",
+  "rules/REQUEST-901-INITIALIZATION.conf: SecRule 35, SecAction 2, SecMarker 1, Directive 1, Comment 150, Variable 35, Selector 31, Action 199, Transform 10, Setvar 48, Ctl 10, Macro 15",
+  "rules/REQUEST-903.9001-DRUPAL-EXCLUSION-RULES.conf: SecRule 21, SecAction 2, SecMarker 1, Comment 163, Variable 23, Selector 4, Action 117, Transform 3, Ctl 43",
+  "rules/REQUEST-903.9002-WORDPRESS-EXCLUSION-RULES.conf: SecRule 77, SecAction 1, SecMarker 2, Comment 122, Variable 79, Selector 51, Action 220, Transform 78, Ctl 194",
+  "rules/REQUEST-903.9003-NEXTCLOUD-EXCLUSION-RULES.conf: SecRule 34, SecMarker 2, Comment 85, Variable 36, Selector 6, Action 137, Transform 32, Setvar 6, Ctl 42, Macro 6",
+  "rules/REQUEST-903.9004-DOKUWIKI-EXCLUSION-RULES.conf: SecRule 28, SecMarker 2, Comment 76, Variable 30, Selector 20, Action 82, Transform 28, Setvar 1, Ctl 19, Macro 1",
+  "rules/REQUEST-903.9005-CPANEL-EXCLUSION-RULES.conf: SecRule 4, SecMarker 1, Comment 22, Variable 6, Selector 4, Action 22, Transform 4, Ctl 2",
+  "rules/REQUEST-903.9006-XENFORO-EXCLUSION-RULES.conf: SecRule 42, SecAction 1, SecMarker 2, Comment 125, Variable 44, Selector 4, Action 205, Transform 43, Ctl 119",
+  "rules/REQUEST-905-COMMON-EXCEPTIONS.conf: SecRule 5, Comment 17, Variable 5, Selector 1, Action 21, Transform 5, Ctl 4",
+  "rules/REQUEST-910-IP-REPUTATION.conf: SecRule 28, SecAction 1, SecMarker 3, Comment 72, Variable 28, Selector 28, Action 179, Transform 11, Setvar 23, Macro 21",
+  "rules/REQUEST-911-METHOD-ENFORCEMENT.conf: SecRule 9, SecMarker 1, Comment 32, Variable 9, Selector 8, Action 55, Setvar 1, Macro 3",
+  "rules/REQUEST-912-DOS-PROTECTION.conf: SecRule 27, SecMarker 2, Comment 120, Variable 27, Selector 26, Action 163, Transform 10, Setvar 13, Macro 15",
+  "rules/REQUEST-913-SCANNER-DETECTION.conf: SecRule 13, SecMarker 1, Comment 56, Variable 15, Selector 11, Action 125, Transform 10, Setvar 15, Macro 30",
+  "rules/REQUEST-920-PROTOCOL-ENFORCEMENT.conf: SecRule 96, SecMarker 2, Comment 561, Variable 124, Selector 69, Action 824, Transform 92, Setvar 57, Ctl 2, Macro 129",
+  "rules/REQUEST-921-PROTOCOL-ATTACK.conf: SecRule 23, SecMarker 1, Comment 151, Variable 47, Selector 23, Action 245, Transform 32, Setvar 23, Ctl 9, Macro 62",
+  "rules/REQUEST-922-MULTIPART-ATTACK.conf: SecRule 7, Comment 37, Variable 7, Selector 3, Action 73, Transform 11, Setvar 7, Macro 11",
+  "rules/REQUEST-930-APPLICATION-ATTACK-LFI.conf: SecRule 12, SecMarker 1, Comment 48, Variable 28, Selector 17, Action 103, Transform 16, Setvar 8, Macro 20",
+  "rules/REQUEST-931-APPLICATION-ATTACK-RFI.conf: SecRule 13, SecMarker 1, Comment 41, Variable 14, Selector 9, Action 101, Transform 5, Setvar 9, Ctl 4, Macro 23",
+  "rules/REQUEST-932-APPLICATION-ATTACK-RCE.conf: SecRule 25, SecMarker 1, Comment 358, Variable 97, Selector 44, Action 283, Transform 41, Setvar 30, Ctl 13, Macro 75",
+  "rules/REQUEST-933-APPLICATION-ATTACK-PHP.conf: SecRule 26, SecMarker 1, Comment 355, Variable 125, Selector 58, Action 283, Transform 40, Setvar 32, Ctl 16, Macro 79",
+  "rules/REQUEST-934-APPLICATION-ATTACK-NODEJS.conf: SecRule 9, SecMarker 1, Comment 51, Variable 15, Selector 11, Action 57, Transform 3, Setvar 2, Ctl 1, Macro 5",
+  "rules/REQUEST-941-APPLICATION-ATTACK-XSS.conf: SecRule 38, SecMarker 1, Comment 210, Variable 228, Selector 112, Action 489, Transform 184, Setvar 60, Ctl 27, Macro 146",
+  "rules/REQUEST-942-APPLICATION-ATTACK-SQLI.conf: SecRule 57, SecMarker 1, Comment 514, Variable 325, Selector 151, Action 825, Transform 106, Setvar 98, Ctl 8, Macro 245",
+  "rules/REQUEST-943-APPLICATION-ATTACK-SESSION-FIXATION.conf: SecRule 14, SecMarker 1, Comment 35, Variable 20, Selector 14, Action 89, Transform 8, Setvar 6, Ctl 3, Macro 16",
+  "rules/REQUEST-944-APPLICATION-ATTACK-JAVA.conf: SecRule 19, SecMarker 1, Comment 85, Variable 100, Selector 38, Action 186, Transform 14, Setvar 18, Macro 36",
+  "rules/REQUEST-949-BLOCKING-EVALUATION.conf: SecRule 15, SecMarker 2, Comment 40, Variable 15, Selector 15, Action 80, Transform 5, Setvar 6, Macro 9",
+  "rules/RESPONSE-950-DATA-LEAKAGES.conf: SecRule 11, SecMarker 1, Comment 49, Variable 11, Selector 8, Action 88, Transform 3, Setvar 6, Ctl 3, Macro 15",
+  "rules/RESPONSE-951-DATA-LEAKAGES-SQL.conf: SecRule 41, SecMarker 1, Comment 33, Variable 41, Selector 24, Action 323, Transform 17, Setvar 49, Ctl 16, Macro 96",
+  "rules/RESPONSE-952-DATA-LEAKAGES-JAVA.conf: SecRule 10, SecMarker 1, Comment 35, Variable 10, Selector 8, Action 72, Transform 2, Setvar 4, Ctl 2, Macro 10",
+  "rules/RESPONSE-953-DATA-LEAKAGES-PHP.conf: SecRule 12, SecMarker 1, Comment 44, Variable 12, Selector 8, Action 90, Transform 4, Setvar 6, Ctl 3, Macro 15",
+  "rules/RESPONSE-954-DATA-LEAKAGES-IIS.conf: SecRule 13, SecMarker 1, Comment 31, Variable 13, Selector 8, Action 109, Transform 6, Setvar 8, Ctl 4, Macro 20",
+  "rules/RESPONSE-959-BLOCKING-EVALUATION.conf: SecRule 13, SecMarker 1, Comment 45, Variable 13, Selector 13, Action 62, Transform 5, Setvar 5, Macro 7",
+  "rules/RESPONSE-980-CORRELATION.conf: SecRule 18, SecAction 2, SecMarker 2, Comment 41, Variable 18, Selector 18, Action 106, Transform 10, Setvar 8, Macro 54",
+]
+`;
+
+exports[`корпус: crs-v4.30.0 состав дерева не изменился 1`] = `
+[
+  "crs-setup.conf.example: SecAction 1, SecDefaultAction 5, Comment 676, Action 26, Transform 1, Setvar 1",
+  "rules/REQUEST-901-INITIALIZATION.conf: SecRule 35, SecAction 1, SecMarker 1, Directive 1, Comment 175, Variable 35, Selector 32, Action 222, Transform 13, Setvar 47, Ctl 5, Macro 13",
+  "rules/REQUEST-905-COMMON-EXCEPTIONS.conf: SecRule 5, Comment 17, Variable 5, Selector 1, Action 23, Transform 5, Ctl 4",
+  "rules/REQUEST-911-METHOD-ENFORCEMENT.conf: SecRule 9, SecMarker 1, Comment 32, Variable 9, Selector 8, Action 71, Setvar 1, Macro 3",
+  "rules/REQUEST-913-SCANNER-DETECTION.conf: SecRule 9, SecMarker 1, Comment 41, Variable 9, Selector 9, Action 72, Transform 1, Setvar 1, Macro 4",
+  "rules/REQUEST-920-PROTOCOL-ENFORCEMENT.conf: SecRule 105, SecMarker 2, Comment 707, Variable 135, Selector 71, Action 982, Transform 109, Setvar 65, Ctl 2, Macro 148",
+  "rules/REQUEST-921-PROTOCOL-ATTACK.conf: SecRule 26, SecMarker 1, Comment 233, Variable 47, Selector 21, Action 338, Transform 28, Setvar 29, Macro 80",
+  "rules/REQUEST-922-MULTIPART-ATTACK.conf: SecRule 9, Comment 46, Variable 9, Selector 5, Action 92, Transform 12, Setvar 10, Macro 13",
+  "rules/REQUEST-930-APPLICATION-ATTACK-LFI.conf: SecRule 14, SecMarker 1, Comment 89, Variable 32, Selector 18, Action 153, Transform 22, Setvar 12, Macro 30",
+  "rules/REQUEST-931-APPLICATION-ATTACK-RFI.conf: SecRule 14, SecMarker 1, Comment 74, Variable 17, Selector 11, Action 137, Transform 8, Setvar 11, Macro 28",
+  "rules/REQUEST-932-APPLICATION-ATTACK-RCE.conf: SecRule 68, SecMarker 1, Comment 1215, Variable 300, Selector 106, Action 833, Transform 96, Setvar 101, Macro 245",
+  "rules/REQUEST-933-APPLICATION-ATTACK-PHP.conf: SecRule 30, SecMarker 1, Comment 478, Variable 146, Selector 57, Action 392, Transform 43, Setvar 42, Macro 104",
+  "rules/REQUEST-934-APPLICATION-ATTACK-GENERIC.conf: SecRule 22, SecMarker 1, Comment 220, Variable 91, Selector 32, Action 289, Transform 38, Setvar 26, Macro 68",
+  "rules/REQUEST-941-APPLICATION-ATTACK-XSS.conf: SecRule 43, SecMarker 1, Comment 385, Variable 247, Selector 84, Action 617, Transform 194, Setvar 66, Ctl 1, Macro 161",
+  "rules/REQUEST-942-APPLICATION-ATTACK-SQLI.conf: SecRule 73, SecMarker 1, Comment 684, Variable 349, Selector 136, Action 1024, Transform 137, Setvar 123, Macro 305",
+  "rules/REQUEST-943-APPLICATION-ATTACK-SESSION-FIXATION.conf: SecRule 14, SecMarker 1, Comment 50, Variable 19, Selector 13, Action 108, Transform 6, Setvar 8, Macro 18",
+  "rules/REQUEST-944-APPLICATION-ATTACK-JAVA.conf: SecRule 24, SecMarker 1, Comment 176, Variable 135, Selector 53, Action 269, Transform 27, Setvar 28, Macro 51",
+  "rules/REQUEST-949-BLOCKING-EVALUATION.conf: SecRule 27, SecAction 2, SecMarker 2, Comment 39, Variable 27, Selector 27, Action 179, Transform 20, Setvar 18, Macro 20",
+  "rules/REQUEST-999-COMMON-EXCEPTIONS-AFTER.conf: Exclusion 55, Comment 36, Variable 55, Selector 55",
+  "rules/RESPONSE-950-DATA-LEAKAGES.conf: SecRule 15, SecMarker 1, Comment 59, Variable 15, Selector 11, Action 144, Transform 5, Setvar 4, Macro 12",
+  "rules/RESPONSE-951-DATA-LEAKAGES-SQL.conf: SecRule 25, SecMarker 2, Comment 98, Variable 25, Selector 8, Action 325, Transform 17, Setvar 32, Macro 64",
+  "rules/RESPONSE-952-DATA-LEAKAGES-JAVA.conf: SecRule 9, SecMarker 1, Comment 37, Variable 9, Selector 8, Action 72, Transform 1, Setvar 1, Macro 3",
+  "rules/RESPONSE-953-DATA-LEAKAGES-PHP.conf: SecRule 12, SecMarker 1, Comment 53, Variable 12, Selector 8, Action 120, Transform 4, Setvar 4, Macro 12",
+  "rules/RESPONSE-954-DATA-LEAKAGES-IIS.conf: SecRule 14, SecMarker 1, Comment 35, Variable 14, Selector 8, Action 143, Transform 6, Setvar 5, Macro 15",
+  "rules/RESPONSE-955-WEB-SHELLS.conf: SecRule 35, SecMarker 1, Comment 60, Variable 35, Selector 8, Action 461, Transform 29, Setvar 27, Macro 81",
+  "rules/RESPONSE-956-DATA-LEAKAGES-RUBY.conf: SecRule 10, SecMarker 1, Comment 33, Variable 10, Selector 8, Action 88, Transform 2, Setvar 2, Macro 6",
+  "rules/RESPONSE-959-BLOCKING-EVALUATION.conf: SecRule 27, SecAction 2, SecMarker 3, Comment 48, Variable 27, Selector 27, Action 179, Transform 20, Setvar 18, Macro 20",
+  "rules/RESPONSE-980-CORRELATION.conf: SecRule 19, SecAction 2, SecMarker 3, Comment 57, Variable 19, Selector 19, Action 148, Transform 2, Setvar 6, Macro 33",
+]
+`;
+
+exports[`корпус: crs-wordpress-plugin состав дерева не изменился 1`] = `
+[
+  "plugins/wordpress-rule-exclusions-before.conf: SecRule 136, SecMarker 1, Comment 178, Variable 136, Selector 74, Action 392, Transform 135, Ctl 557",
+  "plugins/wordpress-rule-exclusions-config.conf: Comment 33",
+]
+`;
+
+exports[`корпус: modsecurity-v2 состав дерева не изменился 1`] = `
+[
+  "modsecurity.conf-recommended: SecRule 6, Directive 24, Comment 143, Variable 6, Selector 3, Action 32, Transform 8, Ctl 2, Macro 15",
+]
+`;
+
+exports[`корпус: modsecurity-v3 состав дерева не изменился 1`] = `
+[
+  "modsecurity.conf-recommended: SecRule 7, Directive 24, Comment 185, Variable 7, Selector 3, Action 39, Transform 9, Ctl 2, Macro 15",
+]
+`;

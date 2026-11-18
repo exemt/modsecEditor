@@ -3,36 +3,31 @@
  *
  * Это шлюз между двумя вкладками редактора. Текст остаётся источником правды,
  * но перейти в визуальный режим можно только если текст «собирается»: то есть
- * компилятор смог разложить его в {@link VisualModel} и не нашёл ошибок.
- * Предупреждения и советы переход не блокируют — они лишь подсвечиваются.
+ * его удалось разложить в {@link VisualModel} и запись в нём цела — правило
+ * читается так, как написано, и у него есть всё, на чём держится форма.
+ * Остальные замечания переход не блокируют — они лишь подсвечиваются.
  *
- * Здесь остались только структурные проверки: без них правило не загрузится
- * в ModSecurity или не имеет однозначного визуального представления —
- * разорванная цепочка, отсутствующий или дублирующийся `id`, `id` на звене
- * цепочки, непарные кавычки, незнакомая директива, условие без областей
- * проверки или с незнакомым оператором.
+ * Модель здесь строится, а не проверяется. Что в тексте не так, говорит
+ * независимое ядро (`src/seclang`); компилятор спрашивает у него одно — цела
+ * ли запись в этом файле (`BLOCKING_CODES`), — и спрашивает о файле в
+ * одиночку, без соседей по набору. Причин две. Ответ нужен сразу, к первому
+ * же кадру: иначе визуальная вкладка открывалась бы и через мгновение
+ * блокировалась. И зависеть он должен только от самого файла: правка
+ * соседнего не должна закрывать конструктор в этом.
  *
- * Всё, что касается смысла правила, живёт в `checks.ts` и вызывается отдельным
- * проходом из `inspect.ts`. Проход именно отдельный, а не по ходу разбора:
- * смысловые проверки должны видеть весь файл. `skipAfter` ссылается на метку
- * ниже, `TX:score` кто-то должен был выставить выше, а `SecRuleEngine
- * DetectionOnly` в начале файла меняет смысл каждого `deny` после него.
- *
- * Ошибок смысловой проход не выдаёт вовсе — и это не совпадение, а условие
- * его отложенности: `ok` должен быть известен сразу, иначе визуальная вкладка
- * открывалась бы и через мгновение блокировалась.
+ * Всё остальное — что не загрузит движок, что не сработает, что лишнее и то,
+ * что видно только по набору целиком (метка в соседнем файле, переменная,
+ * которую никто не выставил), — считает проход по набору в `inspect.ts`.
  */
 
-import { DIRECTIVES } from '../components/syntax/modsecKeywords';
-import { isDisruptive, isHeadOnlyAction } from './semantics';
-import { Diagnostics } from './diagnostics';
-import { checkConditionStructure, checkDirective } from './checks';
+import { lintTree, parse } from '../seclang';
+import { isDisruptive } from './semantics';
+import { BLOCKING_CODES, toDiagnostics } from './diagnostics';
 import { readDirective } from './directives';
-import { readExclusions } from './exclusions';
-import { inspectDocument } from './inspect';
 import { emptyActions, groupTargets } from './model';
 import { unfold } from './parser';
 import { LONE_FILE, fileMark } from './workspace';
+import type { FileNode, LintOptions } from '../seclang';
 import type { Diagnostic } from './diagnostics';
 import type {
   VisualActions,
@@ -48,51 +43,36 @@ import type {
   SecRuleStatement,
 } from './types';
 
-export type {
-  Diagnostic,
-  DiagnosticAnchor,
-  DiagnosticCode,
-  DiagnosticSeverity,
-  DiagnosticTopic,
-} from './diagnostics';
-
 export interface CompileResult {
-  /** Ошибок нет — визуальный режим доступен. */
+  /** Запись цела — визуальный режим доступен. */
   ok: boolean;
-  /** Модель конструктора; `null`, если есть блокирующие ошибки. */
+  /** Модель конструктора; `null`, если есть блокирующие замечания. */
   model: VisualModel | null;
   /**
    * Блоки, разложенные компилятором, — даже когда модель заблокирована.
    *
-   * Смысловому проходу они нужны и в этом случае: правило без `id` в
+   * Проходу по набору они нужны и в этом случае: правило без `id` в
    * конструктор не пустят, но сказать о нём всё остальное можно и полезно.
    */
   blocks: VisualBlock[];
+  /**
+   * Замечания, из-за которых конструктор закрыт, — и только они.
+   *
+   * Полный список, с тем, что не загрузит движок, с предупреждениями и
+   * связями между файлами, отдаёт проход по набору.
+   */
   diagnostics: Diagnostic[];
-  errorCount: number;
-  warningCount: number;
-  /** Советы считаются отдельно: они не должны красить сводку. */
-  adviceCount: number;
 }
 
-/* ------------------------------------------------------------------ */
-/* Вспомогательные проверки                                            */
-/* ------------------------------------------------------------------ */
-
-/** Непарные двойные кавычки в строке директивы (частая опечатка). */
-function hasUnbalancedQuotes(raw: string): boolean {
-  let count = 0;
-  for (let i = 0; i < raw.length; i++) {
-    if (raw[i] === '\\') {
-      i++;
-      continue;
-    }
-    if (raw[i] === '"') count++;
-  }
-  return count % 2 === 1;
-}
-
-const KNOWN_DIRECTIVES = new Set<string>(DIRECTIVES);
+/**
+ * Вопрос, который компилятор задаёт ядру: цела ли запись в файле.
+ *
+ * Пометки `# seclang-ignore` здесь не слушаются. Ими принимают находку в
+ * списке замечаний, а запись от этого исправной не становится: правило с
+ * незакрытой кавычкой разобрано не так, как хотел автор, сколько бы пометок
+ * над ним ни стояло.
+ */
+const BLOCKING: LintOptions = { only: BLOCKING_CODES, comments: false };
 
 /* ------------------------------------------------------------------ */
 /* Действия                                                            */
@@ -227,33 +207,15 @@ function toCondition(
 }
 
 /**
- * Компилирует документ в модель конструктора.
+ * Раскладывает документ в блоки конструктора.
  *
- * Возвращает `ok: false`, если найдены блокирующие ошибки — в этом случае
- * визуальная вкладка должна быть недоступна, а пользователь остаётся
- * в текстовом редакторе с подсвеченным списком проблем.
+ * Раскладывается любой текст, какой бы он ни был: решать, можно ли блоки
+ * править, — дело вызывающего. Звено, оборвавшее цепочку, так и остаётся
+ * последним; директива с незнакомым именем — строкой без формы.
  */
-export function compileDocument(doc: ParsedDocument | null, file = LONE_FILE): CompileResult {
-  // Файл называется здесь, а не приписывается замечаниям потом: строка и ключ
-  // правила считаются внутри файла, и замечание без него в наборе ведёт не туда.
-  const diag = new Diagnostics().inFile(fileMark(file));
-
-  if (doc === null) {
-    diag.report('notParsed');
-    return {
-      ok: false,
-      model: null,
-      blocks: [],
-      diagnostics: diag.items,
-      errorCount: 1,
-      warningCount: 0,
-      adviceCount: 0,
-    };
-  }
-
+function buildBlocks(doc: ParsedDocument): VisualBlock[] {
   const { statements } = doc;
   const blocks: VisualBlock[] = [];
-  const seenIds = new Map<string, number>();
 
   let i = 0;
   while (i < statements.length) {
@@ -263,10 +225,6 @@ export function compileDocument(doc: ParsedDocument | null, file = LONE_FILE): C
       i++;
       continue;
     }
-
-    const line = statement.span.startLine;
-    diag.at(line);
-    if (hasUnbalancedQuotes(statement.raw)) diag.report('unbalancedQuotes');
 
     const { startIndex, comments } = leadingComments(statements, i);
 
@@ -286,34 +244,12 @@ export function compileDocument(doc: ParsedDocument | null, file = LONE_FILE): C
           next++;
         }
         const link = statements[next];
-        if (link === undefined || link.kind !== 'SecRule') {
-          diag.at(current.span.startLine).report('danglingChain');
-          break;
-        }
+        if (link === undefined || link.kind !== 'SecRule') break;
         conditions.push(
           toCondition(link, next, leadingComments(statements, next).comments, true),
         );
-
-        // Звено цепочки не должно нести действия «шапки» — они игнорируются
-        // ModSecurity и почти всегда означают ошибку автора правила.
-        for (const a of link.actions) {
-          if (a.name !== 't' && a.name !== 'chain' && isHeadOnlyAction(a.name)) {
-            diag.at(link.span.startLine).report('chainLinkHeadAction', { name: a.name });
-          }
-        }
-
         tailIndex = next;
         current = link;
-      }
-
-      const actions = toVisualActions(statement.actions);
-
-      diag.at(line);
-      if (actions.id === '') {
-        diag.report('missingId');
-      } else {
-        if (seenIds.has(actions.id)) diag.report('duplicateId', { id: actions.id });
-        seenIds.set(actions.id, line);
       }
 
       const rule: VisualRule = {
@@ -323,40 +259,22 @@ export function compileDocument(doc: ParsedDocument | null, file = LONE_FILE): C
         tailIndex,
         comments,
         conditions,
-        actions,
+        actions: toVisualActions(statement.actions),
       };
       blocks.push({ kind: 'rule', key: rule.key, rule });
-
-      conditions.forEach((condition, position) => {
-        // «Условие 1» у правила без цепочки — лишнее уточнение.
-        const chained = conditions.length > 1 ? { condition: position + 1 } : {};
-        diag.at(statements[condition.statementIndex]?.span.startLine ?? line, {
-          ruleKey: rule.key,
-          ...chained,
-        });
-        checkConditionStructure(condition, diag);
-      });
 
       i = tailIndex + 1;
       continue;
     }
 
     if (statement.kind === 'SecAction') {
-      const actions = toVisualActions(statement.actions);
-      if (actions.id === '') {
-        diag.report('missingId');
-      } else if (seenIds.has(actions.id)) {
-        diag.report('duplicateId', { id: actions.id });
-      } else {
-        seenIds.set(actions.id, line);
-      }
       blocks.push({
         kind: 'action',
         key: `action-${i}`,
         startIndex,
         statementIndex: i,
         comments,
-        actions,
+        actions: toVisualActions(statement.actions),
       });
       i++;
       continue;
@@ -376,11 +294,6 @@ export function compileDocument(doc: ParsedDocument | null, file = LONE_FILE): C
       continue;
     }
 
-    // Обобщённая директива: имя должно быть известным, иначе это опечатка.
-    if (!KNOWN_DIRECTIVES.has(statement.name)) {
-      diag.report('unknownDirective', { name: statement.name });
-    }
-    checkDirective(statement, diag);
     blocks.push({
       kind: 'directive',
       key: `directive-${i}`,
@@ -401,75 +314,52 @@ export function compileDocument(doc: ParsedDocument | null, file = LONE_FILE): C
     i++;
   }
 
-  // Правила здесь не нужны: недописанная директива не загрузится и в файле,
-  // где её цель есть. С кем она встретилась — вопрос набора, и на него
-  // отвечает смысловой проход, у которого на руках все файлы.
-  for (const directive of readExclusions(statements)) {
-    // Ошибка загрузки бывает только у директивы: `ctl` с тем же промахом
-    // конфигурацию не роняет — он молча ничего не снимает, а о молчаливом
-    // «ничего» говорит смысловой проход, и говорит предупреждением.
-    if (directive.source !== 'directive') continue;
-    diag.at(directive.line);
-    if (directive.incomplete) diag.report('exclusionNoTarget', { name: directive.name });
-    for (const bad of directive.badIds) {
-      diag.report('exclusionBadId', { name: directive.name, value: bad });
-    }
-  }
+  return blocks;
+}
 
-  const errorCount = diag.count('error');
-  const ok = errorCount === 0;
+/** Исходник документа: склейка строк утверждений возвращает его символ в символ. */
+export function sourceOf(doc: ParsedDocument): string {
+  return doc.statements.map((statement) => statement.raw).join('\n');
+}
 
-  return {
-    ok,
-    model: ok ? { blocks } : null,
+const NOT_COMPILED: CompileResult = { ok: false, model: null, blocks: [], diagnostics: [] };
+
+/**
+ * Компилирует файл, дерево которого уже построено.
+ *
+ * Так компилирует набор: дерево файла лежит у него в кеше, и разбирать текст
+ * второй раз только ради вопроса об ошибках незачем. `doc` — тот же текст,
+ * разложенный в документ редактора; `null` — разложить его не удалось.
+ */
+export function compileTree(
+  tree: FileNode,
+  doc: ParsedDocument | null,
+  file = LONE_FILE,
+): CompileResult {
+  if (doc === null) return NOT_COMPILED;
+
+  const blocks = buildBlocks(doc);
+  // Файл называется здесь, а не приписывается замечаниям потом: строка и ключ
+  // правила считаются внутри файла, и замечание без него в наборе ведёт не туда.
+  const diagnostics = toDiagnostics(lintTree(tree, BLOCKING), {
+    file: fileMark(file),
+    tree,
+    statements: doc.statements,
     blocks,
-    diagnostics: byLine(diag.items),
-    errorCount,
-    warningCount: diag.count('warning'),
-    adviceCount: diag.count('advice'),
-  };
+  });
+  const ok = diagnostics.length === 0;
+
+  return { ok, model: ok ? { blocks } : null, blocks, diagnostics };
 }
 
 /**
- * Сообщения в порядке набора, а не в порядке проверок.
+ * Компилирует документ в модель конструктора.
  *
- * Читать удобнее так: сначала всё про первое правило, потом про второе. Когда
- * файлов несколько, первым словом идёт порядок включения: список замечаний
- * читают сверху вниз, и файл, прыгающий от строки к строке, превращает один
- * список в несколько. Сортировка устойчива, поэтому у сообщений об одной
- * строке сохраняется порядок проверок — от структуры к смыслу.
+ * Возвращает `ok: false`, если запись в файле не цела — в этом случае
+ * визуальная вкладка должна быть недоступна, а пользователь остаётся
+ * в текстовом редакторе с подсвеченным списком проблем.
  */
-export function byLine(
-  diagnostics: readonly Diagnostic[],
-  order?: ReadonlyMap<string, number>,
-): Diagnostic[] {
-  const place = (file?: string) => (order === undefined ? 0 : (order.get(file ?? '') ?? 0));
-  return [...diagnostics].sort(
-    (a, b) => place(a.file) - place(b.file) || (a.line ?? 0) - (b.line ?? 0),
-  );
-}
-
-/**
- * Компиляция вместе со смысловым проходом, разом и до конца.
- *
- * Приложение так не делает: смысловой проход оно ведёт отдельно и по частям.
- * Но там, где нужен полный ответ о документе — в тестах и в разборе примеров, —
- * дробить его не на что, а собирать два вызова руками каждый раз незачем.
- */
-export function analyzeDocument(doc: ParsedDocument | null): CompileResult {
-  const compiled = compileDocument(doc);
-  if (doc === null) return compiled;
-
-  const semantic = inspectDocument(compiled.blocks, doc.statements);
-  const diagnostics = byLine([...compiled.diagnostics, ...semantic]);
-  const count = (severity: Diagnostic['severity']) =>
-    diagnostics.filter((d) => d.severity === severity).length;
-
-  return {
-    ...compiled,
-    diagnostics,
-    errorCount: count('error'),
-    warningCount: count('warning'),
-    adviceCount: count('advice'),
-  };
+export function compileDocument(doc: ParsedDocument | null, file = LONE_FILE): CompileResult {
+  if (doc === null) return NOT_COMPILED;
+  return compileTree(parse(sourceOf(doc)), doc, file);
 }

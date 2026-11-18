@@ -1,5 +1,5 @@
 import { parseModsec } from '../modsec/parser';
-import { analyzeDocument } from '../modsec/compile';
+import { analyzeDocument } from '../modsec/inspect';
 import { modsecExamples } from './modsecExamples';
 import type { DiagnosticCode } from '../modsec/diagnostics';
 
@@ -9,13 +9,21 @@ function diagnostics(code: string) {
 }
 
 /**
- * Единственное замечание, которое исправному примеру позволено вызывать.
+ * Замечания, которые исправному примеру позволено вызывать.
  *
  * `initcol`, `expirevar`, `skipAfter` и `ctl` конструктор не редактирует и
- * честно об этом говорит — но правила они пишут верные, и без них нельзя
- * показать ни счётчик на адрес, ни переход через блок.
+ * честно об этом говорит (`actionNotEditable`) — но правила они пишут верные,
+ * и без них нельзя показать ни счётчик на адрес, ни переход через блок.
+ *
+ * `persistentWithoutDataDir` — про то же `initcol`: коллекция переживает
+ * запрос, только если задан `SecDataDir`. Пример — отрывок, а не набор:
+ * настроек сервера в нём нет по определению, и совет здесь верен, но обращён
+ * не к примеру, а к тому, кто понесёт его на сервер.
  */
-const ALLOWED: ReadonlySet<DiagnosticCode> = new Set(['actionNotEditable']);
+const ALLOWED: ReadonlySet<DiagnosticCode> = new Set([
+  'actionNotEditable',
+  'persistentWithoutDataDir',
+]);
 
 describe('учебные примеры', () => {
   it('дают уникальные имена и разделы', () => {

@@ -1,6 +1,6 @@
 import { parseModsec, parseVariables } from './parser';
 import { serializeStatement, serializeVariableList } from './serialize';
-import { analyzeDocument } from './compile';
+import { analyzeDocument } from './inspect';
 import { emitRule, makeRule } from './emit';
 import { selectorIssue, selectorPattern } from './quoting';
 import type { VisualTarget } from './model';

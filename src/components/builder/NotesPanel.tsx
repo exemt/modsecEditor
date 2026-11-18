@@ -3,7 +3,7 @@ import { Section } from './Section';
 import { DiagnosticNotes } from '../diagnostics/DiagnosticNotes';
 import { worstSeverity } from '../diagnostics/useDiagnostics';
 import { useI18n } from '../../i18n/useI18n';
-import { diagnosticKey } from '../../i18n/translations';
+import { diagnosticKey, diagnosticParams } from '../../i18n/translations';
 import type { Diagnostic } from '../../modsec/diagnostics';
 
 interface NotesPanelProps {
@@ -34,7 +34,7 @@ export function NotesPanel({ notes }: NotesPanelProps) {
   return (
     <Section
       title={t('builder.notes')}
-      summary={t(diagnosticKey(first.code), first.params)}
+      summary={t(diagnosticKey(first.code), diagnosticParams(first.params, t))}
       counters={
         <Counter
           hint={t('builder.countRuleNotes', { count: String(notes.length) })}

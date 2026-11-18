@@ -1,87 +1,57 @@
 /**
- * Толерантный парсер конфигурации ModSecurity.
+ * Документ редактора — проекция дерева `seclang`.
  *
- * Раскладывает текст правил в объектную модель из `types.ts`. Работает в
- * несколько проходов:
- *  1. Физические строки склеиваются в «логические» по завершающему `\`.
- *  2. Каждая логическая строка классифицируется (комментарий / пустая /
- *     директива) и разбирается на аргументы с учётом кавычек.
- *  3. Для `SecRule` / `SecAction` аргументы дополнительно раскладываются на
- *     переменные, оператор и действия.
+ * Разбирает текст независимое ядро (`src/seclang`): оно читает запись так же,
+ * как движок, и по тому же дереву считает замечания. Своего разбора у
+ * редактора нет, и это главное, ради чего модуль существует: правило, которое
+ * конструктор показал бы одним, а линтер прочитал другим, — ошибка, которую
+ * не видно ни в одном из двух.
  *
- * Парсер не бросает исключений на «плохом» вводе: неизвестные конструкции
- * сохраняются как обобщённые директивы, а отсутствующие части заполняются
- * разумными значениями по умолчанию.
+ * Дерево отвечает на вопрос «что написано и где», а редактору нужен ещё один:
+ * «какими строками это заменить». Конструктор правит документ утверждениями —
+ * вставляет, переставляет, заменяет блок целиком, — и для этого ему нужны
+ * все строки файла по порядку, включая пустые, с исходным текстом каждой.
+ * {@link ParsedDocument} и есть такой взгляд на дерево: утверждение на каждую
+ * строку или группу строк, склеенных переносом, а `raw` — её текст как есть.
+ * Склейка `raw` через перевод строки возвращает исходник символ в символ.
+ *
+ * Имена приводятся к принятому написанию. Движок регистр в них не различает
+ * (`t:compressWhiteSpace` из CRS 2 и `t:compressWhitespace` — одно
+ * преобразование), а формы конструктора ищут имя в своих таблицах буква в
+ * букву. Приведи его каждая форма сама — первая же забывшая показала бы
+ * исправное правило незнакомым. Исходник при этом не трогается: написанное
+ * остаётся в `raw`, и в файл уходит оно, пока правило не правили.
  */
 
-import { decodeQuoted } from './quoting';
+import {
+  actionSpec,
+  directiveName,
+  operatorSpec,
+  parse,
+  parseActionList,
+  parseArguments,
+  parseOperator as parseOperatorNode,
+  parseVariableList,
+  transformSpec,
+  variableSpec,
+} from '../seclang';
 import type {
-  DirectiveStatement,
+  ActionListNode,
+  ActionNode,
+  FileNode,
+  OperatorNode,
+  Statement,
+  VariableNode,
+} from '../seclang';
+import type {
   ParsedDocument,
   ParsedStatement,
   RuleAction,
   RuleOperator,
   RuleVariable,
-  SecActionStatement,
-  SecMarkerStatement,
   SecRuleStatement,
   SourceSpan,
 } from './types';
-
-/** Логическая строка после склейки переносов `\`. */
-interface LogicalLine {
-  /** Текст для разбора: переносы заменены пробелом, `\` убраны. */
-  text: string;
-  /** Оригинальные физические строки, склеенные `\n`. */
-  raw: string;
-  span: SourceSpan;
-}
-
-/**
- * Снимает переносы `\`: физические строки утверждения — в одну.
- *
- * Нужна не только разбору. Директива в файле разложена переносами так, как
- * захотел автор, а править её в конструкторе приходится строкой — той самой,
- * которую читает ModSecurity. Правило склейки при этом обязано быть одно:
- * покажи мы строку иначе, чем разобрали, правка меняла бы не то, что видно.
- */
-export function unfold(raw: string): string {
-  return raw
-    .split('\n')
-    .map((line) => (hasTrailingBackslash(line) ? line.replace(/\\$/, ' ') : line))
-    .join('');
-}
-
-/**
- * Склеивает физические строки в логические.
- * Строка, оканчивающаяся на нечётное число `\`, продолжается следующей.
- */
-function toLogicalLines(source: string): LogicalLine[] {
-  const physical = source.split('\n');
-  const result: LogicalLine[] = [];
-
-  let rawBuffer: string[] = [];
-  let startLine = 1;
-
-  const flush = (endLine: number) => {
-    const raw = rawBuffer.join('\n');
-    result.push({ text: unfold(raw), raw, span: { startLine, endLine } });
-    rawBuffer = [];
-  };
-
-  physical.forEach((line, index) => {
-    const lineNo = index + 1;
-    if (rawBuffer.length === 0) startLine = lineNo;
-    rawBuffer.push(line);
-
-    if (!hasTrailingBackslash(line)) flush(lineNo);
-  });
-
-  // Хвост без закрывающей строки (файл закончился на `\`).
-  if (rawBuffer.length > 0) flush(physical.length);
-
-  return result;
-}
 
 /** true, если строку продолжает нечётное число завершающих обратных слэшей. */
 function hasTrailingBackslash(line: string): boolean {
@@ -91,291 +61,214 @@ function hasTrailingBackslash(line: string): boolean {
 }
 
 /**
- * Разбивает строку директивы на аргументы.
- * Пробелы разделяют аргументы; двойные кавычки группируют (и снимаются),
- * поддерживается экранирование `\"` внутри кавычек.
+ * Снимает переносы `\`: физические строки утверждения — в одну.
  *
- * Пара `\\` проходит насквозь, но именно парой: иначе её второй слэш
- * съел бы следующую кавычку, и аргумент не закрылся бы там, где закрыт.
- * Разворачивать её в один слэш (как делает разбор конфигурации Apache)
- * нельзя: третья версия ModSecurity читает конфигурацию сама и оставляет
- * оба слэша, а текст правила в редакторе — источник правды, и показывать
- * в нём трактовку одной из версий значило бы менять чужой файл.
+ * Директива в файле разложена переносами так, как захотел автор, а править её
+ * в конструкторе приходится строкой. На месте переноса остаётся пробел: вне
+ * кавычек он и есть разделитель аргументов, а строка, показанная в поле без
+ * него, слиплась бы в одно слово.
  */
-function splitArgs(text: string): string[] {
-  const args: string[] = [];
-  let current = '';
-  let inQuotes = false;
-  let hasContent = false;
-
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-
-    if (inQuotes) {
-      if (ch === '\\' && text[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else if (ch === '\\' && text[i + 1] === '\\') {
-        current += '\\\\';
-        i++;
-      } else if (ch === '"') {
-        inQuotes = false;
-      } else {
-        current += ch;
-      }
-      continue;
-    }
-
-    if (ch === '"') {
-      inQuotes = true;
-      hasContent = true;
-    } else if (/\s/.test(ch)) {
-      if (hasContent) {
-        args.push(current);
-        current = '';
-        hasContent = false;
-      }
-    } else {
-      current += ch;
-      hasContent = true;
-    }
-  }
-
-  if (hasContent) args.push(current);
-  return args;
+export function unfold(raw: string): string {
+  return raw
+    .split('\n')
+    .map((line) => (hasTrailingBackslash(line) ? line.replace(/\\$/, ' ') : line))
+    .join('');
 }
 
 /**
- * Делит строку по разделителю верхнего уровня, игнорируя разделители
- * внутри одинарных кавычек и внутри `%{...}` / `{...}`.
- */
-function splitTopLevel(text: string, separator: string): string[] {
-  const parts: string[] = [];
-  let current = '';
-  let inQuotes = false;
-  let braceDepth = 0;
-
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-
-    if (inQuotes) {
-      current += ch;
-      if (ch === '\\' && i + 1 < text.length) {
-        current += text[i + 1];
-        i++;
-      } else if (ch === "'") {
-        inQuotes = false;
-      }
-      continue;
-    }
-
-    if (ch === "'") {
-      inQuotes = true;
-      current += ch;
-    } else if (ch === '{') {
-      braceDepth++;
-      current += ch;
-    } else if (ch === '}') {
-      if (braceDepth > 0) braceDepth--;
-      current += ch;
-    } else if (ch === separator && braceDepth === 0) {
-      parts.push(current);
-      current = '';
-    } else {
-      current += ch;
-    }
-  }
-
-  parts.push(current);
-  return parts;
-}
-
-/** Снимает обрамляющие одинарные кавычки вместе с экранированием. */
-function unquote(raw: string): { value: string; quoted: boolean } {
-  const value = decodeQuoted(raw);
-  return { value, quoted: value !== raw };
-}
-
-/**
- * Разбирает список переменных `ARGS|!ARGS:token|&REQUEST_HEADERS:User-Agent`.
+ * Текст узла так, как он записан, — без того, что снимает разбор строки.
  *
- * Разделителей два: движок разбирает список тем же кодом, что и список
- * действий, поэтому терм обрывает и запятая. Значит `ARGS:a,b` — это две
- * цели, а не параметр с запятой внутри; параметр с запятой пишется только
- * в кавычках (`ARGS:'a,b'`), и их разбор обходит стороной.
+ * Границы узла указывают в исходник, а там внутри списка может стоять перенос
+ * `\` или `\"`. Подписи, которые собираются из записи («снимает `ARGS:a`»),
+ * должны показывать то же, что прочёл движок, а не обломок с обратным слэшем
+ * и переводом строки посередине. Обычно снимать нечего, и текст берётся одной
+ * подстрокой.
  */
-export function parseVariables(text: string): RuleVariable[] {
-  return splitTopLevel(text, '|')
-    .flatMap((chunk) => splitTopLevel(chunk, ','))
-    .map((chunk) => chunk.trim())
-    .filter((chunk) => chunk.length > 0)
-    .map((raw) => {
-      let rest = raw;
-      let exclusion = false;
-      let count = false;
-
-      if (rest.startsWith('!')) {
-        exclusion = true;
-        rest = rest.slice(1);
-      }
-      if (rest.startsWith('&')) {
-        count = true;
-        rest = rest.slice(1);
-      }
-
-      const colon = rest.indexOf(':');
-      const name = colon === -1 ? rest : rest.slice(0, colon);
-      const selector = colon === -1 ? undefined : decodeQuoted(rest.slice(colon + 1));
-
-      return { raw, name, selector, count, exclusion };
-    });
+function written(source: string, node: { start: number; end: number }, inFile: boolean): string {
+  const text = source.slice(node.start, node.end);
+  if (!inFile || text.indexOf('\\') === -1) return text;
+  return text.replace(/\\[ \t]*\r?\n/g, '').replace(/\\(\\|")/g, (pair, next: string) =>
+    next === '"' ? '"' : pair,
+  );
 }
 
-/** Разбирает содержимое кавычек оператора: `@rx foo`, `!@eq 0`, `bar`. */
-export function parseOperator(text: string): RuleOperator {
-  const raw = text;
-  let rest = text.trim();
-  let negated = false;
-
-  if (rest.startsWith('!')) {
-    negated = true;
-    rest = rest.slice(1).trim();
-  }
-
-  if (rest.startsWith('@')) {
-    const match = /^@(\S+)\s*([\s\S]*)$/.exec(rest);
-    const name = match ? match[1] : rest.slice(1);
-    const argument = match ? match[2] : '';
-    return { raw, name, negated, argument, implicit: false };
-  }
-
-  // Оператор не указан — ModSecurity подразумевает @rx.
-  return { raw, name: 'rx', negated, argument: rest, implicit: true };
+function toVariable(node: VariableNode, source: string, inFile: boolean): RuleVariable {
+  return {
+    raw: written(source, node, inFile),
+    name: variableSpec(node.name)?.name ?? node.name,
+    selector: node.selector?.value,
+    count: node.count,
+    exclusion: node.exclude,
+  };
 }
 
-/** Разбирает список действий `id:1,phase:2,deny,t:lowercase,msg:'hi'`. */
-export function parseActions(text: string): RuleAction[] {
-  return splitTopLevel(text, ',')
-    .map((chunk) => chunk.trim())
-    .filter((chunk) => chunk.length > 0)
-    .map((raw) => {
-      const colon = raw.indexOf(':');
-      if (colon === -1) {
-        return { raw, name: raw, quoted: false };
-      }
-      const name = raw.slice(0, colon).trim();
-      const { value, quoted } = unquote(raw.slice(colon + 1).trim());
-      return { raw, name, value, quoted };
-    });
+function toOperator(node: OperatorNode, source: string, inFile: boolean): RuleOperator {
+  return {
+    raw: written(source, node, inFile),
+    name: operatorSpec(node.name)?.name ?? node.name,
+    negated: node.negated,
+    argument: node.argument.value,
+    implicit: node.implicit,
+  };
 }
 
-/** Возвращает значение первого действия с указанным именем. */
+/** Оператор правила, в котором его не написали: движок подразумевает `@rx`. */
+function missingOperator(): RuleOperator {
+  return { raw: '', name: 'rx', negated: false, argument: '', implicit: true };
+}
+
+function toAction(node: ActionNode, source: string, inFile: boolean): RuleAction {
+  const name = actionSpec(node.name)?.name ?? node.name;
+  const raw = written(source, node, inFile);
+  if (node.value === null) return { raw, name, quoted: false };
+
+  // У шага конвейера значение — тоже имя, и регистр в нём так же не значим.
+  const value =
+    node.kind === 'Transform'
+      ? (transformSpec(node.transform)?.name ?? node.value.value)
+      : node.value.value;
+  return { raw, name, value, quoted: node.value.quoted };
+}
+
+function toActions(list: ActionListNode | null, source: string): RuleAction[] {
+  return list === null ? [] : list.items.map((node) => toAction(node, source, true));
+}
+
+/** Значение первого действия с таким именем. */
 function actionValue(actions: RuleAction[], name: string): string | undefined {
   return actions.find((a) => a.name === name)?.value;
 }
 
-/** Разбирает `SecRule VARIABLES "OPERATOR" "ACTIONS"`. */
-function parseSecRule(
-  args: string[],
+function toStatement(
+  node: Statement,
   base: { raw: string; span: SourceSpan },
-): SecRuleStatement {
-  const variables = parseVariables(args[1] ?? '');
-  const operator = parseOperator(args[2] ?? '');
-  const actions = args[3] !== undefined ? parseActions(args[3]) : [];
+  source: string,
+): ParsedStatement {
+  switch (node.kind) {
+    case 'Comment':
+      // Текст берётся из строк, а не из узла: закомментированное правило на
+      // несколько строк конструктор показывает и пишет обратно одной, и на
+      // месте переноса ему нужен пробел, а не слипшиеся слова.
+      return { kind: 'comment', ...base, text: unfold(base.raw).trim().replace(/^#\s?/, '') };
 
-  return {
-    kind: 'SecRule',
-    ...base,
-    variables,
-    operator,
-    actions,
-    id: actionValue(actions, 'id'),
-    phase: actionValue(actions, 'phase'),
-    msg: actionValue(actions, 'msg'),
-    chained: actions.some((a) => a.name === 'chain'),
-  };
-}
+    case 'SecRule': {
+      const actions = toActions(node.actions, source);
+      return {
+        kind: 'SecRule',
+        ...base,
+        variables:
+          node.variables === null
+            ? []
+            : node.variables.items.map((item) => toVariable(item, source, true)),
+        operator:
+          node.operator === null ? missingOperator() : toOperator(node.operator, source, true),
+        actions,
+        id: actionValue(actions, 'id'),
+        phase: actionValue(actions, 'phase'),
+        msg: actionValue(actions, 'msg'),
+        chained: actions.some((a) => a.name === 'chain'),
+      };
+    }
 
-/** Разбирает `SecAction "ACTIONS"`. */
-function parseSecAction(
-  args: string[],
-  base: { raw: string; span: SourceSpan },
-): SecActionStatement {
-  const actions = args[1] !== undefined ? parseActions(args[1]) : [];
-  return {
-    kind: 'SecAction',
-    ...base,
-    actions,
-    id: actionValue(actions, 'id'),
-    phase: actionValue(actions, 'phase'),
-  };
-}
+    case 'SecAction': {
+      const actions = toActions(node.actions, source);
+      return {
+        kind: 'SecAction',
+        ...base,
+        actions,
+        id: actionValue(actions, 'id'),
+        phase: actionValue(actions, 'phase'),
+      };
+    }
 
-/** Разбирает `SecMarker LABEL`. */
-function parseSecMarker(
-  args: string[],
-  base: { raw: string; span: SourceSpan },
-): SecMarkerStatement {
-  return {
-    kind: 'SecMarker',
-    ...base,
-    label: args[1] ?? '',
-  };
-}
-
-/** Формирует обобщённую директиву из имени и оставшихся аргументов. */
-function parseDirective(
-  args: string[],
-  base: { raw: string; span: SourceSpan },
-): DirectiveStatement {
-  return {
-    kind: 'directive',
-    ...base,
-    name: args[0],
-    args: args.slice(1),
-  };
-}
-
-/** Разбирает одну логическую строку в утверждение модели. */
-function parseLogicalLine(line: LogicalLine): ParsedStatement {
-  const base = { raw: line.raw, span: line.span };
-  const trimmed = line.text.trim();
-
-  if (trimmed.length === 0) {
-    return { kind: 'blank', ...base };
-  }
-
-  if (trimmed.startsWith('#')) {
-    return {
-      kind: 'comment',
-      ...base,
-      text: trimmed.replace(/^#\s?/, ''),
-    };
-  }
-
-  const args = splitArgs(line.text);
-  const directive = args[0];
-
-  switch (directive) {
-    case 'SecRule':
-      return parseSecRule(args, base);
-    case 'SecAction':
-      return parseSecAction(args, base);
     case 'SecMarker':
-      return parseSecMarker(args, base);
+      return { kind: 'SecMarker', ...base, label: node.label?.value ?? '' };
+
+    case 'Directive':
+      return {
+        kind: 'directive',
+        ...base,
+        name: directiveName(node.name) ?? node.name,
+        args: node.args.map((arg) => arg.value),
+      };
+
+    // Умолчания, правило на Lua и семь исключений дерево хранит уже
+    // прочитанными. Формы редактора читают их сами, из аргументов, — и
+    // получают те же слова, на которые строку режет разбор файла.
     default:
-      return parseDirective(args, base);
+      return {
+        kind: 'directive',
+        ...base,
+        name: directiveName(node.name) ?? node.name,
+        args: parseArguments(source.slice(node.start, node.end))
+          .slice(1)
+          .map((arg) => arg.value),
+      };
   }
 }
 
 /**
- * Точка входа: разбирает исходный текст конфигурации ModSecurity
- * в {@link ParsedDocument}.
+ * Раскладывает дерево в документ редактора.
+ *
+ * Пустые строки узлами дерева не становятся, а документу нужны: по ним
+ * считаются индексы утверждений, и без них правка блока сдвинула бы всё, что
+ * стоит ниже. Они восстанавливаются по номерам строк — всё, чего не занял ни
+ * один узел, и есть пустая строка.
  */
-export function parseModsec(source: string): ParsedDocument {
-  const statements = toLogicalLines(source).map(parseLogicalLine);
-  const rules = statements.filter(
-    (s): s is SecRuleStatement => s.kind === 'SecRule',
-  );
+export function toDocument(tree: FileNode): ParsedDocument {
+  const { source } = tree;
+  const lines = source.split('\n');
+  const statements: ParsedStatement[] = [];
+
+  /** Первая строка, которую ещё не отдали утверждением. */
+  let next = 1;
+  const blanksUntil = (line: number) => {
+    for (; next < line; next++) {
+      statements.push({
+        kind: 'blank',
+        raw: lines[next - 1],
+        span: { startLine: next, endLine: next },
+      });
+    }
+  };
+
+  for (const node of tree.statements) {
+    blanksUntil(node.line);
+    const base = {
+      raw: lines.slice(node.line - 1, node.endLine).join('\n'),
+      span: { startLine: node.line, endLine: node.endLine },
+    };
+    statements.push(toStatement(node, base, source));
+    next = node.endLine + 1;
+  }
+  blanksUntil(lines.length + 1);
+
+  const rules = statements.filter((s): s is SecRuleStatement => s.kind === 'SecRule');
   return { statements, rules };
+}
+
+/** Точка входа: текст конфигурации ModSecurity → {@link ParsedDocument}. */
+export function parseModsec(source: string): ParsedDocument {
+  return toDocument(parse(source));
+}
+
+/*
+ * Разбор отдельных частей правила — для текста, который пришёл не из файла:
+ * второй аргумент директивы-исключения, цель действия `ctl`, умолчания фазы.
+ * Грамматика у них та же, что у частей `SecRule`, и читает их то же ядро.
+ */
+
+/** Список переменных `ARGS|!ARGS:token|&REQUEST_HEADERS:User-Agent`. */
+export function parseVariables(text: string): RuleVariable[] {
+  return parseVariableList(text).items.map((item) => toVariable(item, text, false));
+}
+
+/** Содержимое кавычек оператора: `@rx foo`, `!@eq 0`, `bar`. */
+export function parseOperator(text: string): RuleOperator {
+  return toOperator(parseOperatorNode(text), text, false);
+}
+
+/** Список действий `id:1,phase:2,deny,t:lowercase,msg:'hi'`. */
+export function parseActions(text: string): RuleAction[] {
+  return parseActionList(text).items.map((item) => toAction(item, text, false));
 }

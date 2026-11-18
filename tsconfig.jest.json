@@ -8,6 +8,14 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
+    // Тесты только транслируются: типы проверяет `tsc -b` (а тесты целиком —
+    // `tsc --noEmit -p tsconfig.jest.json`). Проверка типов в каждом из двух
+    // десятков воркеров стоила больше, чем сами тесты, и под этой нагрузкой
+    // падали тесты на время.
+    "isolatedModules": true,
+    // В режиме трансляции TypeScript 6 считает ошибкой устаревший
+    // `moduleResolution: node`, которым пользуется jest.
+    "ignoreDeprecations": "6.0",
     "types": ["jest", "node", "@testing-library/jest-dom"]
   },
   "include": ["src", "jest.setup.ts"]

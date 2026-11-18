@@ -498,9 +498,14 @@ const en = {
   'toolbar.formatHint': 'Lay the rule out line by line — one action per line (Shift+Alt+F)',
   'toolbar.formatDone': 'The text is already laid out',
 
-  'diag.notParsed': 'The rule text has not been parsed yet.',
   'diag.unbalancedQuotes': 'Unbalanced double quotes.',
   'diag.unknownDirective': 'Unknown directive "{name}".',
+  'diag.byteOrderMark':
+    'A byte order mark (U+FEFF) before the directive: no engine reads it. Save the file as UTF-8 without BOM — and the files it was joined from.',
+  'diag.strayCharacter':
+    '{code} is not a plain space or quote, and the engine reads it as part of the word. Characters like this come from copying out of web pages, documents and chats.',
+  'diag.invisibleCharacter':
+    'Invisible {code} inside the value: the text is not what it looks like, and a pattern with it will not match what you see.',
   'diag.directiveArgCount': '"{name}" does not take {count} arguments.',
   'diag.directiveValueMissing': '"{name}" is missing its value.',
   'diag.directiveBadValue': '"{name}" has no value "{value}".',
@@ -570,18 +575,32 @@ const en = {
   'diag.xmlWithoutProcessor': '"XML" is only filled in after "ctl:requestBodyProcessor=XML", which none of the loaded files sets.',
   'diag.txNeverSet': 'Nothing in the loaded files sets "tx.{name}".',
 
-  'diag.captureWithoutRegex': 'Nothing to capture: no check of this rule uses a regular expression.',
-  'diag.captureMissing': '"%{TX.{index}}" is empty: the rule has no "capture" action.',
+  'diag.captureWithoutRegex':
+    'Nothing to capture: "capture" acts on the check it is written in, and its operator does not capture.',
+  'diag.captureMissing':
+    '"TX.{index}" is not what this rule found: without "capture" next to the operator it holds what an earlier rule captured — or nothing.',
+  'diag.groupNeverCaptured':
+    'Nothing fills "TX.{index}" before this rule: no rule that runs earlier captures it.',
+  'diag.groupFromEarlierRule':
+    '"TX.{index}" is not filled by this rule: at best it holds what an earlier rule captured.',
   'diag.blockWithoutLog': 'The rule blocks the request with "nolog": nothing will explain the refusal afterwards.',
   'diag.logdataWithoutLog': '"logdata" is set but logging is off — the data goes nowhere.',
-  'diag.captureUnused': '"capture" is on, but "%{TX.1}" is never used in this rule.',
+  'diag.captureUnused':
+    '"capture" is on, but nothing reads "TX.0"–"TX.9": neither this rule nor any that runs after it.',
   'diag.blockWithoutMsg': 'A blocking rule without "msg" leaves only its id in the log.',
 
   'diag.possibleRedos': 'Nested quantifiers: on a crafted value this pattern can take a very long time to match.',
   'diag.regexIsPlainText': 'The pattern has no special characters — "@contains {value}" does the same and costs less.',
   'diag.anchoredLiteralRegex': 'The pattern is anchored on both sides and has no special characters — this is "@streq {value}".',
+  'diag.anchoredLiteralLines':
+    'ModSecurity 3 and Coraza match "^" and "$" at every line break: the pattern finds "{value}" on any line of the value, "@streq {value}" only as the whole value.',
+  'diag.anchorsMatchLines':
+    'ModSecurity 3 and Coraza match "^" and "$" at every line break: one more line in the value gets past this check. "\\A" and "\\z" mark the edges of the whole value in every engine: "{pattern}".',
+  'diag.multibyteInClass':
+    'ModSecurity compares bytes, not letters: "{char}" takes {bytes} bytes, and inside "[…]" or before a repeat each byte counts on its own: the pattern matches stray bytes, not "{char}" as a whole. Coraza compares letters. List such characters as alternatives: "(?:{char}|…)".',
   'diag.redundantLeadingWildcard': 'A leading ".*" changes nothing: the pattern is searched anywhere in the value.',
-  'diag.capturingGroupUnused': 'A capturing group without the "capture" action only slows matching down — use "(?:…)".',
+  'diag.capturingGroupUnused':
+    'A capturing group without "capture" in the same check only slows matching down — use "(?:…)".',
   'diag.rblOnHotPath': 'Every "@rbl" check is a DNS request; on a busy path that is noticeable.',
 
   'diag.duplicateTarget': 'Check area "{name}" is listed twice.',
@@ -698,10 +717,200 @@ const en = {
   'builder.moveUp': 'Move up',
   'builder.moveDown': 'Move down',
   'builder.andMore': 'more',
-  'diag.destinationMissing':
-    '"{name}" needs an address — without it ModSecurity will not load the rule.',
-  'diag.destinationUnexpected':
-    '"{name}" takes no address: the value next to it will be rejected on load.',
+
+  // Замечания ядра, которых не было в прежних проверках редактора. Английский
+  // текст — тот же, что в словаре ядра (`src/seclang/lint/codes.ts`).
+  'diag.unterminatedMacro': 'Macro "%{" is never closed.',
+  'diag.unclosedValueQuote':
+    'The value opens with a single quote that is never closed: everything up to the end of the list becomes part of it.',
+  'diag.textAfterQuote':
+    'The quoted value has already ended: "{text}" after it is read as a separate entry. A comma is probably missing.',
+  'diag.invalidQuotedPair':
+    'Inside single quotes a backslash may only stand before a quote or another backslash: ModSecurity 2 rejects "{pair}".',
+  'diag.continuationSpace':
+    'There is whitespace after the trailing backslash: the line is not continued, and the next one is read on its own.',
+  'diag.operatorReadAsPattern':
+    'The operator has to start right after the quote: "{value}" is read as a regular expression.',
+  'diag.actionValueRequired': 'Action "{name}" requires a value.',
+  'diag.actionValueUnexpected': 'Action "{name}" takes no value.',
+  'diag.transformInputMismatch':
+    '"t:{name}" works on {expected}, but the value at this step is {actual}.',
+  'diag.phasePartial':
+    'In phase {phase} "{name}" is only partly filled: the rest arrives in phase {required}.',
+  'diag.caseBeforeBase64':
+    'Base64 is case-sensitive: "t:{change}" before "t:{decode}" destroys the encoded value.',
+  'diag.validateAfterDecode':
+    '"@{name}" runs after "t:{decode}": by then nothing encoded is left to validate.',
+  'diag.markerWithSpace':
+    'Label "{name}" has a space: ModSecurity 2 and 3 do not load it. Use "_" or "-" instead.',
+  'diag.idTooLarge':
+    'Id {id} is out of range: ModSecurity 2 takes ids up to 2147483647, ModSecurity 3 up to 9007199254740992, Coraza up to 9223372036854775807.',
+  'diag.partialBodyInspection':
+    'With "ProcessPartial" everything past SecRequestBodyLimit goes uninspected: padding the body carries an attack past the rules. "Reject" refuses such requests instead.',
+  'diag.includeRelative':
+    'Apache resolves "{path}" from ServerRoot, ModSecurity 3 and Coraza from the folder of this file. An absolute path means the same everywhere.',
+  'diag.validateDecodedInput':
+    '"{variable}" reaches "@validateUrlEncoding" already URL-decoded ({engines}): a valid "%25" turns into a bare "%" and fails. The value as sent is in "REQUEST_URI_RAW", "QUERY_STRING" or "REQUEST_BODY".',
+  'diag.withinSubstring':
+    '"@within" looks for the value anywhere inside "{value}": "{sample}" passes too. For an exact list write "@rx {pattern}".',
+  'diag.negatedOnMissing':
+    'If "{target}" is not sent at all, the rule does not run, and "!@{name}" does not catch the missing value. Check its presence too: "&{target}" "@eq 0".',
+  'diag.relaxedByClientInput':
+    'The rule turns protection off ("{action}") on what the client writes itself — "{target}" — and nothing else: any client can send it.',
+  'diag.secretInLog':
+    'The rule writes the value of "{target}" to the log through "{macro}": passwords and tokens end up there in plain text. Log the name ("%{MATCHED_VAR_NAME}") instead.',
+  'diag.bodyErrorUnchecked':
+    'The body is inspected, but no rule reads REQBODY_ERROR: when the body parser fails, what it did not parse goes uninspected. The recommended configurations of all three engines stop such requests (rule 200002).',
+  'diag.setvarInChainHead':
+    'The counter grows as soon as the first condition matches, whether or not the rest of the chain does: move "setvar" to the last link.',
+  'diag.invalidActionValue': '"{name}" does not accept "{value}": expected {expected}.',
+  'diag.unknownCtl': 'Unknown ctl option "{name}".',
+  'diag.defaultActionIncomplete': 'SecDefaultAction must specify {missing}.',
+  'diag.defaultActionForbidden':
+    'SecDefaultAction must not contain "{name}": defaults are not a rule.',
+  'diag.defaultActionDeprecated':
+    '"{name}" in SecDefaultAction is deprecated: it silently applies to every rule below.',
+  'diag.defaultActionRepeated':
+    'ModSecurity 3 accepts one SecDefaultAction per phase, and phase {phase} already has one.',
+  'diag.suspiciousActionValue': '"{name}" will not read "{value}" as written: expected {expected}.',
+  'diag.duplicateAction': 'Action "{name}" is set more than once: only the last one counts.',
+  'diag.conflictingActions':
+    '"{first}" and "{second}" exclude each other: only the last one counts.',
+  'diag.unknownMacro': 'Unknown variable in macro "%{{name}}".',
+  'diag.macroNotExpanded':
+    'Operator "@{name}" does not expand macros: the text is compared as written.',
+  'diag.macroInStaticAction':
+    'Action "{name}" is read once, when the configuration loads: the macro in it is never expanded.',
+  'diag.macroKeySeparator':
+    'Inside a macro the key goes after a dot: "%{{name}.{key}}". The colon form is read only by ModSecurity 3.',
+  'diag.commentSwallowsLine':
+    'The comment ends with a backslash, so the next line becomes part of it.',
+  'diag.invalidByteRange': 'Not a byte or a range of bytes from 0 to 255: {value}.',
+  'diag.lookbehindNotFixed':
+    'A lookbehind with an unbounded repeat: PCRE needs to know its length and rejects the pattern.',
+  'diag.exclusionBadPattern':
+    '"{name}" selects by a regular expression, and "{value}" is not one: {reason}.',
+  'diag.exclusionPatternNotPortable':
+    'Only ModSecurity 2 reads "{value}" as a regular expression; ModSecurity 3 and Coraza compare it with the whole {what}, so the selection differs.',
+  'diag.selectorPatternCase':
+    'Coraza compares a pattern over parameter names with case, ModSecurity without it: "{value}" misses names that differ only in case. Start the pattern with "(?i)" to read the same everywhere.',
+  'diag.exclusionTargetNotInRule':
+    'Rule {id} does not inspect "{target}": "{name}" has nothing to remove there.',
+  'diag.exclusionTargetInLink':
+    'Rule {id} inspects "{target}" only in a chain link: ModSecurity 2 removes it there, ModSecurity 3 and Coraza change only the first condition, and for them "{name}" does nothing.',
+  'diag.exclusionCtlTargetInLink':
+    'Rule {id} inspects "{target}" only in a chain link: Coraza removes it there, ModSecurity 2 and 3 change only the first condition, and for them "{name}" does nothing.',
+  'diag.exclusionCtlPattern':
+    'A pattern in "{name}" ("{target}"): only Coraza applies it. ModSecurity 2 skips it without a word, ModSecurity 3 does not load it. SecRuleUpdateTargetById takes a pattern in every engine.',
+  'diag.exclusionHeaderCase':
+    'ModSecurity 3 compares the header name in an exclusion letter by letter, and clients spell it differently — over HTTP/2 always in lower case: "{target}" stays inspected for some of them. A pattern reads the same in every engine: "{pattern}".',
+  'diag.exclusionCtlHeaderCase':
+    'ModSecurity 3 compares the header name in an exclusion letter by letter, and clients spell it differently — over HTTP/2 always in lower case: "{target}" stays inspected for some of them. ModSecurity 3 takes no pattern here; remove "{lower}" as well.',
+  'diag.persistentWithoutDataDir':
+    'Collection "{name}" is kept between requests only when "SecDataDir" is set, and none of the loaded files sets it.',
+  'diag.geoLookupWithoutDb':
+    '"@geoLookup" needs the database named by "SecGeoLookupDb", and none of the loaded files sets it.',
+  'diag.fileNotFound':
+    'Data file "{path}" does not exist: the engine refuses to load a rule that refers to it.',
+  'diag.geoWithoutLookup':
+    '"GEO" is only filled in by "@geoLookup", which none of the loaded files uses.',
+  'diag.unknownIgnoreCode':
+    'There is no check called "{name}": this ignore comment silences nothing.',
+  'diag.unusedIgnore': 'This ignore comment has nothing left to silence.',
+  'diag.notInEngine': '{kind} "{name}" is not supported by {engine}.',
+  'diag.regexNotInEngine':
+    'The pattern uses {feature}, which {engine} regular expressions do not have: the rule will not compile.',
+  'diag.invalidSelectorPattern':
+    'Parameter pattern "{value}" is not a valid regular expression: {reason}.',
+  'diag.markerBehind':
+    '"SecMarker {name}" stands above this rule: "skipAfter" only looks down, so everything left in the phase is skipped.',
+  'diag.duplicateMarker':
+    '"SecMarker {name}" is declared more than once: a jump stops at the first one below it.',
+  'diag.txReadBeforeSet':
+    '"tx.{name}" is read before anything sets it: every rule that sets it runs later.',
+  'diag.collectionNotInitialised':
+    'Collection "{name}" is never opened: without "{action}" its variables do not outlive the request.',
+  'diag.variableNeverSet': 'Nothing in the loaded files sets "{name}".',
+  'diag.unusedMarker': 'No rule jumps to "SecMarker {name}".',
+  'diag.emptyTarget': 'The list of check areas has an empty element: "{text}".',
+  'diag.emptyAction': 'The action list has an empty element: a comma with nothing after it.',
+  'diag.unquotedArgument':
+    'The {part} is not in double quotes: only ModSecurity 2 reads it this way.',
+  'diag.quotedTargets':
+    'The list of check areas is in double quotes: Coraza does not read it this way.',
+  'diag.linkWithoutActions':
+    'The chain link has no action list and the next line is not empty: ModSecurity 3 reads that line as the missing actions. Add "t:none" or leave a blank line.',
+  'diag.unquotedValueBreak':
+    'Without quotes the value of "{name}" ends at the first space or "|": ModSecurity 2 reads "{rest}" as a separate action.',
+  'diag.operatorCase':
+    'Coraza compares operator names exactly: write "@{canonical}" instead of "@{name}".',
+  'diag.wideCodePoint':
+    'ModSecurity compiles patterns byte by byte: "{escape}" is above \\xff, and the pattern is rejected.',
+  'diag.backslashPair':
+    'A doubled backslash is read differently: under Apache ModSecurity 2 receives a single one, ModSecurity 3 and Coraza receive both. For a literal backslash write "\\x5c".',
+  'diag.targetsCommaSeparated':
+    'Check areas are separated by "|": a comma between them is not read by Coraza.',
+
+  // Фразы, которые ядро подставляет в текст замечания готовыми: чего ждёт
+  // действие, какого вида значение. Здесь они слово в слово как в ядре —
+  // по этому тексту фраза и узнаётся (см. `diagnosticParams`).
+  'phrase.positiveWholeNumber': 'a positive whole number',
+  'phrase.phase': 'a phase from 1 to 5, or request, response, logging',
+  'phrase.severity': 'EMERGENCY … DEBUG or a number from 0 to 7',
+  'phrase.httpStatus': 'an HTTP status code',
+  'phrase.ruleCount': 'a positive number of rules',
+  'phrase.milliseconds': 'a number of milliseconds',
+  'phrase.oneToNine': 'a number from 1 to 9',
+  'phrase.allowScope': 'phase or request',
+  'phrase.xmlns': 'prefix=namespace',
+  'phrase.initcol': 'collection=key, where collection is ip, global or resource',
+  'phrase.expirevar': 'collection.name=value',
+  'phrase.persistentVariable':
+    'a variable of a collection that outlives the request (ip, session, …)',
+  'phrase.setvarTarget':
+    'collection.name, where collection is tx, ip, session, user, global or resource',
+  'phrase.ctlValue': 'a value after "="',
+  'phrase.engineMode': 'On, Off or DetectionOnly',
+  'phrase.toggle': 'On or Off',
+  'phrase.auditMode': 'On, Off or RelevantOnly',
+  'phrase.xmlMode': 'On, Off or OnlyArgs',
+  'phrase.auditParts': 'audit log parts such as ABIJ, +E or -FH',
+  'phrase.debugLevel': 'a level from 0 to 9',
+  'phrase.regex': 'a valid regular expression',
+  'phrase.text': 'text',
+  'phrase.textOrBytes': 'text or bytes',
+  'phrase.number': 'a number',
+  'phrase.rawBytes': 'raw bytes',
+  'phrase.unknown': 'unknown',
+  'phrase.disruptive': 'a disruptive action',
+  'phrase.defaultPhase': 'a phase',
+  'phrase.kindVariable': 'Variable',
+  'phrase.kindOperator': 'Operator',
+  'phrase.kindTransform': 'Transformation',
+  'phrase.kindAction': 'Action',
+  'phrase.kindDirective': 'Directive',
+  'phrase.byTag': 'tag',
+  'phrase.byMessage': 'message',
+  'phrase.lookahead': 'lookahead',
+  'phrase.lookbehind': 'lookbehind',
+  'phrase.backreferences': 'backreferences',
+  'phrase.possessive': 'possessive quantifiers',
+  'phrase.atomic': 'atomic groups',
+  'phrase.recursion': 'recursion',
+  'phrase.conditional': 'conditional groups',
+  'phrase.pcreEscapes': 'PCRE-only escapes (\\K, \\G, \\Z, \\h, \\R, \\X, \\e, \\c)',
+  'phrase.inlineComments': 'inline comments',
+  'phrase.flags': 'flags other than i, m, s, U',
+  'phrase.quotedName': 'the (?\'name\'…) group syntax',
+  'phrase.largeRepeat': 'a repeat count above 1000',
+  'phrase.phaseNameCase': 'request, response or logging in lower case',
+  'phrase.bodyProcessor': 'XML, JSON, URLENCODED or MULTIPART',
+  'phrase.valueWithoutComma': 'a value without a comma',
+  'phrase.optionWithoutQuotes': 'the option without quotes',
+  'phrase.kindApacheBlock': 'Apache block',
+  'phrase.kindCollectionWrite': 'Writing to collection',
+  'phrase.partOperator': 'operator',
+  'phrase.partActions': 'action list',
 
   'topic.structure': 'Form',
   'topic.logic': 'Logic',
@@ -731,6 +940,12 @@ const en = {
   'fix.restoreLog': 'Turn logging back on',
   'fix.enableCapture': 'Add "capture"',
   'fix.disableCapture': 'Remove "capture"',
+  'fix.removeAction': 'Remove the repeated "{name}"',
+  'fix.joinContinuation': 'Remove the space after "\\"',
+  'fix.endComment': 'Drop the trailing "\\"',
+  'fix.macroDot': 'Use a dot',
+  'fix.trimOperator': 'Remove the leading space',
+  'fix.insertComma': 'Insert the comma',
 
   'tooltip.noDescription': 'No description available yet.',
   'tooltip.expandHint': 'Alt — details',
@@ -762,6 +977,116 @@ export type TranslationKey = keyof typeof en;
  */
 export function diagnosticKey(code: DiagnosticCode): TranslationKey {
   return `diag.${code}`;
+}
+
+/**
+ * Фразы ядра и ключи их перевода.
+ *
+ * Большинство подстановок в текст замечания — значения из файла: имя
+ * действия, номер правила, кусок шаблона. Но некоторые ядро отдаёт готовой
+ * фразой: «чего ждёт это действие», «какого вида значение на этом шаге».
+ * В английском тексте они встают на место сами, а в переводе остались бы
+ * английскими вкраплениями. Фраза узнаётся по своему тексту — другого имени
+ * у неё в ядре нет.
+ */
+const CORE_PHRASES: Record<string, TranslationKey> = {
+  'a positive whole number': 'phrase.positiveWholeNumber',
+  'a phase from 1 to 5, or request, response, logging': 'phrase.phase',
+  'EMERGENCY … DEBUG or a number from 0 to 7': 'phrase.severity',
+  'an HTTP status code': 'phrase.httpStatus',
+  'a positive number of rules': 'phrase.ruleCount',
+  'a number of milliseconds': 'phrase.milliseconds',
+  'a number from 1 to 9': 'phrase.oneToNine',
+  'phase or request': 'phrase.allowScope',
+  'prefix=namespace': 'phrase.xmlns',
+  'collection=key, where collection is ip, global or resource': 'phrase.initcol',
+  'collection.name=value': 'phrase.expirevar',
+  'a variable of a collection that outlives the request (ip, session, …)': 'phrase.persistentVariable',
+  'collection.name, where collection is tx, ip, session, user, global or resource': 'phrase.setvarTarget',
+  'a value after "="': 'phrase.ctlValue',
+  'On, Off or DetectionOnly': 'phrase.engineMode',
+  'On or Off': 'phrase.toggle',
+  'On, Off or RelevantOnly': 'phrase.auditMode',
+  'On, Off or OnlyArgs': 'phrase.xmlMode',
+  'audit log parts such as ABIJ, +E or -FH': 'phrase.auditParts',
+  'a level from 0 to 9': 'phrase.debugLevel',
+  'a valid regular expression': 'phrase.regex',
+  'text': 'phrase.text',
+  'text or bytes': 'phrase.textOrBytes',
+  'a number': 'phrase.number',
+  'raw bytes': 'phrase.rawBytes',
+  'unknown': 'phrase.unknown',
+  'a disruptive action': 'phrase.disruptive',
+  'a phase': 'phrase.defaultPhase',
+  'Variable': 'phrase.kindVariable',
+  'Operator': 'phrase.kindOperator',
+  'Transformation': 'phrase.kindTransform',
+  'Action': 'phrase.kindAction',
+  'Directive': 'phrase.kindDirective',
+  'tag': 'phrase.byTag',
+  'message': 'phrase.byMessage',
+  'lookahead': 'phrase.lookahead',
+  'lookbehind': 'phrase.lookbehind',
+  'backreferences': 'phrase.backreferences',
+  'possessive quantifiers': 'phrase.possessive',
+  'atomic groups': 'phrase.atomic',
+  'recursion': 'phrase.recursion',
+  'conditional groups': 'phrase.conditional',
+  'PCRE-only escapes (\\K, \\G, \\Z, \\h, \\R, \\X, \\e, \\c)': 'phrase.pcreEscapes',
+  'inline comments': 'phrase.inlineComments',
+  'flags other than i, m, s, U': 'phrase.flags',
+  'the (?\'name\'…) group syntax': 'phrase.quotedName',
+  'a repeat count above 1000': 'phrase.largeRepeat',
+  'request, response or logging in lower case': 'phrase.phaseNameCase',
+  'XML, JSON, URLENCODED or MULTIPART': 'phrase.bodyProcessor',
+  'a value without a comma': 'phrase.valueWithoutComma',
+  'the option without quotes': 'phrase.optionWithoutQuotes',
+  'Apache block': 'phrase.kindApacheBlock',
+  'Writing to collection': 'phrase.kindCollectionWrite',
+  'operator': 'phrase.partOperator',
+  'action list': 'phrase.partActions',
+};
+
+/** Подстановки, в которых ядро отдаёт фразу, а не значение из файла. */
+const PHRASE_PARAMS = ['expected', 'actual', 'missing', 'kind', 'what', 'feature', 'part'];
+
+/**
+ * Подстановки замечания, в которых фразы ядра заменены переводом.
+ *
+ * Заменяется только то, что стоит в подстановках-фразах: значение из файла,
+ * случайно совпавшее с фразой (действие по имени `tag`), остаётся как есть.
+ * Список возможностей шаблона ядро склеивает запятыми — в нём переводится
+ * каждая. Незнакомая фраза проходит без перевода: лучше английское слово
+ * посреди русского текста, чем пустое место.
+ */
+export function diagnosticParams(
+  params: Record<string, string> | undefined,
+  t: (key: TranslationKey) => string,
+): Record<string, string> | undefined {
+  if (params === undefined) return undefined;
+
+  let localized: Record<string, string> | null = null;
+  for (const name of PHRASE_PARAMS) {
+    const value = params[name];
+    if (value === undefined) continue;
+
+    let text = value;
+    const key = CORE_PHRASES[value];
+    if (key !== undefined) {
+      text = t(key);
+    } else if (name === 'feature') {
+      for (const [phrase, phraseKey] of Object.entries(CORE_PHRASES)) {
+        if (text.includes(phrase)) text = text.split(phrase).join(t(phraseKey));
+      }
+    }
+    if (text !== value) (localized ??= { ...params })[name] = text;
+  }
+  return localized ?? params;
+}
+
+/** Все фразы ядра, для которых есть перевод: по ним тест сверяет словарь. */
+export function corePhrases(): ReadonlyMap<string, TranslationKey> {
+  return new Map(Object.entries(CORE_PHRASES));
 }
 
 /** Ключ названия темы диагностики. */
@@ -1265,9 +1590,14 @@ const ru: Record<TranslationKey, string> = {
   'toolbar.formatHint': 'Разложить правило по строкам — по одному действию в строке (Shift+Alt+F)',
   'toolbar.formatDone': 'Текст уже разложен по строкам',
 
-  'diag.notParsed': 'Текст правила ещё не разобран.',
   'diag.unbalancedQuotes': 'Непарные двойные кавычки.',
   'diag.unknownDirective': 'Неизвестная директива «{name}».',
+  'diag.byteOrderMark':
+    'Перед директивой метка порядка байтов (U+FEFF): эту директиву не прочитает ни один движок. Сохраните файл в UTF-8 без BOM — и те файлы, из которых его склеили.',
+  'diag.strayCharacter':
+    '{code} — не обычный пробел и не обычная кавычка, и движок читает его как часть слова. Такие символы попадают в файл при копировании из веб-страниц, документов и мессенджеров.',
+  'diag.invisibleCharacter':
+    'Невидимый {code} внутри значения: текст не тот, каким выглядит, и шаблон с таким символом не найдёт того, что в нём видно.',
   'diag.directiveArgCount': '«{name}» не принимает {count} аргументов.',
   'diag.directiveValueMissing': 'У «{name}» не задано значение.',
   'diag.directiveBadValue': 'У «{name}» нет значения «{value}».',
@@ -1336,18 +1666,32 @@ const ru: Record<TranslationKey, string> = {
   'diag.xmlWithoutProcessor': '«XML» заполняется только после «ctl:requestBodyProcessor=XML», а в загруженных файлах его нет.',
   'diag.txNeverSet': 'Переменную «tx.{name}» в загруженных файлах никто не выставляет.',
 
-  'diag.captureWithoutRegex': 'Захватывать нечего: ни одна проверка правила не использует регулярное выражение.',
-  'diag.captureMissing': '«%{TX.{index}}» пусто: в правиле нет действия «capture».',
+  'diag.captureWithoutRegex':
+    'Захватывать нечего: «capture» действует на ту проверку, в которой записан, а её оператор не захватывает.',
+  'diag.captureMissing':
+    'В «TX.{index}» не то, что нашло это правило: без «capture» рядом с оператором там остаётся захваченное правилом выше — или ничего.',
+  'diag.groupNeverCaptured':
+    '«TX.{index}» к этому правилу никто не заполняет: ни одно правило, которое исполняется раньше, её не захватывает.',
+  'diag.groupFromEarlierRule':
+    '«TX.{index}» это правило не заполняет: в лучшем случае там то, что захватило правило выше.',
   'diag.blockWithoutLog': 'Правило блокирует запрос с «nolog»: объяснить отказ потом будет нечем.',
   'diag.logdataWithoutLog': '«logdata» задан, но логирование выключено — данные никуда не попадут.',
-  'diag.captureUnused': '«capture» включён, но «%{TX.1}» в правиле нигде не используется.',
+  'diag.captureUnused':
+    '«capture» включён, но «TX.0»–«TX.9» никто не читает: ни это правило, ни те, что исполняются после него.',
   'diag.blockWithoutMsg': 'У блокирующего правила нет «msg» — в логе останется только его номер.',
 
   'diag.possibleRedos': 'Вложенные кванторы: на специально подобранном значении такой шаблон считается очень долго.',
   'diag.regexIsPlainText': 'В шаблоне нет спецсимволов — «@contains {value}» сделает то же самое и дешевле.',
   'diag.anchoredLiteralRegex': 'Шаблон закреплён с обеих сторон и не содержит спецсимволов — это «@streq {value}».',
+  'diag.anchoredLiteralLines':
+    'ModSecurity 3 и Coraza считают «^» и «$» и на каждом переводе строки: шаблон найдёт «{value}» на любой строке значения, «@streq {value}» — только всё значение целиком.',
+  'diag.anchorsMatchLines':
+    'ModSecurity 3 и Coraza считают «^» и «$» и на каждом переводе строки: ещё одна строка в значении проходит мимо этой проверки. «\\A» и «\\z» — края всего значения во всех движках: «{pattern}».',
+  'diag.multibyteInClass':
+    'ModSecurity сравнивает байты, а не буквы: «{char}» занимает {bytes} байта, и внутри «[…]» или перед повтором каждый байт считается сам по себе: шаблон находит отдельные байты, а не «{char}» целиком. Coraza сравнивает буквы. Перечислите такие символы вариантами: «(?:{char}|…)».',
   'diag.redundantLeadingWildcard': 'Ведущее «.*» ничего не меняет: шаблон и так ищется в любом месте значения.',
-  'diag.capturingGroupUnused': 'Группа захвата без действия «capture» только замедляет разбор — используйте «(?:…)».',
+  'diag.capturingGroupUnused':
+    'Группа захвата без «capture» в той же проверке только замедляет разбор — используйте «(?:…)».',
   'diag.rblOnHotPath': 'Каждая проверка «@rbl» — запрос к DNS; на частом пути это заметно.',
 
   'diag.duplicateTarget': 'Область проверки «{name}» указана дважды.',
@@ -1463,10 +1807,195 @@ const ru: Record<TranslationKey, string> = {
   'builder.moveUp': 'Переместить выше',
   'builder.moveDown': 'Переместить ниже',
   'builder.andMore': 'ещё',
-  'diag.destinationMissing':
-    '«{name}» без адреса: ModSecurity не загрузит такое правило.',
-  'diag.destinationUnexpected':
-    '«{name}» не принимает адрес: значение рядом с ним будет отвергнуто при загрузке.',
+
+  'diag.unterminatedMacro': 'Макрос «%{» не закрыт.',
+  'diag.unclosedValueQuote':
+    'Значение открыто одинарной кавычкой, которая нигде не закрыта: всё до конца списка становится его частью.',
+  'diag.textAfterQuote':
+    'Значение в кавычках уже закончилось: «{text}» после него читается как отдельная запись. Скорее всего, пропущена запятая.',
+  'diag.invalidQuotedPair':
+    'Внутри одинарных кавычек обратный слэш ставят только перед кавычкой или другим слэшем: «{pair}» ModSecurity 2 не примет.',
+  'diag.continuationSpace':
+    'После завершающего обратного слэша стоит пробел: строка не продолжается, и следующая читается сама по себе.',
+  'diag.operatorReadAsPattern':
+    'Оператор должен начинаться сразу за кавычкой: «{value}» читается как регулярное выражение.',
+  'diag.actionValueRequired': 'Действию «{name}» нужно значение.',
+  'diag.actionValueUnexpected': 'У действия «{name}» значения не бывает.',
+  'diag.transformInputMismatch':
+    '«t:{name}» принимает на вход {expected}, а на этом шаге значение — {actual}.',
+  'diag.phasePartial':
+    'В фазе {phase} «{name}» заполнена только частично: остальное появляется в фазе {required}.',
+  'diag.caseBeforeBase64':
+    'Base64 различает регистр: «t:{change}» перед «t:{decode}» портит закодированное значение.',
+  'diag.validateAfterDecode':
+    '«@{name}» идёт после «t:{decode}»: к этому времени закодированного уже не осталось, и проверять нечего.',
+  'diag.markerWithSpace':
+    'В метке «{name}» пробел: обе версии ModSecurity её не загрузят. Пишите «_» или «-».',
+  'diag.idTooLarge':
+    'Номер {id} слишком велик: ModSecurity 2 принимает номера до 2147483647, ModSecurity 3 — до 9007199254740992, Coraza — до 9223372036854775807.',
+  'diag.partialBodyInspection':
+    'С «ProcessPartial» всё, что дальше SecRequestBodyLimit, не проверяется: тело, набитое мусором, проносит атаку мимо правил. «Reject» такие запросы отклоняет.',
+  'diag.includeRelative':
+    'Apache отсчитывает «{path}» от ServerRoot, ModSecurity 3 и Coraza — от папки этого файла. Путь от корня везде значит одно и то же.',
+  'diag.validateDecodedInput':
+    '«{variable}» доходит до «@validateUrlEncoding» уже раскодированной ({engines}): верное «%25» становится одиноким «%» и проверку не проходит. Значение в том виде, как его прислали, — в «REQUEST_URI_RAW», «QUERY_STRING» или «REQUEST_BODY».',
+  'diag.withinSubstring':
+    '«@within» ищет значение где угодно внутри «{value}»: «{sample}» тоже подойдёт. Для точного списка пишите «@rx {pattern}».',
+  'diag.negatedOnMissing':
+    'Если «{target}» не прислали вовсе, правило не исполняется, и «!@{name}» отсутствие не поймает. Проверьте и наличие: «&{target}» «@eq 0».',
+  'diag.relaxedByClientInput':
+    'Правило снимает защиту («{action}») по тому, что клиент пишет сам, — «{target}» — и ни по чему больше: прислать такое может любой.',
+  'diag.secretInLog':
+    'Правило пишет в журнал значение «{target}» через «{macro}»: пароли и токены окажутся там открытым текстом. Пишите лучше имя («%{MATCHED_VAR_NAME}»).',
+  'diag.bodyErrorUnchecked':
+    'Тело проверяется, но REQBODY_ERROR не читает ни одно правило: если разборщик тела споткнётся, то, что он не разобрал, останется непроверенным. Рекомендованные конфигурации всех трёх движков такие запросы останавливают (правило 200002).',
+  'diag.setvarInChainHead':
+    'Счётчик растёт, как только совпало первое условие, — совпала остальная цепочка или нет. Перенесите «setvar» в последнее звено.',
+  'diag.invalidActionValue': '«{name}» не принимает «{value}»: ожидается {expected}.',
+  'diag.unknownCtl': 'Неизвестная опция ctl «{name}».',
+  'diag.defaultActionIncomplete': 'В SecDefaultAction должна быть указана {missing}.',
+  'diag.defaultActionForbidden':
+    'В SecDefaultAction не может быть «{name}»: умолчания — не правило.',
+  'diag.defaultActionDeprecated':
+    '«{name}» в SecDefaultAction устарело: оно молча применяется к каждому правилу ниже.',
+  'diag.defaultActionRepeated':
+    'ModSecurity 3 принимает один SecDefaultAction на фазу, а у фазы {phase} он уже есть.',
+  'diag.suspiciousActionValue':
+    '«{name}» прочитает «{value}» не так, как написано: ожидается {expected}.',
+  'diag.duplicateAction': 'Действие «{name}» задано несколько раз: считается только последнее.',
+  'diag.conflictingActions':
+    '«{first}» и «{second}» исключают друг друга: считается только последнее.',
+  'diag.unknownMacro': 'Неизвестная переменная в макросе «%{{name}}».',
+  'diag.macroNotExpanded':
+    'Оператор «@{name}» макросы не раскрывает: текст сравнивается как написан.',
+  'diag.macroInStaticAction':
+    'Действие «{name}» читается один раз, при загрузке конфигурации: макрос в нём не раскрывается.',
+  'diag.macroKeySeparator':
+    'Внутри макроса ключ пишут через точку: «%{{name}.{key}}». Запись с двоеточием понимает только ModSecurity 3.',
+  'diag.commentSwallowsLine':
+    'Комментарий кончается обратным слэшем, и следующая строка становится его частью.',
+  'diag.invalidByteRange': 'Не байт и не диапазон байтов от 0 до 255: {value}.',
+  'diag.lookbehindNotFixed':
+    'Просмотр назад с повтором без верхней границы: PCRE должен знать его длину и такой шаблон отвергает.',
+  'diag.exclusionBadPattern':
+    '«{name}» выбирает правила регулярным выражением, а «{value}» им не является: {reason}.',
+  'diag.exclusionPatternNotPortable':
+    'Только ModSecurity 2 читает «{value}» как регулярное выражение; ModSecurity 3 и Coraza сравнивают его с {what} целиком, и выборка получится другой.',
+  'diag.selectorPatternCase':
+    'Coraza сравнивает шаблон по именам параметров с учётом регистра, ModSecurity — без: «{value}» пропустит имена, которые отличаются только регистром. Начните шаблон с «(?i)» — тогда везде он прочитается одинаково.',
+  'diag.exclusionTargetNotInRule':
+    'Правило {id} не проверяет «{target}»: «{name}» нечего у него снимать.',
+  'diag.exclusionTargetInLink':
+    'Правило {id} проверяет «{target}» только в звене цепочки: ModSecurity 2 снимет её и там, а ModSecurity 3 и Coraza правят только первое условие, и для них «{name}» ничего не делает.',
+  'diag.exclusionCtlTargetInLink':
+    'Правило {id} проверяет «{target}» только в звене цепочки: Coraza снимет её и там, а обе версии ModSecurity правят только первое условие, и для них «{name}» ничего не делает.',
+  'diag.exclusionCtlPattern':
+    'Шаблон в «{name}» («{target}») применяет одна Coraza. ModSecurity 2 молча его пропускает, ModSecurity 3 не загружает. SecRuleUpdateTargetById принимает шаблон во всех движках.',
+  'diag.exclusionHeaderCase':
+    'ModSecurity 3 сравнивает имя заголовка в исключении буква в букву, а клиенты пишут его по-разному — по HTTP/2 всегда строчными: у части запросов «{target}» останется проверяемым. Шаблон все движки читают одинаково: «{pattern}».',
+  'diag.exclusionCtlHeaderCase':
+    'ModSecurity 3 сравнивает имя заголовка в исключении буква в букву, а клиенты пишут его по-разному — по HTTP/2 всегда строчными: у части запросов «{target}» останется проверяемым. Шаблона здесь ModSecurity 3 не принимает — снимите заодно и «{lower}».',
+  'diag.persistentWithoutDataDir':
+    'Коллекция «{name}» хранится между запросами, только если задан «SecDataDir», а в загруженных файлах его нет.',
+  'diag.geoLookupWithoutDb':
+    '«@geoLookup» нужна база, названная в «SecGeoLookupDb», а в загруженных файлах её нет.',
+  'diag.fileNotFound':
+    'Файла данных «{path}» нет: правило, которое на него ссылается, движок не загрузит.',
+  'diag.geoWithoutLookup':
+    '«GEO» заполняет только «@geoLookup», а в загруженных файлах его никто не вызывает.',
+  'diag.unknownIgnoreCode': 'Проверки «{name}» не существует: эта пометка ничего не снимает.',
+  'diag.unusedIgnore': 'Этой пометке нечего снимать.',
+  'diag.notInEngine': '{kind} «{name}» не поддерживается в {engine}.',
+  'diag.regexNotInEngine':
+    'В шаблоне есть {feature}, а в регулярных выражениях {engine} этого нет: правило не скомпилируется.',
+  'diag.invalidSelectorPattern':
+    'Шаблон параметра «{value}» — некорректное регулярное выражение: {reason}.',
+  'diag.markerBehind':
+    '«SecMarker {name}» стоит выше этого правила: «skipAfter» ищет только вниз, поэтому пропустится всё, что осталось в фазе.',
+  'diag.duplicateMarker':
+    '«SecMarker {name}» объявлена несколько раз: переход останавливается на первой ниже него.',
+  'diag.txReadBeforeSet':
+    '«tx.{name}» читается раньше, чем её кто-либо выставит: все правила, которые её выставляют, исполняются позже.',
+  'diag.collectionNotInitialised':
+    'Коллекцию «{name}» никто не открывает: без «{action}» её переменные не переживут запрос.',
+  'diag.variableNeverSet': 'Переменную «{name}» в загруженных файлах никто не выставляет.',
+  'diag.unusedMarker': 'На «SecMarker {name}» не переходит ни одно правило.',
+  'diag.emptyTarget': 'В списке областей проверки есть пустой элемент: «{text}».',
+  'diag.emptyAction': 'В списке действий есть пустой элемент: запятая, за которой ничего нет.',
+  'diag.unquotedArgument':
+    '{part} записан без двойных кавычек: так его читает только ModSecurity 2.',
+  'diag.quotedTargets':
+    'Список областей проверки взят в двойные кавычки: Coraza так его не читает.',
+  'diag.linkWithoutActions':
+    'У звена цепочки нет списка действий: ModSecurity 3 требует его, пусть даже из одного «t:none».',
+  'diag.unquotedValueBreak':
+    'Без кавычек значение «{name}» кончается на первом пробеле или «|»: ModSecurity 2 читает «{rest}» как отдельное действие.',
+  'diag.operatorCase':
+    'Coraza сравнивает имена операторов буква в букву: пишите «@{canonical}», а не «@{name}».',
+  'diag.wideCodePoint':
+    'ModSecurity собирает шаблоны побайтово: «{escape}» больше \\xff, и шаблон будет отвергнут.',
+  'diag.backslashPair':
+    'Удвоенный обратный слэш читается по-разному: под Apache до ModSecurity 2 доходит один, до ModSecurity 3 и Coraza — оба. Буквальный слэш пишите как «\\x5c».',
+  'diag.targetsCommaSeparated':
+    'Области проверки разделяют знаком «|»: запятую между ними Coraza не читает.',
+
+  'phrase.positiveWholeNumber': 'целое положительное число',
+  'phrase.phase': 'фаза от 1 до 5 либо request, response, logging',
+  'phrase.severity': 'EMERGENCY … DEBUG либо число от 0 до 7',
+  'phrase.httpStatus': 'код ответа HTTP',
+  'phrase.ruleCount': 'положительное число правил',
+  'phrase.milliseconds': 'число миллисекунд',
+  'phrase.oneToNine': 'число от 1 до 9',
+  'phrase.allowScope': 'phase или request',
+  'phrase.xmlns': 'префикс=пространство имён',
+  'phrase.initcol': 'коллекция=ключ, где коллекция — ip, global или resource',
+  'phrase.expirevar': 'коллекция.имя=значение',
+  'phrase.persistentVariable': 'переменная коллекции, которая переживает запрос (ip, session, …)',
+  'phrase.setvarTarget':
+    'коллекция.имя, где коллекция — tx, ip, session, user, global или resource',
+  'phrase.ctlValue': 'значение после «=»',
+  'phrase.engineMode': 'On, Off или DetectionOnly',
+  'phrase.toggle': 'On или Off',
+  'phrase.auditMode': 'On, Off или RelevantOnly',
+  'phrase.xmlMode': 'On, Off или OnlyArgs',
+  'phrase.auditParts': 'части журнала аудита, например ABIJ, +E или -FH',
+  'phrase.debugLevel': 'уровень от 0 до 9',
+  'phrase.regex': 'корректное регулярное выражение',
+  'phrase.text': 'текст',
+  'phrase.textOrBytes': 'текст или байты',
+  'phrase.number': 'число',
+  'phrase.rawBytes': 'сырые байты',
+  'phrase.unknown': 'неизвестного вида',
+  'phrase.disruptive': 'реакция (deny, pass и другие)',
+  'phrase.defaultPhase': 'фаза',
+  'phrase.kindVariable': 'Переменная',
+  'phrase.kindOperator': 'Оператор',
+  'phrase.kindTransform': 'Преобразование',
+  'phrase.kindAction': 'Действие',
+  'phrase.kindDirective': 'Директива',
+  'phrase.byTag': 'тегом',
+  'phrase.byMessage': 'сообщением',
+  'phrase.lookahead': 'просмотр вперёд',
+  'phrase.lookbehind': 'просмотр назад',
+  'phrase.backreferences': 'обратные ссылки',
+  'phrase.possessive': 'сверхжадные кванторы',
+  'phrase.atomic': 'атомарные группы',
+  'phrase.recursion': 'рекурсия',
+  'phrase.conditional': 'условные группы',
+  'phrase.pcreEscapes':
+    'последовательности, которые есть только в PCRE (\\K, \\G, \\Z, \\h, \\R, \\X, \\e, \\c)',
+  'phrase.inlineComments': 'комментарии внутри шаблона',
+  'phrase.flags': 'флаги, кроме i, m, s, U',
+  'phrase.quotedName': 'группы вида (?\'name\'…)',
+  'phrase.largeRepeat': 'повтор больше тысячи раз',
+  'phrase.phaseNameCase': 'request, response или logging строчными буквами',
+  'phrase.bodyProcessor': 'XML, JSON, URLENCODED или MULTIPART',
+  'phrase.valueWithoutComma': 'значение без запятой',
+  'phrase.optionWithoutQuotes': 'опция без кавычек',
+  'phrase.kindApacheBlock': 'Блок Apache',
+  'phrase.kindCollectionWrite': 'Запись в коллекцию',
+  'phrase.partOperator': 'Оператор',
+  'phrase.partActions': 'Список действий',
 
   'topic.structure': 'Форма',
   'topic.logic': 'Логика',
@@ -1496,6 +2025,12 @@ const ru: Record<TranslationKey, string> = {
   'fix.restoreLog': 'Вернуть запись в лог',
   'fix.enableCapture': 'Добавить «capture»',
   'fix.disableCapture': 'Убрать «capture»',
+  'fix.removeAction': 'Убрать повтор «{name}»',
+  'fix.joinContinuation': 'Убрать пробел после «\\»',
+  'fix.endComment': 'Убрать «\\» в конце',
+  'fix.macroDot': 'Поставить точку',
+  'fix.trimOperator': 'Убрать пробел в начале',
+  'fix.insertComma': 'Вставить запятую',
 
   'tooltip.noDescription': 'Описание пока недоступно.',
   'tooltip.expandHint': 'Alt — подробнее',
